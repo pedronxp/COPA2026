@@ -65,7 +65,7 @@ interface TeamStats {
 
 export default function Home() {
   // Estados da Aplicação (admin removido, calendar adicionado)
-  const [activeTab, setActiveTab] = useState<'home' | 'matches' | 'leaderboard' | 'calendar' | 'history'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'matches' | 'results' | 'leaderboard' | 'calendar' | 'history'>('home');
   const [matches, setMatches] = useState<Match[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -612,6 +612,36 @@ export default function Home() {
     return matchList.filter(m => m.stage === selectedFilter);
   };
 
+  // Agrupar partidas por data do calendário formatada
+  const groupMatchesByDay = (matchList: Match[]) => {
+    const groups: Record<string, Match[]> = {};
+    const sorted = [...matchList].sort((a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime());
+    
+    sorted.forEach(m => {
+      const dateObj = new Date(m.kickOff);
+      const dateStr = dateObj.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long'
+      });
+      const formattedDay = dateStr
+        .split(' ')
+        .map((word, idx) => {
+          if (idx === 0 || (idx === 3 && word !== 'de')) {
+            return word.charAt(0).toUpperCase() + word.slice(1);
+          }
+          return word;
+        })
+        .join(' ');
+
+      if (!groups[formattedDay]) {
+        groups[formattedDay] = [];
+      }
+      groups[formattedDay].push(m);
+    });
+    return groups;
+  };
+
   // Componente de renderização de bandeira/logo de time
   const TeamFlag = ({ logo, flag, teamName }: { logo: string | null; flag: string | null; teamName: string }) => {
     if (logo) {
@@ -775,42 +805,61 @@ export default function Home() {
             <button 
               className={`desktop-sidebar-item ${activeTab === 'home' ? 'active' : ''}`}
               onClick={() => setActiveTab('home')}
+              title="Home"
             >
-              <i className="bi bi-house-door-fill"></i> Home
+              <i className="bi bi-house-door-fill"></i>
+              <span>Home</span>
             </button>
 
             <button 
               className={`desktop-sidebar-item ${activeTab === 'matches' ? 'active' : ''}`}
               onClick={() => setActiveTab('matches')}
+              title="Dar Palpites"
             >
-              <i className="bi bi-lightning-charge-fill"></i> Dar Palpites
+              <i className="bi bi-lightning-charge-fill"></i>
+              <span>Dar Palpites</span>
+            </button>
+
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'results' ? 'active' : ''}`}
+              onClick={() => setActiveTab('results')}
+              title="Resultados"
+            >
+              <i className="bi bi-clipboard-data-fill"></i>
+              <span>Resultados</span>
             </button>
 
             <button 
               className={`desktop-sidebar-item ${activeTab === 'calendar' ? 'active' : ''}`}
               onClick={() => setActiveTab('calendar')}
+              title="Tabela / Grupos"
             >
-              <i className="bi bi-calendar-event-fill"></i> Tabela / Grupos
+              <i className="bi bi-calendar-event-fill"></i>
+              <span>Tabela / Grupos</span>
             </button>
 
             <button 
               className={`desktop-sidebar-item ${activeTab === 'leaderboard' ? 'active' : ''}`}
               onClick={() => setActiveTab('leaderboard')}
+              title="Ranking Geral"
             >
-              <i className="bi bi-trophy-fill"></i> Ranking Geral
+              <i className="bi bi-trophy-fill"></i>
+              <span>Ranking Geral</span>
             </button>
 
             <button 
               className={`desktop-sidebar-item ${activeTab === 'history' ? 'active' : ''}`}
               onClick={() => setActiveTab('history')}
+              title="Seus Palpites"
             >
-              <i className="bi bi-clock-history"></i> Seus Palpites
+              <i className="bi bi-clock-history"></i>
+              <span>Seus Palpites</span>
             </button>
 
           </div>
 
           {/* Rodapé da Sidebar */}
-          <div className="pt-3 border-top border-secondary border-opacity-25 text-start">
+          <div className="pt-3 border-top border-secondary border-opacity-25 text-start desktop-sidebar-footer">
             <div className="text-secondary mb-1" style={{ fontSize: '0.7rem' }}>Copa de 2026</div>
             <div className="text-info fw-bold" style={{ fontSize: '0.75rem' }}>Timing Perfeito! 🌎</div>
           </div>
@@ -849,9 +898,9 @@ export default function Home() {
                       
                       {/* Banner de Boas-vindas */}
                       <div className="glass-card p-4 mb-4 text-start border-info border-opacity-25" style={{ background: 'linear-gradient(135deg, rgba(0, 255, 135, 0.05) 0%, rgba(96, 239, 255, 0.1) 100%)' }}>
-                        <h4 className="text-white fw-bold mb-2">Bolão Copa 2026 com Dados em Tempo Real ⚽</h4>
+                        <h4 className="text-white fw-bold mb-2">🏆 Rumo ao Hexa - Bolão Copa do Mundo 2026!</h4>
                         <p className="text-secondary mb-3" style={{ fontSize: '0.9rem' }}>
-                          Acompanhe o calendário oficial, veja a tabela de classificação dos grupos atualizada instantaneamente e registre seus palpites!
+                          Faça seus palpites nos maiores confrontos do planeta, suba no ranking em tempo real e dispute a liderança do bolão definitivo da Copa de 2026!
                         </p>
                         <div className="d-flex gap-2 flex-wrap">
                           <button className="btn btn-neon-green px-4 py-2" onClick={() => setActiveTab('matches')}>
@@ -1161,21 +1210,51 @@ export default function Home() {
                     {/* Coluna Lateral da Home (Direita) */}
                     <div className="col-12 col-lg-4">
                       
-                      {/* Progresso do Campeonato */}
+                      {/* Destaque do Líder */}
+                      {users.length > 0 && (
+                        <div className="glass-card p-3 mb-4 text-start border-warning border-opacity-35" style={{ background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(217, 119, 6, 0.04) 100%)' }}>
+                          <div className="d-flex align-items-center gap-2 mb-3">
+                            <span className="fs-5">👑</span>
+                            <h6 className="text-white fw-bold m-0" style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.5px' }}>Líder do Bolão</h6>
+                          </div>
+                          <div className="d-flex align-items-center gap-3">
+                            <div className="fs-1">{users[0].image || '👑'}</div>
+                            <div className="flex-grow-1 min-w-0">
+                              <div className="text-white fw-bold text-truncate fs-6">{users[0].name}</div>
+                              <div className="text-warning-yellow fw-semibold" style={{ fontSize: '0.8rem' }}>
+                                {users[0].points} pontos acumulados
+                              </div>
+                              {users[0].streak > 0 && (
+                                <div className="text-success mt-1" style={{ fontSize: '0.7rem' }}>
+                                  <i className="bi bi-fire text-danger"></i> Sequência de {users[0].streak} acertos! 🔥
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Progresso do Bolão */}
                       <div className="glass-card p-3 mb-4 text-start">
                         <h6 className="text-white fw-bold mb-3">📊 Progresso do Bolão</h6>
-                        <div className="d-flex justify-content-around text-center mb-2">
-                          <div>
-                            <div className="fs-3 fw-bold text-info">{matches.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.7rem' }}>PARTIDAS</div>
+                        <div className="row g-2 text-center mb-1">
+                          <div className="col-6 col-md-3 col-lg-6 mb-2">
+                            <div className="fs-4 fw-extrabold text-info">{matches.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>PARTIDAS</div>
                           </div>
-                          <div>
-                            <div className="fs-3 fw-bold text-info">{finishedMatches.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.7rem' }}>FINALIZADAS</div>
+                          <div className="col-6 col-md-3 col-lg-6 mb-2">
+                            <div className="fs-4 fw-extrabold text-info">{finishedMatches.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>FINALIZADAS</div>
                           </div>
-                          <div>
-                            <div className="fs-3 fw-bold text-info">{users.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.7rem' }}>JOGADORES</div>
+                          <div className="col-6 col-md-3 col-lg-6 mb-2">
+                            <div className="fs-4 fw-extrabold text-info">{users.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>JOGADORES</div>
+                          </div>
+                          <div className="col-6 col-md-3 col-lg-6 mb-2">
+                            <div className="fs-4 fw-extrabold text-info">
+                              {matches.reduce((acc, m) => acc + (m.predictionCount || 0), 0)}
+                            </div>
+                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>PALPITES TOTAL</div>
                           </div>
                         </div>
                       </div>
@@ -1253,166 +1332,345 @@ export default function Home() {
                     ))}
                   </div>
                   
-                  {/* Grid Responsivo de Jogos */}
-                  <div className="row g-3">
-                    {filterMatches(matches.filter(m => m.status !== 'finished'))
-                      .map(match => {
-                        const windowStatus = getPredictionWindowStatus(match, predictionWindow);
-                        const isEditable = windowStatus.isEditable;
-                        const stats = matchStats[match.id];
-                        const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
-                        const localGuess = localGuesses[match.id] || { home: '', away: '' };
-                        const userPred = predictions.find(p => p.matchId === match.id);
-                        const hasPrediction = !!userPred;
-                        const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
+                  {/* Grid Responsivo de Jogos Agrupados por Dia */}
+                  {(() => {
+                    const filtered = filterMatches(matches.filter(m => m.status !== 'finished'));
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-5 text-secondary">
+                          <i className="bi bi-check-circle fs-1 text-success"></i>
+                          <p className="mt-2">Sem partidas pendentes de palpites neste filtro.</p>
+                        </div>
+                      );
+                    }
+                    const grouped = groupMatchesByDay(filtered);
+                    return Object.keys(grouped).map(day => (
+                      <div key={day} className="mb-4">
+                        <div className="day-group-header mb-3 text-start">
+                          <i className="bi bi-calendar-check text-info me-2"></i>
+                          <span>{day}</span>
+                        </div>
+                        <div className="row g-3">
+                          {grouped[day].map(match => {
+                            const windowStatus = getPredictionWindowStatus(match, predictionWindow);
+                            const isEditable = windowStatus.isEditable;
+                            const stats = matchStats[match.id];
+                            const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
+                            const localGuess = localGuesses[match.id] || { home: '', away: '' };
+                            const userPred = predictions.find(p => p.matchId === match.id);
+                            const hasPrediction = !!userPred;
+                            const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
 
-                        return (
-                          <div key={match.id} className="col-12 col-lg-6">
-                            <div className={`glass-card p-3 h-100 d-flex flex-column justify-content-between text-start ${hasPrediction ? 'border-success-subtle' : ''}`}>
-                              
-                              {/* Status e Data */}
-                              <div className="d-flex justify-content-between align-items-center mb-3">
-                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                                  {new Date(match.kickOff).toLocaleDateString('pt-BR', {
-                                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                                  })}h
-                                  {match.group && (
-                                    <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.6rem' }}>
-                                      Grupo {match.group}
+                            return (
+                              <div key={match.id} className="col-12 col-lg-6">
+                                <div className={`glass-card p-3 h-100 d-flex flex-column justify-content-between text-start ${hasPrediction ? 'border-success-subtle' : ''}`}>
+                                  
+                                  {/* Status e Data */}
+                                  <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                      {new Date(match.kickOff).toLocaleTimeString('pt-BR', {
+                                        hour: '2-digit', minute: '2-digit'
+                                      })}h
+                                      {match.group && (
+                                        <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.6rem' }}>
+                                          Grupo {match.group}
+                                        </span>
+                                      )}
+                                      {match.stage !== 'group' && (
+                                        <span className="ms-1 badge bg-dark border border-info border-opacity-50" style={{ fontSize: '0.6rem' }}>
+                                          {match.stage.toUpperCase()}
+                                        </span>
+                                      )}
                                     </span>
-                                  )}
-                                  {match.stage !== 'group' && (
-                                    <span className="ms-1 badge bg-dark border border-info border-opacity-50" style={{ fontSize: '0.6rem' }}>
-                                      {match.stage.toUpperCase()}
-                                    </span>
-                                  )}
-                                </span>
-                                <div className="d-flex align-items-center gap-1">
-                                  {hasPrediction && (
-                                    <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
-                                      ✓ Palpitado
-                                    </span>
-                                  )}
-                                  {renderMatchTimer(match)}
-                                </div>
-                              </div>
-
-                              {/* Placar e Botões */}
-                              <div className="d-flex align-items-center justify-content-between my-2">
-                                <TeamDisplay match={match} side="home" />
-
-                                <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '36%' }}>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    className="score-input"
-                                    style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
-                                    value={localGuess.home}
-                                    onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
-                                    disabled={!isEditable}
-                                    placeholder="-"
-                                  />
-                                  <span className="text-secondary fw-bold">x</span>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    className="score-input"
-                                    style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
-                                    value={localGuess.away}
-                                    onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
-                                    disabled={!isEditable}
-                                    placeholder="-"
-                                  />
-                                </div>
-
-                                <TeamDisplay match={match} side="away" />
-                              </div>
-
-                              {/* Placar ao vivo */}
-                              {match.status === 'live' && match.homeScore !== null && match.awayScore !== null && (
-                                <div className="text-center my-1">
-                                  <span className="text-info fw-bold fs-5">{match.homeScore} - {match.awayScore}</span>
-                                  <span className="text-secondary ms-2" style={{ fontSize: '0.7rem' }}>PLACAR ATUAL</span>
-                                </div>
-                              )}
-
-                              {/* Botão de Enviar */}
-                              {isEditable && (
-                                <div className="mt-3">
-                                  {userPred ? (
-                                    isPredictionSaved ? (
-                                      <button
-                                        className="btn btn-outline-success w-100 py-1"
-                                        style={{
-                                          borderColor: 'rgba(0, 255, 135, 0.5)',
-                                          color: 'var(--neon-green)',
-                                          background: 'rgba(0, 255, 135, 0.05)',
-                                          fontWeight: '600',
-                                          borderRadius: '10px'
-                                        }}
-                                        disabled
-                                      >
-                                        Palpite Confirmado ✓
-                                      </button>
-                                    ) : (
-                                      <button
-                                        className="btn btn-warning w-100 py-1 fw-bold text-dark"
-                                        style={{
-                                          borderRadius: '10px',
-                                          boxShadow: '0 0 15px rgba(255, 193, 7, 0.3)'
-                                        }}
-                                        onClick={() => saveUserPrediction(match.id)}
-                                        disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
-                                      >
-                                        {savingPredictionId === match.id ? 'Salvando...' : 'Atualizar Palpite'}
-                                      </button>
-                                    )
-                                  ) : (
-                                    <button
-                                      className="btn btn-neon-green btn-sm w-100 py-1"
-                                      onClick={() => saveUserPrediction(match.id)}
-                                      disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
-                                    >
-                                      {savingPredictionId === match.id ? 'Salvando...' : 'Confirmar Palpite'}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Secômetro */}
-                              <div className="mt-3 pt-2 border-top border-secondary border-opacity-30">
-                                {hasStats ? (
-                                  <>
-                                    <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
-                                      <span>Média dos palpites:</span>
-                                      <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
+                                    <div className="d-flex align-items-center gap-1">
+                                      {hasPrediction && (
+                                        <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                          ✓ Palpitado
+                                        </span>
+                                      )}
+                                      {renderMatchTimer(match)}
                                     </div>
-                                    <div className="thermostat-bar d-flex">
-                                      <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
-                                      <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
-                                      <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="text-secondary text-center" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-bar-chart-line me-1"></i>
-                                    Nenhum palpite registrado
                                   </div>
-                                )}
-                              </div>
 
-                            </div>
-                          </div>
-                        );
-                      })}
+                                  {/* Placar e Botões */}
+                                  <div className="d-flex align-items-center justify-content-between my-2">
+                                    <TeamDisplay match={match} side="home" />
+
+                                    <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '36%' }}>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        className="score-input"
+                                        style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
+                                        value={localGuess.home}
+                                        onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
+                                        disabled={!isEditable}
+                                        placeholder="-"
+                                      />
+                                      <span className="text-secondary fw-bold">x</span>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        className="score-input"
+                                        style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
+                                        value={localGuess.away}
+                                        onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
+                                        disabled={!isEditable}
+                                        placeholder="-"
+                                      />
+                                    </div>
+
+                                    <TeamDisplay match={match} side="away" />
+                                  </div>
+
+                                  {/* Placar ao vivo */}
+                                  {match.status === 'live' && match.homeScore !== null && match.awayScore !== null && (
+                                    <div className="text-center my-1">
+                                      <span className="text-info fw-bold fs-5">{match.homeScore} - {match.awayScore}</span>
+                                      <span className="text-secondary ms-2" style={{ fontSize: '0.7rem' }}>PLACAR ATUAL</span>
+                                    </div>
+                                  )}
+
+                                  {/* Botão de Enviar */}
+                                  {isEditable && (
+                                    <div className="mt-3">
+                                      {userPred ? (
+                                        isPredictionSaved ? (
+                                          <button
+                                            className="btn btn-outline-success w-100 py-1"
+                                            style={{
+                                              borderColor: 'rgba(0, 255, 135, 0.5)',
+                                              color: 'var(--neon-green)',
+                                              background: 'rgba(0, 255, 135, 0.05)',
+                                              fontWeight: '600',
+                                              borderRadius: '10px'
+                                            }}
+                                            disabled
+                                          >
+                                            Palpite Confirmado ✓
+                                          </button>
+                                        ) : (
+                                          <button
+                                            className="btn btn-warning w-100 py-1 fw-bold text-dark"
+                                            style={{
+                                              borderRadius: '10px',
+                                              boxShadow: '0 0 15px rgba(255, 193, 7, 0.3)'
+                                            }}
+                                            onClick={() => saveUserPrediction(match.id)}
+                                            disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                          >
+                                            {savingPredictionId === match.id ? 'Salvando...' : 'Atualizar Palpite'}
+                                          </button>
+                                        )
+                                      ) : (
+                                        <button
+                                          className="btn btn-neon-green btn-sm w-100 py-1"
+                                          onClick={() => saveUserPrediction(match.id)}
+                                          disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                        >
+                                          {savingPredictionId === match.id ? 'Salvando...' : 'Confirmar Palpite'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Secômetro */}
+                                  <div className="mt-3 pt-2 border-top border-secondary border-opacity-30">
+                                    {hasStats ? (
+                                      <>
+                                        <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
+                                          <span>Média dos palpites:</span>
+                                          <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
+                                        </div>
+                                        <div className="thermostat-bar d-flex">
+                                          <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
+                                          <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
+                                          <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-secondary text-center" style={{ fontSize: '0.7rem' }}>
+                                        <i className="bi bi-bar-chart-line me-1"></i>
+                                        Nenhum palpite registrado
+                                      </div>
+                                    )}
+                                  </div>
+
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* ABA: RESULTADOS (Visualizar resultados dos jogos)        */}
+              {/* ======================================================== */}
+              {activeTab === 'results' && (
+                <div className="fade-in animate__animated animate__fadeIn">
+                  
+                  <h4 className="text-white fw-bold mb-3 text-start">🏆 Resultados da Copa</h4>
+
+                  {/* Barra de filtros por grupo/rodada */}
+                  <div className="filter-bar mb-3">
+                    {filterOptions.map(opt => (
+                      <button
+                        key={opt.value}
+                        className={`filter-chip ${selectedFilter === opt.value ? 'active' : ''}`}
+                        onClick={() => setSelectedFilter(opt.value)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
 
-                  {filterMatches(matches.filter(m => m.status !== 'finished')).length === 0 && (
-                    <div className="text-center py-5 text-secondary">
-                      <i className="bi bi-check-circle fs-1 text-success"></i>
-                      <p className="mt-2">Sem partidas pendentes de palpites neste filtro.</p>
-                    </div>
-                  )}
+                  {/* Grid de resultados */}
+                  {(() => {
+                    const filtered = filterMatches(matches.filter(m => m.status === 'finished'));
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-5 text-secondary">
+                          <i className="bi bi-info-circle fs-1 text-info"></i>
+                          <p className="mt-2">Sem partidas finalizadas neste filtro.</p>
+                        </div>
+                      );
+                    }
+                    const grouped = groupMatchesByDay(filtered);
+                    return Object.keys(grouped).map(day => (
+                      <div key={day} className="mb-4">
+                        <div className="day-group-header mb-3 text-start">
+                          <i className="bi bi-calendar-check text-info me-2"></i>
+                          <span>{day}</span>
+                        </div>
+                        <div className="row g-3">
+                          {grouped[day].map(match => {
+                            const userPred = predictions.find(p => p.matchId === match.id);
+                            const stats = matchStats[match.id];
+                            const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
+                            
+                            let ptsObtidos = 0;
+                            let scoreBadge = null;
+
+                            if (userPred) {
+                              ptsObtidos = calculatePredictionPoints(
+                                userPred.homeGuess,
+                                userPred.awayGuess,
+                                match.homeScore || 0,
+                                match.awayScore || 0
+                              );
+
+                              if (ptsObtidos === 5) {
+                                scoreBadge = { text: 'Placar Exato (+5)', class: 'bg-success' };
+                              } else if (ptsObtidos === 3) {
+                                scoreBadge = { text: 'Vencedor & Saldo (+3)', class: 'bg-success bg-opacity-75' };
+                              } else if (ptsObtidos === 2) {
+                                scoreBadge = { text: 'Vencedor Simples (+2)', class: 'bg-info text-dark' };
+                              } else {
+                                scoreBadge = { text: 'Errou Placar (0)', class: 'bg-danger' };
+                              }
+                            } else {
+                              scoreBadge = { text: 'Sem palpite (0)', class: 'bg-secondary' };
+                            }
+
+                            return (
+                              <div key={match.id} className="col-12 col-lg-6">
+                                <div className="glass-card p-3 h-100 text-start d-flex flex-column justify-content-between">
+                                  
+                                  {/* Topo do card: Data, fase e Badge do palpite */}
+                                  <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-20">
+                                    <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                      {new Date(match.kickOff).toLocaleDateString('pt-BR', {
+                                        hour: '2-digit', minute: '2-digit'
+                                      })}h
+                                      {match.group && (
+                                        <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.55rem' }}>
+                                          Grupo {match.group}
+                                        </span>
+                                      )}
+                                      {!match.group && match.stage && (
+                                        <span className="ms-1 badge bg-info bg-opacity-10 text-info border border-info border-opacity-20" style={{ fontSize: '0.55rem' }}>
+                                          {match.stage.toUpperCase()}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className={`badge ${scoreBadge.class}`} style={{ fontSize: '0.65rem' }}>
+                                      {scoreBadge.text}
+                                    </span>
+                                  </div>
+
+                                  {/* Placar Real em destaque */}
+                                  <div className="d-flex align-items-center justify-content-between my-2">
+                                    {/* Casa */}
+                                    <div className="d-flex align-items-center gap-2" style={{ width: '40%' }}>
+                                      <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
+                                      <span className="text-white fw-bold text-truncate" style={{ fontSize: '0.85rem' }}>
+                                        {match.homeTeam}
+                                      </span>
+                                    </div>
+
+                                    {/* Placar Central */}
+                                    <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '20%' }}>
+                                      <span className="fs-5 fw-extrabold text-white">{match.homeScore ?? 0}</span>
+                                      <span className="text-secondary" style={{ fontSize: '0.75rem' }}>x</span>
+                                      <span className="fs-5 fw-extrabold text-white">{match.awayScore ?? 0}</span>
+                                    </div>
+
+                                    {/* Visitante */}
+                                    <div className="d-flex align-items-center justify-content-end gap-2 text-end" style={{ width: '40%' }}>
+                                      <span className="text-white fw-bold text-truncate" style={{ fontSize: '0.85rem' }}>
+                                        {match.awayTeam}
+                                      </span>
+                                      <TeamFlag logo={match.awayTeamLogo} flag={match.awayFlag} teamName={match.awayTeam} />
+                                    </div>
+                                  </div>
+
+                                  {/* Informações de Palpite do Usuário */}
+                                  <div className="mt-2 p-2 rounded bg-dark bg-opacity-30 border border-secondary border-opacity-10 d-flex justify-content-between align-items-center" style={{ fontSize: '0.8rem' }}>
+                                    <span className="text-secondary">Seu palpite:</span>
+                                    {userPred ? (
+                                      <span className="text-white fw-bold">
+                                        {userPred.homeGuess} x {userPred.awayGuess}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted italic" style={{ fontSize: '0.75rem' }}>Nenhum palpite registrado</span>
+                                    )}
+                                  </div>
+
+                                  {/* Secômetro Final */}
+                                  <div className="mt-3 pt-2 border-top border-secondary border-opacity-20">
+                                    {hasStats ? (
+                                      <>
+                                        <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
+                                          <span>Secômetro final (Média geral):</span>
+                                          <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
+                                        </div>
+                                        <div className="thermostat-bar d-flex">
+                                          <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }} title={`Casa: ${stats.home}%`}></div>
+                                          <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }} title={`Empate: ${stats.draw}%`}></div>
+                                          <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }} title={`Fora: ${stats.away}%`}></div>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-secondary text-center" style={{ fontSize: '0.65rem' }}>
+                                        <i className="bi bi-bar-chart-line me-1"></i>
+                                        Nenhum outro palpite registrado para este jogo
+                                      </div>
+                                    )}
+                                  </div>
+
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
 
                 </div>
               )}
@@ -1900,6 +2158,14 @@ export default function Home() {
         >
           <i className="bi bi-lightning-charge-fill"></i>
           <span>Palpitar</span>
+        </button>
+
+        <button 
+          className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'results' ? 'active' : ''}`}
+          onClick={() => setActiveTab('results')}
+        >
+          <i className="bi bi-clipboard-data-fill"></i>
+          <span>Resultados</span>
         </button>
  
         <button 
