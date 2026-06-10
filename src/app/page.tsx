@@ -91,24 +91,57 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      
       // Partidas
       const matchesRes = await fetch('/api/matches');
-      const matchesData = await matchesRes.json();
-      setMatches(matchesData);
+      let matchesData: Match[] = [];
+      if (matchesRes.ok) {
+        const data = await matchesRes.json();
+        if (Array.isArray(data)) {
+          matchesData = data;
+          setMatches(matchesData);
+        } else {
+          console.warn('Matches API não retornou array:', data);
+        }
+      } else {
+        console.warn('Erro na requisição de Matches:', matchesRes.status);
+      }
 
       // Usuários (Ranking)
       const usersRes = await fetch('/api/leaderboard');
-      const usersData = await usersRes.json();
-      setUsers(usersData);
+      let usersData: UserProfile[] = [];
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        if (Array.isArray(data)) {
+          usersData = data;
+          setUsers(usersData);
+        } else {
+          console.warn('Leaderboard API não retornou array:', data);
+        }
+      } else {
+        console.warn('Erro na requisição de Leaderboard:', usersRes.status);
+      }
 
       // Usuário logado
-      const curUser = usersData.find((u: UserProfile) => u.id === selectedUserId) || usersData.find((u: UserProfile) => u.id === 'currentUser');
-      setCurrentUser(curUser || null);
+      if (usersData.length > 0) {
+        const curUser = usersData.find((u: UserProfile) => u.id === selectedUserId) || usersData.find((u: UserProfile) => u.id === 'currentUser');
+        setCurrentUser(curUser || null);
+      }
 
       // Palpites do usuário
       const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}`);
-      const predsData = await predsRes.json();
-      setPredictions(predsData);
+      let predsData: Prediction[] = [];
+      if (predsRes.ok) {
+        const data = await predsRes.json();
+        if (Array.isArray(data)) {
+          predsData = data;
+          setPredictions(predsData);
+        } else {
+          console.warn('Predictions API não retornou array:', data);
+        }
+      } else {
+        console.warn('Erro na requisição de Predictions:', predsRes.status);
+      }
 
       // Inicializar guesses locais
       const guessesMap: Record<string, { home: string; away: string }> = {};
@@ -352,8 +385,8 @@ export default function Home() {
   };
 
   // Estatísticas para o Dashboard
-  const nextMatch = matches.find(m => m.status === 'scheduled');
-  const finishedMatches = matches.filter(m => m.status === 'finished');
+  const nextMatch = Array.isArray(matches) ? matches.find(m => m.status === 'scheduled') : undefined;
+  const finishedMatches = Array.isArray(matches) ? matches.filter(m => m.status === 'finished') : [];
   
   const isTimeGateExpired = (kickOffStr: string) => {
     const kickOff = new Date(kickOffStr).getTime();
@@ -362,13 +395,13 @@ export default function Home() {
   };
 
   // Streaks reais dos competidores ativos
-  const usersInAlta = [...users]
-    .filter(u => u.streak > 0)
-    .sort((a, b) => b.streak - a.streak);
+  const usersInAlta = Array.isArray(users)
+    ? [...users].filter(u => u.streak > 0).sort((a, b) => b.streak - a.streak)
+    : [];
 
-  const usersInBaixa = [...users]
-    .filter(u => u.misses > 0)
-    .sort((a, b) => b.misses - a.misses);
+  const usersInBaixa = Array.isArray(users)
+    ? [...users].filter(u => u.misses > 0).sort((a, b) => b.misses - a.misses)
+    : [];
 
   // Emojis de avatar para seleção
   const avatars = ['😎', '⚽', '👑', '🏃', '🧤', '🔥', '🏆', '⭐', '🦁', '🦊'];
