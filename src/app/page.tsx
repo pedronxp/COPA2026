@@ -1018,6 +1018,26 @@ export default function Home() {
     return groups;
   };
 
+  // Converte emoji de bandeira de país para código ISO de duas letras
+  const emojiToIsoCode = (emoji: string): string | null => {
+    if (!emoji) return null;
+    try {
+      const codePoints = Array.from(emoji).map(c => c.codePointAt(0));
+      if (
+        codePoints.length >= 2 &&
+        codePoints[0]! >= 0x1F1E6 && codePoints[0]! <= 0x1F1FF &&
+        codePoints[1]! >= 0x1F1E6 && codePoints[1]! <= 0x1F1FF
+      ) {
+        const char1 = String.fromCharCode(codePoints[0]! - 0x1F1E6 + 65);
+        const char2 = String.fromCharCode(codePoints[1]! - 0x1F1E6 + 65);
+        return (char1 + char2).toLowerCase();
+      }
+    } catch {
+      // Ignora erro
+    }
+    return null;
+  };
+
   // Componente de renderização de bandeira/logo de time
   const TeamFlag = ({ logo, flag, teamName }: { logo: string | null; flag: string | null; teamName: string }) => {
     if (logo) {
@@ -1030,11 +1050,13 @@ export default function Home() {
       );
     }
     if (flag) {
-      const isIsoCode = flag.length === 2 && /^[a-zA-Z]{2}$/.test(flag);
+      // Tentar converter emoji de bandeira para código ISO
+      const isoCode = emojiToIsoCode(flag) || flag;
+      const isIsoCode = isoCode.length === 2 && /^[a-zA-Z]{2}$/.test(isoCode);
       if (isIsoCode) {
         return (
           <img
-            src={`https://flagcdn.com/w80/${flag.toLowerCase()}.png`}
+            src={`https://flagcdn.com/w80/${isoCode.toLowerCase()}.png`}
             alt={teamName}
             className="team-flag-img"
             onError={(e) => {
@@ -1043,7 +1065,7 @@ export default function Home() {
           />
         );
       } else {
-        // Se for emoji de bandeira, renderiza o emoji com tamanho adequado
+        // Se for emoji de bandeira que falhou na conversão, renderiza o emoji com tamanho adequado
         return (
           <span className="team-flag-emoji d-inline-flex align-items-center justify-content-center" style={{ fontSize: '2rem', width: '44px', height: '44px', lineHeight: '1' }}>
             {flag}
