@@ -1030,18 +1030,26 @@ export default function Home() {
       );
     }
     if (flag) {
-      // Usar flagcdn para bandeiras circulares baseado no ISO de 2 letras
-      return (
-        <img
-          src={`https://flagcdn.com/w80/${flag.toLowerCase()}.png`}
-          alt={teamName}
-          className="team-flag-img"
-          onError={(e) => {
-            // Fallback para emoji de bandeira se falhar
-            (e.target as HTMLElement).style.display = 'none';
-          }}
-        />
-      );
+      const isIsoCode = flag.length === 2 && /^[a-zA-Z]{2}$/.test(flag);
+      if (isIsoCode) {
+        return (
+          <img
+            src={`https://flagcdn.com/w80/${flag.toLowerCase()}.png`}
+            alt={teamName}
+            className="team-flag-img"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+        );
+      } else {
+        // Se for emoji de bandeira, renderiza o emoji com tamanho adequado
+        return (
+          <span className="team-flag-emoji d-inline-flex align-items-center justify-content-center" style={{ fontSize: '2rem', width: '44px', height: '44px', lineHeight: '1' }}>
+            {flag}
+          </span>
+        );
+      }
     }
     return <span className="tbd-icon">🏳️</span>;
   };
@@ -1086,34 +1094,12 @@ export default function Home() {
           
           <div className="d-flex align-items-center gap-1">
             <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2 logo-glow" style={{ letterSpacing: '0.5px' }}>
-              🏆 COPA<span className="text-info">ANT</span>
+              Copa 2026
             </span>
-            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>DADOS REAIS</span>
           </div>
 
           <div className="d-flex align-items-center gap-3">
             
-            {/* Seletor de Janela de Palpite */}
-            <div className="d-flex align-items-center gap-2 bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
-              <span className="text-secondary d-none d-lg-inline ps-2 font-monospace" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
-                LIBERAÇÃO:
-              </span>
-              <button
-                className={`btn btn-sm rounded-pill px-3 py-0-5 font-monospace text-uppercase transition-all ${predictionWindow === 24 ? 'btn-neon-green text-white fw-bold active' : 'text-secondary bg-transparent border-0'}`}
-                style={{ fontSize: '0.65rem', height: '24px', display: 'flex', alignItems: 'center' }}
-                onClick={() => handlePredictionWindowChange(24)}
-              >
-                24h
-              </button>
-              <button
-                className={`btn btn-sm rounded-pill px-3 py-0-5 font-monospace text-uppercase transition-all ${predictionWindow === 48 ? 'btn-neon-green text-white fw-bold active' : 'text-secondary bg-transparent border-0'}`}
-                style={{ fontSize: '0.65rem', height: '24px', display: 'flex', alignItems: 'center' }}
-                onClick={() => handlePredictionWindowChange(48)}
-              >
-                48h
-              </button>
-            </div>
-
             {/* Seletor de Contas Sandbox no Header */}
             <div className="d-flex align-items-center bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
               <span className="text-secondary d-none d-md-inline ps-2" style={{ fontSize: '0.65rem', fontWeight: '500' }}>
@@ -1986,9 +1972,9 @@ export default function Home() {
 
                           {sandboxLineupMatchId && (
                             <div className="animate__animated animate__fadeIn">
-                              <div className="row g-2 mb-2">
+                              <div className="row g-2 mb-3">
                                 <div className="col-6">
-                                  <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>FORM. CASA</label>
+                                  <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>FORMAÇÃO CASA</label>
                                   <input 
                                     type="text" 
                                     className="form-control form-control-sm bg-dark text-white border-secondary" 
@@ -1998,7 +1984,7 @@ export default function Home() {
                                   />
                                 </div>
                                 <div className="col-6">
-                                  <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>FORM. VISITANTE</label>
+                                  <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>FORMAÇÃO VISITANTE</label>
                                   <input 
                                     type="text" 
                                     className="form-control form-control-sm bg-dark text-white border-secondary" 
@@ -2009,51 +1995,12 @@ export default function Home() {
                                 </div>
                               </div>
 
-                              <div className="mb-2">
-                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>TITULARES CASA (JSON)</label>
-                                <textarea 
-                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
-                                  rows={3} 
-                                  value={sandboxLineupHomeStarting} 
-                                  onChange={(e) => setSandboxLineupHomeStarting(e.target.value)} 
-                                  style={{ fontSize: '0.65rem' }}
-                                ></textarea>
+                              <div className="p-2.5 rounded bg-info bg-opacity-5 border border-info border-opacity-15 mb-3 text-secondary" style={{ fontSize: '0.72rem' }}>
+                                <i className="bi bi-info-circle text-info me-1"></i>
+                                Ao confirmar, a escalação provável de elenco real será copiada e gravada no banco como <strong>Escalação Oficial</strong> definitiva.
                               </div>
 
-                              <div className="mb-2">
-                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>TITULARES VISITANTE (JSON)</label>
-                                <textarea 
-                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
-                                  rows={3} 
-                                  value={sandboxLineupAwayStarting} 
-                                  onChange={(e) => setSandboxLineupAwayStarting(e.target.value)} 
-                                  style={{ fontSize: '0.65rem' }}
-                                ></textarea>
-                              </div>
-
-                              <div className="mb-2">
-                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>RESERVAS CASA (JSON)</label>
-                                <textarea 
-                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
-                                  rows={2} 
-                                  value={sandboxLineupHomeSubs} 
-                                  onChange={(e) => setSandboxLineupHomeSubs(e.target.value)} 
-                                  style={{ fontSize: '0.65rem' }}
-                                ></textarea>
-                              </div>
-
-                              <div className="mb-2">
-                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>RESERVAS VISITANTE (JSON)</label>
-                                <textarea 
-                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
-                                  rows={2} 
-                                  value={sandboxLineupAwaySubs} 
-                                  onChange={(e) => setSandboxLineupAwaySubs(e.target.value)} 
-                                  style={{ fontSize: '0.65rem' }}
-                                ></textarea>
-                              </div>
-
-                              <button type="submit" className="btn btn-info btn-sm w-100 py-1.5 fw-bold text-dark mt-2" style={{ borderRadius: '6px' }}>
+                              <button type="submit" className="btn btn-info btn-sm w-100 py-2 fw-bold text-dark" style={{ borderRadius: '6px' }}>
                                 Confirmar Escalação Oficial
                               </button>
                             </div>
@@ -3798,14 +3745,14 @@ export default function Home() {
                     style={{ fontSize: '0.8rem', borderRadius: '6px', border: 'none' }}
                     onClick={() => setLineupTeamTab('home')}
                   >
-                    {lineupData.starting.home[0]?.name ? `${lineupData.starting.home[0]?.name.split(' ').pop()} (Casa)` : 'Time Casa'}
+                    {lineupData.homeTeam || 'Time Casa'}
                   </button>
                   <button
                     className={`btn flex-grow-1 text-center py-1 fw-bold ${lineupTeamTab === 'away' ? 'btn-neon-green text-dark' : 'text-white bg-transparent border-0'}`}
                     style={{ fontSize: '0.8rem', borderRadius: '6px', border: 'none' }}
                     onClick={() => setLineupTeamTab('away')}
                   >
-                    {lineupData.starting.away[0]?.name ? `${lineupData.starting.away[0]?.name.split(' ').pop()} (Visitante)` : 'Time Visitante'}
+                    {lineupData.awayTeam || 'Time Visitante'}
                   </button>
                 </div>
 

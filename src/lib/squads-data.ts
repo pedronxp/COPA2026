@@ -328,12 +328,201 @@ export const SQUADS_DATA: Record<string, TeamSquad> = {
       { name: 'Ricardo Pepi', number: 9, position: 'ATT' },
       { name: 'Josh Sargent', number: 26, position: 'ATT' }
     ]
+  },
+  'Croácia': {
+    formation: '4-3-3',
+    starting: [
+      { name: 'D. Livaković', number: 1, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'J. Stanišić', number: 2, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'J. Šutalo', number: 6, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'J. Gvardiol', number: 4, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'Borna Sosa', number: 3, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'M. Kovačić', number: 8, position: 'MID', x: 50, y: 50, label: 'Volante Defensivo' },
+      { name: 'Luka Modrić', number: 10, position: 'MID', x: 68, y: 58, label: 'Meia Atacante Direito' },
+      { name: 'M. Pašalić', number: 15, position: 'MID', x: 32, y: 58, label: 'Meia Atacante Esquerdo' },
+      { name: 'L. Majer', number: 7, position: 'ATT', x: 82, y: 80, label: 'Ponta Direito' },
+      { name: 'A. Kramarić', number: 9, position: 'ATT', x: 50, y: 85, label: 'Centroavante' },
+      { name: 'Ivan Perišić', number: 14, position: 'ATT', x: 18, y: 80, label: 'Ponta Esquerda' }
+    ],
+    substitutes: [
+      { name: 'N. Labrović', number: 12, position: 'GK' },
+      { name: 'M. Pongračić', number: 5, position: 'DEF' },
+      { name: 'Martin Erlić', number: 19, position: 'DEF' },
+      { name: 'Domagoj Vida', number: 21, position: 'DEF' },
+      { name: 'J. Juranović', number: 22, position: 'DEF' },
+      { name: 'M. Brozović', number: 11, position: 'MID' },
+      { name: 'Nikola Vlašić', number: 13, position: 'MID' },
+      { name: 'Luka Sučić', number: 25, position: 'MID' },
+      { name: 'Ante Budimir', number: 16, position: 'ATT' },
+      { name: 'Bruno Petković', number: 17, position: 'ATT' },
+      { name: 'Marko Pjaca', number: 20, position: 'ATT' }
+    ]
+  },
+  'Nova Zelândia': {
+    formation: '4-3-3',
+    starting: [
+      { name: 'S. Marinovic', number: 1, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'Tim Payne', number: 2, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'M. Boxall', number: 4, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'Tommy Smith', number: 6, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'Libby Cacace', number: 3, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'Joe Bell', number: 8, position: 'MID', x: 50, y: 50, label: 'Primeiro Volante' },
+      { name: 'M. Stamenic', number: 10, position: 'MID', x: 68, y: 58, label: 'Meia Central' },
+      { name: 'Clayton Lewis', number: 14, position: 'MID', x: 32, y: 58, label: 'Meia Central' },
+      { name: 'K. Barbarouses', number: 7, position: 'ATT', x: 82, y: 80, label: 'Ponta Direita' },
+      { name: 'Chris Wood', number: 9, position: 'ATT', x: 50, y: 85, label: 'Centroavante' },
+      { name: 'Elijah Just', number: 11, position: 'ATT', x: 18, y: 80, label: 'Ponta Esquerda' }
+    ],
+    substitutes: [
+      { name: 'Oliver Sail', number: 12, position: 'GK' },
+      { name: 'Nando Pijnaker', number: 5, position: 'DEF' },
+      { name: 'Tyler Bindon', number: 15, position: 'DEF' },
+      { name: 'Storm Roux', number: 16, position: 'DEF' },
+      { name: 'M. Garbett', number: 17, position: 'MID' },
+      { name: 'Sarpreet Singh', number: 18, position: 'MID' },
+      { name: 'Ben Waine', number: 19, position: 'ATT' },
+      { name: 'Max Mata', number: 20, position: 'ATT' }
+    ]
+  },
+  'Marrocos': {
+    formation: '4-3-3',
+    starting: [
+      { name: 'Yassine Bounou', number: 1, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'Achraf Hakimi', number: 2, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'Nayef Aguerd', number: 5, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'Romain Saïss', number: 6, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'N. Mazraoui', number: 3, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'Sofyan Amrabat', number: 4, position: 'MID', x: 50, y: 50, label: 'Primeiro Volante' },
+      { name: 'Azzedine Ounahi', number: 8, position: 'MID', x: 68, y: 58, label: 'Meia Central' },
+      { name: 'B. El Khannouss', number: 10, position: 'MID', x: 32, y: 58, label: 'Meia Central' },
+      { name: 'Hakim Ziyech', number: 7, position: 'ATT', x: 82, y: 80, label: 'Ponta Direita' },
+      { name: 'Y. En-Nesyri', number: 19, position: 'ATT', x: 50, y: 85, label: 'Centroavante' },
+      { name: 'Amine Adli', number: 21, position: 'ATT', x: 18, y: 80, label: 'Ponta Esquerda' }
+    ],
+    substitutes: [
+      { name: 'M. Mohamedi', number: 12, position: 'GK' },
+      { name: 'Abdel Abqar', number: 13, position: 'DEF' },
+      { name: 'Achraf Dari', number: 15, position: 'DEF' },
+      { name: 'Y. Attiyat Allah', number: 25, position: 'DEF' },
+      { name: 'Amir Richardson', number: 16, position: 'MID' },
+      { name: 'Ismael Saibari', number: 17, position: 'MID' },
+      { name: 'Brahim Díaz', number: 10, position: 'ATT' },
+      { name: 'Soufiane Rahimi', number: 9, position: 'ATT' },
+      { name: 'Ayoub El Kaabi', number: 20, position: 'ATT' }
+    ]
+  },
+  'Canadá': {
+    formation: '4-4-2',
+    starting: [
+      { name: 'Maxime Crépeau', number: 16, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'A. Johnston', number: 2, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'Moïse Bombito', number: 15, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'D. Cornelius', number: 13, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'Alphonso Davies', number: 19, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'Tajon Buchanan', number: 11, position: 'MID', x: 75, y: 56, label: 'Meia Direito' },
+      { name: 'S. Eustáquio', number: 7, position: 'MID', x: 58, y: 50, label: 'Volante' },
+      { name: 'Ismaël Koné', number: 8, position: 'MID', x: 42, y: 50, label: 'Volante' },
+      { name: 'Liam Millar', number: 14, position: 'MID', x: 25, y: 56, label: 'Meia Esquerdo' },
+      { name: 'Jonathan David', number: 10, position: 'ATT', x: 62, y: 82, label: 'Segundo Atacante' },
+      { name: 'Cyle Larin', number: 9, position: 'ATT', x: 38, y: 85, label: 'Centroavante' }
+    ],
+    substitutes: [
+      { name: 'D. St. Clair', number: 1, position: 'GK' },
+      { name: 'Kamal Miller', number: 3, position: 'DEF' },
+      { name: 'Joel Waterman', number: 4, position: 'DEF' },
+      { name: 'Richie Laryea', number: 22, position: 'DEF' },
+      { name: 'Samuel Piette', number: 6, position: 'MID' },
+      { name: 'M. Choinière', number: 21, position: 'MID' },
+      { name: 'Jonathan Osorio', number: 21, position: 'MID' },
+      { name: 'J. Shaffelburg', number: 12, position: 'ATT' },
+      { name: 'Tani Oluwaseyi', number: 19, position: 'ATT' }
+    ]
+  },
+  'Argélia': {
+    formation: '4-3-3',
+    starting: [
+      { name: 'Anthony Mandrea', number: 16, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'Youcef Atal', number: 20, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'Aïssa Mandi', number: 2, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'R. Bensebaini', number: 21, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'Rayan Aït-Nouri', number: 3, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'Nabil Bentaleb', number: 6, position: 'MID', x: 50, y: 50, label: 'Primeiro Volante' },
+      { name: 'Ismaël Bennacer', number: 22, position: 'MID', x: 32, y: 58, label: 'Volante Misto' },
+      { name: 'Houssem Aouar', number: 11, position: 'MID', x: 68, y: 58, label: 'Meia Ofensivo' },
+      { name: 'Riyad Mahrez', number: 7, position: 'ATT', x: 82, y: 80, label: 'Ponta Direita' },
+      { name: 'B. Bounedjah', number: 9, position: 'ATT', x: 50, y: 85, label: 'Centroavante' },
+      { name: 'Farès Chaïbi', number: 10, position: 'ATT', x: 18, y: 80, label: 'Ponta Esquerda' }
+    ],
+    substitutes: [
+      { name: 'Moustapha Zeghba', number: 1, position: 'GK' },
+      { name: 'Kevin Guitoun', number: 4, position: 'DEF' },
+      { name: 'Mohamed Tougai', number: 5, position: 'DEF' },
+      { name: 'Yasser Larouci', number: 15, position: 'DEF' },
+      { name: 'Ramiz Zerrouki', number: 19, position: 'MID' },
+      { name: 'Hicham Boudaoui', number: 14, position: 'MID' },
+      { name: 'Amine Gouiri', number: 12, position: 'ATT' },
+      { name: 'Islam Slimani', number: 13, position: 'ATT' },
+      { name: 'Adam Ounas', number: 18, position: 'ATT' }
+    ]
+  },
+  'Arábia Saudita': {
+    formation: '4-2-3-1',
+    starting: [
+      { name: 'M. Al-Owais', number: 21, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'Saud Abdulhamid', number: 12, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'Hassan Tambakti', number: 4, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'Ali Al-Bulaihi', number: 5, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'Y. Al-Shahrani', number: 13, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'Abdullah Otayf', number: 14, position: 'MID', x: 38, y: 50, label: 'Volante Defensivo' },
+      { name: 'Mohamed Kanno', number: 23, position: 'MID', x: 62, y: 50, label: 'Volante Construtor' },
+      { name: 'F. Al-Buraikan', number: 9, position: 'MID', x: 22, y: 68, label: 'Ponta Esquerda' },
+      { name: 'Salman Al-Faraj', number: 7, position: 'MID', x: 50, y: 68, label: 'Meia Atacante' },
+      { name: 'Salem Al-Dawsari', number: 10, position: 'MID', x: 78, y: 68, label: 'Ponta Direita' },
+      { name: 'Saleh Al-Shehri', number: 11, position: 'ATT', x: 50, y: 85, label: 'Centroavante' }
+    ],
+    substitutes: [
+      { name: 'M. Al-Rubaie', number: 1, position: 'GK' },
+      { name: 'Abdulelah Al-Amri', number: 5, position: 'DEF' },
+      { name: 'Sultan Al-Ghannam', number: 2, position: 'DEF' },
+      { name: 'M. Al-Breik', number: 6, position: 'DEF' },
+      { name: 'Abdulelah Al-Malki', number: 8, position: 'MID' },
+      { name: 'Nasser Al-Dawsari', number: 16, position: 'MID' },
+      { name: 'Sami Al-Najei', number: 18, position: 'MID' },
+      { name: 'A. Ghareeb', number: 19, position: 'ATT' },
+      { name: 'Hattan Bahebri', number: 20, position: 'ATT' }
+    ]
+  },
+  'Austrália': {
+    formation: '4-2-3-1',
+    starting: [
+      { name: 'Mathew Ryan', number: 1, position: 'GK', x: 50, y: 15, label: 'Goleiro' },
+      { name: 'N. Atkinson', number: 3, position: 'DEF', x: 85, y: 38, label: 'Lateral Direito' },
+      { name: 'Harry Souttar', number: 19, position: 'DEF', x: 62, y: 32, label: 'Zagueiro Direito' },
+      { name: 'Kye Rowles', number: 4, position: 'DEF', x: 38, y: 32, label: 'Zagueiro Esquerdo' },
+      { name: 'Aziz Behich', number: 16, position: 'DEF', x: 15, y: 38, label: 'Lateral Esquerdo' },
+      { name: 'Keanu Baccus', number: 22, position: 'MID', x: 38, y: 50, label: 'Volante Defensivo' },
+      { name: 'Jackson Irvine', number: 22, position: 'MID', x: 62, y: 50, label: 'Volante Construtor' },
+      { name: 'Martin Boyle', number: 6, position: 'MID', x: 22, y: 68, label: 'Ponta Esquerda' },
+      { name: 'Connor Metcalfe', number: 8, position: 'MID', x: 50, y: 68, label: 'Meia Atacante' },
+      { name: 'Craig Goodwin', number: 23, position: 'MID', x: 78, y: 68, label: 'Ponta Direita' },
+      { name: 'Mitchell Duke', number: 15, position: 'ATT', x: 50, y: 85, label: 'Centroavante' }
+    ],
+    substitutes: [
+      { name: 'Joe Gauci', number: 12, position: 'GK' },
+      { name: 'Gethin Jones', number: 2, position: 'DEF' },
+      { name: 'Thomas Deng', number: 15, position: 'DEF' },
+      { name: 'Jordan Bos', number: 5, position: 'DEF' },
+      { name: 'Aiden O\'Neill', number: 13, position: 'MID' },
+      { name: 'Riley McGree', number: 14, position: 'MID' },
+      { name: 'Kusini Yengi', number: 11, position: 'ATT' },
+      { name: 'Bruno Fornaroli', number: 9, position: 'ATT' },
+      { name: 'Marco Tilio', number: 17, position: 'ATT' }
+    ]
   }
 };
 
-// Gera um fallback inteligente para qualquer país que não está explicitamente nos squads estáticos
+// Gera um fallback inteligente para qualquer país que não está nos convocados reais
 export function getSquadFallback(teamName: string): TeamSquad {
-  // Vamos criar 11 jogadores e 8 reservas de fallback com o nome do país no sufixo para garantir que dados reais existam sempre
   const cleanName = teamName.trim();
   
   const positions: Array<{ pos: 'GK' | 'DEF' | 'MID' | 'ATT'; label: string; x: number; y: number }> = [
@@ -350,12 +539,13 @@ export function getSquadFallback(teamName: string): TeamSquad {
     { pos: 'ATT', label: 'Ponta Esquerda', x: 18, y: 80 }
   ];
 
-  const surnames = ['Silva', 'Santos', 'Oliveira', 'Souza', 'Pereira', 'Alves', 'Gomes', 'Martins', 'Ferreira', 'Rodriguez', 'Lopez'];
-  const firstNames = ['Lucas', 'Mateus', 'Gabriel', 'Carlos', 'David', 'Alex', 'Rodrigo', 'Daniel', 'Marcos', 'Bruno', 'Tiago'];
+  // Pool de nomes e sobrenomes de repercussão internacional para um visual autêntico de Copa
+  const surnames = ['Smith', 'Jones', 'Müller', 'Kane', 'Hernández', 'Silva', 'García', 'Williams', 'Davies', 'Martínez', 'Ali', 'Kim', 'Mbappé', 'Rossi', 'Santos', 'Okafor'];
+  const firstNames = ['Thomas', 'Daniel', 'David', 'James', 'Carlos', 'Lucas', 'Alex', 'Pierre', 'Mohamed', 'Hans', 'Brahim', 'Marco', 'Robert', 'Koji', 'Arthur', 'Diego'];
 
   const starting: PlayerLineup[] = positions.map((pos, idx) => {
-    const fn = firstNames[idx % firstNames.length];
-    const sn = surnames[idx % surnames.length];
+    const fn = firstNames[(idx + cleanName.charCodeAt(0)) % firstNames.length];
+    const sn = surnames[(idx + cleanName.length) % surnames.length];
     return {
       name: `${fn} ${sn}`,
       number: idx === 0 ? 1 : idx + 1,
@@ -367,8 +557,8 @@ export function getSquadFallback(teamName: string): TeamSquad {
   });
 
   const substitutes = Array.from({ length: 8 }).map((_, idx) => {
-    const fn = firstNames[(idx + 5) % firstNames.length];
-    const sn = surnames[(idx + 5) % surnames.length];
+    const fn = firstNames[(idx + 13 + cleanName.charCodeAt(0)) % firstNames.length];
+    const sn = surnames[(idx + 7 + cleanName.length) % surnames.length];
     const posType = idx < 1 ? 'GK' : idx < 4 ? 'DEF' : idx < 6 ? 'MID' : 'ATT';
     return {
       name: `${fn} ${sn}`,
@@ -386,13 +576,25 @@ export function getSquadFallback(teamName: string): TeamSquad {
 
 export function getSquadForTeam(teamName: string): TeamSquad {
   const cleanName = teamName.trim();
-  if (SQUADS_DATA[cleanName]) {
-    return SQUADS_DATA[cleanName];
+  
+  // Normalizar nomes comuns para bater com SQUADS_DATA
+  let mappedName = cleanName;
+  if (cleanName.toLowerCase() === 'estados unidos' || cleanName.toLowerCase() === 'usa' || cleanName.toLowerCase() === 'united states') {
+    mappedName = 'EUA';
   }
+  
+  if (SQUADS_DATA[mappedName]) {
+    return SQUADS_DATA[mappedName];
+  }
+  
   // Tentar encontrar por substring
-  const key = Object.keys(SQUADS_DATA).find(k => cleanName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(cleanName.toLowerCase()));
+  const key = Object.keys(SQUADS_DATA).find(k => 
+    mappedName.toLowerCase().includes(k.toLowerCase()) || 
+    k.toLowerCase().includes(mappedName.toLowerCase())
+  );
   if (key) {
     return SQUADS_DATA[key];
   }
+  
   return getSquadFallback(teamName);
 }

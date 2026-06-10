@@ -26,6 +26,8 @@ export async function GET(request: Request) {
     if (match.lineup) {
       return NextResponse.json({
         status: 'oficial',
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
         formation: {
           home: match.lineup.homeFormation,
           away: match.lineup.awayFormation
@@ -47,6 +49,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       status: 'provavel',
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
       formation: {
         home: homeSquad.formation,
         away: awaySquad.formation
