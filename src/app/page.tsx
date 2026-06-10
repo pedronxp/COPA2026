@@ -7,14 +7,20 @@ interface Match {
   id: string;
   homeTeam: string;
   awayTeam: string;
-  homeFlag: string;
-  awayFlag: string;
+  homeFlag: string | null;
+  awayFlag: string | null;
+  homeTeamLogo: string | null;
+  awayTeamLogo: string | null;
   kickOff: string;
   homeScore: number | null;
   awayScore: number | null;
-  status: 'scheduled' | 'live' | 'finished';
-  result: '1' | 'X' | '2' | null;
-  stage: string;
+  status: string; // 'scheduled' | 'live' | 'finished'
+  stage: string;  // 'group' | 'r32' | 'r16' | 'qf' | 'sf' | 'third' | 'final'
+  group: string | null;
+  matchday: string | null;
+  elapsed: string | null;
+  homeLabel: string | null;
+  awayLabel: string | null;
 }
 
 interface UserProfile {
@@ -33,8 +39,13 @@ interface Prediction {
   matchId: string;
   homeGuess: number;
   awayGuess: number;
-  guess: '1' | 'X' | '2';
   processed: boolean;
+}
+
+interface MatchStatsEntry {
+  home: number;
+  draw: number;
+  away: number;
 }
 
 export default function Home() {
@@ -56,7 +67,7 @@ export default function Home() {
   // Estados dos inputs de palpites locais
   const [localGuesses, setLocalGuesses] = useState<Record<string, { home: string; away: string }>>({});
 
-  // Estados do Criador de Competidores Sandbox (Substitui os dados fakes por dados controlados pelo usuário)
+  // Estados do Criador de Competidores Sandbox
   const [newCompetitorName, setNewCompetitorName] = useState<string>('');
   const [newCompetitorAvatar, setNewCompetitorAvatar] = useState<string>('😎');
 
@@ -65,6 +76,16 @@ export default function Home() {
   const [simHomeScore, setSimHomeScore] = useState<string>('0');
   const [simAwayScore, setSimAwayScore] = useState<string>('0');
   const [simStatus, setSimStatus] = useState<'scheduled' | 'live' | 'finished'>('live');
+
+  // Stats reais do Secômetro (busca da API)
+  const [matchStats, setMatchStats] = useState<Record<string, MatchStatsEntry>>({});
+
+  // Filtro por grupo/rodada na aba Palpites
+  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+
+  // Sync automático - estado
+  const [syncing, setSyncing] = useState<boolean>(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   // Buscar dados da API
   const fetchData = useCallback(async () => {
@@ -99,6 +120,24 @@ export default function Home() {
       });
       setLocalGuesses(guessesMap);
 
+      // Buscar stats do secômetro para partidas não finalizadas
+      const visibleMatches = matchesData.filter((m: Match) => m.status !== 'finished');
+      const statsMap: Record<string, MatchStatsEntry> = {};
+      await Promise.all(
+        visibleMatches.map(async (m: Match) => {
+          try {
+            const statsRes = await fetch(`/api/matches/stats?matchId=${m.id}`);
+            if (statsRes.ok) {
+              const statsData = await statsRes.json();
+              statsMap[m.id] = statsData;
+            }
+          } catch {
+            // Ignora erros de stats individuais
+          }
+        })
+      );
+      setMatchStats(statsMap);
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       showToast('Falha ao sincronizar com o banco Neon SQL.', 'danger');
@@ -107,9 +146,39 @@ export default function Home() {
     }
   }, [selectedUserId]);
 
+  // Sync automático ao carregar + fetch de dados
   useEffect(() => {
+    const syncData = async () => {
+      try {
+        await fetch('/api/sync', { method: 'POST' });
+      } catch (e) {
+        console.warn('Sync automático falhou:', e);
+      }
+    };
+    syncData();
     fetchData();
   }, [fetchData]);
+
+  // Buscar último sync ao carregar aba admin
+  useEffect(() => {
+    if (activeTab === 'admin') {
+      fetchLastSync();
+    }
+  }, [activeTab]);
+
+  const fetchLastSync = async () => {
+    try {
+      const res = await fetch('/api/sync');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.syncedAt) {
+          setLastSyncAt(data.syncedAt);
+        }
+      }
+    } catch {
+      // Ignora erros
+    }
+  };
 
   // Exibir toast temporário
   const showToast = (text: string, type: 'success' | 'danger') => {
@@ -187,33 +256,12 @@ export default function Home() {
     }
   };
 
-  // Adicionar um novo competidor real para testes (evita bots fakes pré-programados)
+  // Adicionar um novo competidor real para testes
   const handleAddCompetitor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompetitorName.trim()) return;
 
     try {
-      // Como estamos no modo de desenvolvimento/mock, simulamos a criação do usuário no banco.
-      // E em produção, a rota cria um novo registro de perfil de usuário.
-      // O mock do backend é ativado em matches-service.ts.
-      // Criaremos chamando um POST para a lista de usuários ou criando no service
-      // Para fins de flexibilidade, podemos atualizar a lista de usuários no localstorage/memória
-      // fazendo uma chamada simulada ou passando uma header.
-      // Vamos fazer isso inserindo um profile local. O nosso service busca de getUsers()
-      // e podemos simular adicionando no array memoryUsers da API.
-      // Como a chamada para criar usuário exige auth real, no modo sandbox podemos enviar um POST de simulação.
-      // Mas para ser mais robusto, podemos ter a lógica direto no front/back:
-      // Vamos adicionar via chamada rápida:
-      // Para simplificar a criação de amigos na sandbox, podemos passar ao leaderboard ou criar uma rota rápida.
-      // Deixe-nos fazer isso inserindo diretamente na lista de usuários. Como fazer isso sem criar uma nova rota?
-      // Podemos enviar uma chamada para /api/leaderboard usando POST para registrar um novo competidor de testes!
-      // Vamos implementar a rota POST no /api/leaderboard mais tarde se necessário, mas no front podemos simular
-      // enviando para a API. Deixe-nos ver se a rota /api/leaderboard aceita POST. Atualmente ela só aceita GET.
-      // Vamos fazer uma requisição rápida para registrar o competidor. Mas, para garantir que funcione de imediato,
-      // podemos fazer uma chamada simulada: no front nós adicionamos a lista de competidores locais se a API não salvar,
-      // ou podemos atualizar o backend para suportar a criação de usuários sandbox!
-      // Vamos atualizar a API de leaderboard para suportar a criação de perfis sandbox via POST. Isso é sensacional!
-      
       const res = await fetch('/api/leaderboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -227,11 +275,9 @@ export default function Home() {
 
       showToast(`Competidor "${newCompetitorName}" adicionado!`, 'success');
       setNewCompetitorName('');
-      fetchData(); // Recarregar ranking e seletor
+      fetchData();
 
     } catch (err: any) {
-      // Se a API falhar (ex: por não suportar POST ainda), faremos a inserção em memória local temporária
-      // e informamos o usuário.
       console.warn('POST /api/leaderboard não disponível. Executando em memória de sandbox.', err);
     }
   };
@@ -282,6 +328,23 @@ export default function Home() {
     }
   };
 
+  // Sync manual com a API WorldCup26.ir
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/sync', { method: 'POST' });
+      if (!res.ok) throw new Error('Erro ao sincronizar.');
+      const data = await res.json();
+      showToast(`Sincronização concluída! ${data.matchesUpdated || 0} partidas atualizadas.`, 'success');
+      fetchLastSync();
+      fetchData();
+    } catch (error: any) {
+      showToast(error.message || 'Falha na sincronização.', 'danger');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleShareWhatsApp = () => {
     const text = `🔥 Meu saldo no Bolão COPA-ANT é de ${currentUser?.points || 0} pontos! Dê seus palpites nos placares reais da Copa de 2026 e venha competir comigo no ranking.`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
@@ -298,15 +361,6 @@ export default function Home() {
     return Date.now() > limit;
   };
 
-  // Calcular estatísticas de palpites gerais para o termômetro (Secômetro)
-  const getMatchStats = (matchId: string) => {
-    if (matchId === 'match-1') return { home: 65, draw: 25, away: 10 };
-    if (matchId === 'match-2') return { home: 45, draw: 30, away: 25 };
-    if (matchId === 'match-3') return { home: 55, draw: 25, away: 20 };
-    if (matchId === 'match-4') return { home: 70, draw: 20, away: 10 };
-    return { home: 33, draw: 34, away: 33 };
-  };
-
   // Streaks reais dos competidores ativos
   const usersInAlta = [...users]
     .filter(u => u.streak > 0)
@@ -318,6 +372,89 @@ export default function Home() {
 
   // Emojis de avatar para seleção
   const avatars = ['😎', '⚽', '👑', '🏃', '🧤', '🔥', '🏆', '⭐', '🦁', '🦊'];
+
+  // Filtros disponíveis
+  const filterOptions = [
+    { value: 'all', label: 'Todos' },
+    { value: 'A', label: 'Grupo A' },
+    { value: 'B', label: 'Grupo B' },
+    { value: 'C', label: 'Grupo C' },
+    { value: 'D', label: 'Grupo D' },
+    { value: 'E', label: 'Grupo E' },
+    { value: 'F', label: 'Grupo F' },
+    { value: 'G', label: 'Grupo G' },
+    { value: 'H', label: 'Grupo H' },
+    { value: 'I', label: 'Grupo I' },
+    { value: 'J', label: 'Grupo J' },
+    { value: 'K', label: 'Grupo K' },
+    { value: 'L', label: 'Grupo L' },
+    { value: 'r32', label: 'R32' },
+    { value: 'r16', label: 'R16' },
+    { value: 'qf', label: 'QF' },
+    { value: 'sf', label: 'SF' },
+    { value: 'third', label: '3º' },
+    { value: 'final', label: 'Final' },
+  ];
+
+  // Filtrar partidas conforme seleção
+  const filterMatches = (matchList: Match[]) => {
+    if (selectedFilter === 'all') return matchList;
+    // Filtro por grupo (letras A-L)
+    if (selectedFilter.length === 1 && selectedFilter >= 'A' && selectedFilter <= 'L') {
+      return matchList.filter(m => m.group === selectedFilter);
+    }
+    // Filtro por stage
+    return matchList.filter(m => m.stage === selectedFilter);
+  };
+
+  // Componente de renderização de bandeira/logo de time
+  const TeamFlag = ({ logo, flag, teamName }: { logo: string | null; flag: string | null; teamName: string }) => {
+    if (logo) {
+      return (
+        <img
+          src={logo}
+          alt={teamName}
+          className="team-flag-img"
+        />
+      );
+    }
+    if (flag) {
+      return <span className="display-6">{flag}</span>;
+    }
+    return <span className="display-6">🏳️</span>;
+  };
+
+  // Componente de renderização de time para eliminatórias (TBD)
+  const TeamDisplay = ({ match, side }: { match: Match; side: 'home' | 'away' }) => {
+    const isHome = side === 'home';
+    const teamName = isHome ? match.homeTeam : match.awayTeam;
+    const teamLogo = isHome ? match.homeTeamLogo : match.awayTeamLogo;
+    const teamFlag = isHome ? match.homeFlag : match.awayFlag;
+    const teamLabel = isHome ? match.homeLabel : match.awayLabel;
+
+    // Se é eliminatória com label e sem nome de time real
+    const isKnockoutTBD = match.stage !== 'group' && teamLabel && (!teamName || teamName === teamLabel);
+
+    if (isKnockoutTBD) {
+      return (
+        <div className="d-flex flex-column align-items-center text-center" style={{ width: '32%' }}>
+          <span className="tbd-icon">❓</span>
+          <span className="fw-bold text-secondary text-truncate w-100 mt-1" style={{ fontSize: '0.75rem' }}>
+            {teamLabel}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="d-flex flex-column align-items-center text-center" style={{ width: '32%' }}>
+        <TeamFlag logo={teamLogo} flag={teamFlag} teamName={teamName} />
+        <span className="fw-bold text-white text-truncate w-100 mt-1" style={{ fontSize: '0.85rem' }}>
+          {teamName}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="d-flex flex-column h-100 min-vh-100">
@@ -473,12 +610,12 @@ export default function Home() {
                           <span className="text-secondary fw-semibold text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>FECHAMENTO DE MERCADO</span>
                           <div className="d-flex align-items-center justify-content-around my-3">
                             <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
-                              <span className="display-4">{nextMatch.homeFlag}</span>
+                              <TeamFlag logo={nextMatch.homeTeamLogo} flag={nextMatch.homeFlag} teamName={nextMatch.homeTeam} />
                               <span className="fw-bold text-white mt-2 fs-5">{nextMatch.homeTeam}</span>
                             </div>
                             <span className="text-secondary fw-extrabold fs-4">VS</span>
                             <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
-                              <span className="display-4">{nextMatch.awayFlag}</span>
+                              <TeamFlag logo={nextMatch.awayTeamLogo} flag={nextMatch.awayFlag} teamName={nextMatch.awayTeam} />
                               <span className="fw-bold text-white mt-2 fs-5">{nextMatch.awayTeam}</span>
                             </div>
                           </div>
@@ -633,15 +770,28 @@ export default function Home() {
                 <div className="fade-in animate__animated animate__fadeIn">
                   
                   <h4 className="text-white fw-bold mb-3 text-start">⚽ Partidas Agendadas</h4>
+
+                  {/* Barra de filtros por grupo/rodada */}
+                  <div className="filter-bar mb-3">
+                    {filterOptions.map(opt => (
+                      <button
+                        key={opt.value}
+                        className={`filter-chip ${selectedFilter === opt.value ? 'active' : ''}`}
+                        onClick={() => setSelectedFilter(opt.value)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   
                   {/* Grid Responsivo de Jogos (1 coluna celular, 2 colunas desktop grande) */}
                   <div className="row g-3">
-                    {matches
-                      .filter(m => m.status !== 'finished')
+                    {filterMatches(matches.filter(m => m.status !== 'finished'))
                       .map(match => {
                         const isExpired = isTimeGateExpired(match.kickOff);
                         const isLive = match.status === 'live';
-                        const stats = getMatchStats(match.id);
+                        const stats = matchStats[match.id];
+                        const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
                         const localGuess = localGuesses[match.id] || { home: '', away: '' };
 
                         return (
@@ -654,10 +804,23 @@ export default function Home() {
                                   {new Date(match.kickOff).toLocaleDateString('pt-BR', {
                                     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
                                   })}
+                                  {match.group && (
+                                    <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.6rem' }}>
+                                      Grupo {match.group}
+                                    </span>
+                                  )}
+                                  {match.stage !== 'group' && (
+                                    <span className="ms-1 badge bg-dark border border-info border-opacity-50" style={{ fontSize: '0.6rem' }}>
+                                      {match.stage.toUpperCase()}
+                                    </span>
+                                  )}
                                 </span>
                                 {isLive ? (
                                   <span className="badge-live">
                                     <span className="live-dot"></span> AO VIVO
+                                    {match.elapsed && match.elapsed !== 'notstarted' && match.elapsed !== 'finished' && (
+                                      <span className="elapsed-badge ms-1">{match.elapsed === 'halftime' ? 'INT' : `${match.elapsed}'`}</span>
+                                    )}
                                   </span>
                                 ) : isExpired ? (
                                   <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
@@ -672,10 +835,7 @@ export default function Home() {
 
                               {/* Placar e Botões */}
                               <div className="d-flex align-items-center justify-content-between my-2">
-                                <div className="d-flex flex-column align-items-center text-center" style={{ width: '32%' }}>
-                                  <span className="display-6">{match.homeFlag}</span>
-                                  <span className="fw-bold text-white text-truncate w-100 mt-1" style={{ fontSize: '0.85rem' }}>{match.homeTeam}</span>
-                                </div>
+                                <TeamDisplay match={match} side="home" />
 
                                 <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '36%' }}>
                                   <input
@@ -699,11 +859,16 @@ export default function Home() {
                                   />
                                 </div>
 
-                                <div className="d-flex flex-column align-items-center text-center" style={{ width: '32%' }}>
-                                  <span className="display-6">{match.awayFlag}</span>
-                                  <span className="fw-bold text-white text-truncate w-100 mt-1" style={{ fontSize: '0.85rem' }}>{match.awayTeam}</span>
-                                </div>
+                                <TeamDisplay match={match} side="away" />
                               </div>
+
+                              {/* Placar ao vivo */}
+                              {isLive && match.homeScore !== null && match.awayScore !== null && (
+                                <div className="text-center my-1">
+                                  <span className="text-info fw-bold fs-5">{match.homeScore} - {match.awayScore}</span>
+                                  <span className="text-secondary ms-2" style={{ fontSize: '0.7rem' }}>PLACAR ATUAL</span>
+                                </div>
+                              )}
 
                               {/* Botão de Enviar */}
                               {!isExpired && !isLive && (
@@ -718,17 +883,26 @@ export default function Home() {
                                 </div>
                               )}
 
-                              {/* Secômetro */}
+                              {/* Secômetro - Stats Reais */}
                               <div className="mt-3 pt-2 border-top border-secondary border-opacity-30">
-                                <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
-                                  <span>Média dos palpites:</span>
-                                  <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
-                                </div>
-                                <div className="thermostat-bar d-flex">
-                                  <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
-                                  <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
-                                  <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
-                                </div>
+                                {hasStats ? (
+                                  <>
+                                    <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
+                                      <span>Média dos palpites:</span>
+                                      <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
+                                    </div>
+                                    <div className="thermostat-bar d-flex">
+                                      <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
+                                      <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
+                                      <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-secondary text-center" style={{ fontSize: '0.7rem' }}>
+                                    <i className="bi bi-bar-chart-line me-1"></i>
+                                    Nenhum palpite registrado
+                                  </div>
+                                )}
                               </div>
 
                             </div>
@@ -737,10 +911,15 @@ export default function Home() {
                       })}
                   </div>
 
-                  {matches.filter(m => m.status !== 'finished').length === 0 && (
+                  {filterMatches(matches.filter(m => m.status !== 'finished')).length === 0 && (
                     <div className="text-center py-5 text-secondary">
                       <i className="bi bi-check-circle fs-1 text-success"></i>
-                      <p className="mt-2">Sem partidas pendentes de palpites!</p>
+                      <p className="mt-2">
+                        {selectedFilter === 'all'
+                          ? 'Sem partidas pendentes de palpites!'
+                          : `Nenhuma partida encontrada para o filtro "${filterOptions.find(f => f.value === selectedFilter)?.label || selectedFilter}".`
+                        }
+                      </p>
                     </div>
                   )}
 
@@ -858,7 +1037,14 @@ export default function Home() {
                             <div className="glass-card p-3 h-100 text-start d-flex flex-column justify-content-between">
                               
                               <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-35">
-                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>Encerrado</span>
+                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                  Encerrado
+                                  {match.group && (
+                                    <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.55rem' }}>
+                                      Grupo {match.group}
+                                    </span>
+                                  )}
+                                </span>
                                 <span className={`badge ${scoreBadge.class}`} style={{ fontSize: '0.7rem' }}>
                                   {scoreBadge.text}
                                 </span>
@@ -866,7 +1052,7 @@ export default function Home() {
 
                               <div className="d-flex align-items-center justify-content-between my-2 text-center">
                                 <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
-                                  <span className="fs-3">{match.homeFlag}</span>
+                                  <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
                                   <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.homeTeam}</span>
                                 </div>
                                 <div className="d-flex flex-column align-items-center" style={{ width: '34%' }}>
@@ -876,7 +1062,7 @@ export default function Home() {
                                   <span className="text-secondary" style={{ fontSize: '0.65rem' }}>RESULTADO REAL</span>
                                 </div>
                                 <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
-                                  <span className="fs-3">{match.awayFlag}</span>
+                                  <TeamFlag logo={match.awayTeamLogo} flag={match.awayFlag} teamName={match.awayTeam} />
                                   <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.awayTeam}</span>
                                 </div>
                               </div>
@@ -926,7 +1112,7 @@ export default function Home() {
                   {/* Grid de Ferramentas Sandbox: 2 Colunas */}
                   <div className="row g-4 text-start">
                     
-                    {/* Coluna 1: Criar Competidores Sandbox (Substitui dados fake fixos) */}
+                    {/* Coluna 1: Criar Competidores Sandbox */}
                     <div className="col-12 col-md-6">
                       <div className="glass-card p-4 h-100">
                         <h5 className="text-white fw-bold mb-3">👥 Adicionar Amigos (Sandbox)</h5>
@@ -976,7 +1162,7 @@ export default function Home() {
                       <div className="glass-card p-4 h-100">
                         <h5 className="text-white fw-bold mb-3">⚽ Simular Jogo da Copa</h5>
                         <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                          Defina o placar final de um jogo. Ao marcar como **"Encerrado"**, as pontuações e o ranking de todos os competidores são recalculados na hora.
+                          Defina o placar final de um jogo. Ao marcar como **&quot;Encerrado&quot;**, as pontuações e o ranking de todos os competidores são recalculados na hora.
                         </p>
 
                         <form onSubmit={handleSimulateMatch}>
@@ -992,7 +1178,7 @@ export default function Home() {
                                 if (m) {
                                   setSimHomeScore((m.homeScore ?? 0).toString());
                                   setSimAwayScore((m.awayScore ?? 0).toString());
-                                  setSimStatus(m.status);
+                                  setSimStatus(m.status as any);
                                 }
                               }}
                               required
@@ -1000,7 +1186,7 @@ export default function Home() {
                               <option value="">-- Escolha um jogo --</option>
                               {matches.map(m => (
                                 <option key={m.id} value={m.id}>
-                                  {m.homeFlag} {m.homeTeam} vs {m.awayTeam} {m.awayFlag} ({m.status.toUpperCase()})
+                                  {m.homeFlag || '🏳️'} {m.homeTeam} vs {m.awayTeam} {m.awayFlag || '🏳️'} ({m.status.toUpperCase()})
                                 </option>
                               ))}
                             </select>
@@ -1055,6 +1241,46 @@ export default function Home() {
                       </div>
                     </div>
 
+                  </div>
+
+                  {/* Seção de Sincronização com API */}
+                  <div className="row g-4 mt-2 text-start">
+                    <div className="col-12">
+                      <div className="glass-card p-4">
+                        <h5 className="text-white fw-bold mb-3">
+                          <i className="bi bi-cloud-arrow-down-fill text-info me-2"></i>
+                          Sincronizar Jogos da Copa
+                        </h5>
+                        <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                          Busca os dados mais recentes da API WorldCup26.ir e atualiza as partidas, placares e status no banco Neon.
+                        </p>
+                        <div className="d-flex align-items-center gap-3 flex-wrap">
+                          <button
+                            className="btn btn-sync px-4 py-2"
+                            onClick={handleManualSync}
+                            disabled={syncing}
+                          >
+                            {syncing ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Sincronizando...
+                              </>
+                            ) : (
+                              <>
+                                <i className="bi bi-arrow-repeat me-1"></i>
+                                Sincronizar Agora
+                              </>
+                            )}
+                          </button>
+                          {lastSyncAt && (
+                            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                              <i className="bi bi-clock me-1"></i>
+                              Último sync: {new Date(lastSyncAt).toLocaleString('pt-BR')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                 </div>

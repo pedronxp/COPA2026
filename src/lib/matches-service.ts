@@ -1,30 +1,64 @@
 // src/lib/matches-service.ts
+// Serviço de dados do bolão - 100% Prisma, sem mock, sem fallback em memória
 import { prisma } from './prisma';
-import { 
-  initialMockMatches, 
-  initialMockUsers, 
-  initialMockPredictions,
-  Match, 
-  UserProfile, 
-  Prediction 
-} from './mockData';
+import { fetchGames, fetchTeams, type ApiGame, type ApiTeam } from './football-api';
 
-// Estado em memória global para fallback de simulação/demo local
-let memoryMatches = [...initialMockMatches];
-let memoryUsers = [...initialMockUsers];
-let memoryPredictions = [...initialMockPredictions];
+// ─── Tipos Exportados ────────────────────────────────────────────────
 
-// Flag de Circuit Breaker para evitar timeouts repetidos no Prisma se o banco cair
-let dbFailed = false;
-
-// Função auxiliar para verificar se o banco de dados Neon está disponível e ativo
-function isDbAvailable(): boolean {
-  if (dbFailed) return false;
-  const dbUrl = process.env.DATABASE_URL;
-  return !!dbUrl && !dbUrl.includes('seu-host-neon') && !dbUrl.includes('usuario:senha');
+export interface MatchData {
+  id: string;
+  externalId: number | null;
+  homeTeam: string;
+  awayTeam: string;
+  homeFlag: string | null;
+  awayFlag: string | null;
+  homeTeamLogo: string | null;
+  awayTeamLogo: string | null;
+  homeLabel: string | null;
+  awayLabel: string | null;
+  kickOff: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+  stage: string;
+  matchday: string | null;
+  elapsed: string | null;
 }
 
-// Lógica de cálculo de pontos baseada nas regras do Bolão do GE
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  image: string;
+  points: number;
+  streak: number;
+  misses: number;
+}
+
+export interface PredictionData {
+  id: string;
+  userId: string;
+  matchId: string;
+  homeGuess: number;
+  awayGuess: number;
+  processed: boolean;
+}
+
+export interface MatchStats {
+  home: number;
+  draw: number;
+  away: number;
+  total: number;
+}
+
+export interface SyncReport {
+  created: number;
+  updated: number;
+  source: string;
+}
+
+// ─── Lógica de Pontuação (regras Bolão do GE) ───────────────────────
+
 export function calculatePredictionPoints(
   homeGuess: number,
   awayGuess: number,
@@ -61,349 +95,398 @@ export function calculatePredictionPoints(
   return 0;
 }
 
-export async function getMatches(): Promise<Match[]> {
-  if (isDbAvailable()) {
-    try {
-      let dbMatches = await prisma.match.findMany({
-        orderBy: { kickOff: 'asc' }
-      });
+// ─── Funções de Dados (Prisma direto) ────────────────────────────────
 
-      // Auto-seed dinâmico se a tabela estiver vazia no banco real
-      if (dbMatches.length === 0) {
-        console.log('Tabela de partidas no Neon SQL vazia. Executando seed de partidas oficial...');
-        for (const m of initialMockMatches) {
-          await prisma.match.create({
-            data: {
-              homeTeam: m.homeTeam,
-              awayTeam: m.awayTeam,
-              homeFlag: m.homeFlag,
-              awayFlag: m.awayFlag,
-              kickOff: new Date(m.kickOff),
-              stage: m.stage,
-              status: m.status
-            }
-          });
-        }
-        // Buscar novamente
-        dbMatches = await prisma.match.findMany({
-          orderBy: { kickOff: 'asc' }
-        });
-      }
+/**
+ * Busca partidas do banco com filtro opcional por stage e/ou group (matchday).
+ */
+export async function getMatches(filter?: { stage?: string; group?: string }): Promise<MatchData[]> {
+  const where: Record<string, unknown> = {};
 
-      return dbMatches.map(m => ({
-        id: m.id,
-        homeTeam: m.homeTeam,
-        awayTeam: m.awayTeam,
-        homeFlag: m.homeFlag ?? '🏳️',
-        awayFlag: m.awayFlag ?? '🏳️',
-        kickOff: m.kickOff.toISOString(),
-        homeScore: m.homeScore,
-        awayScore: m.awayScore,
-        status: m.status as 'scheduled' | 'live' | 'finished',
-        result: m.result as '1' | 'X' | '2' | null,
-        stage: m.stage
-      }));
-    } catch (e) {
-      console.warn('Falha de conexão com o banco Neon SQL. Ativando circuito de fallback em memória para evitar timeouts.', e);
-      dbFailed = true; // Circuit breaker ativo
-    }
+  if (filter?.stage) {
+    where.stage = filter.stage;
   }
-  return memoryMatches;
+  // O campo "group" na API corresponde a filtrar por matchday ou pelo grupo da tabela
+  // Vamos usar matchday se informado
+  if (filter?.group) {
+    where.matchday = filter.group;
+  }
+
+  const dbMatches = await prisma.match.findMany({
+    where,
+    orderBy: { kickOff: 'asc' },
+  });
+
+  return dbMatches.map(m => ({
+    id: m.id,
+    externalId: m.externalId,
+    homeTeam: m.homeTeam,
+    awayTeam: m.awayTeam,
+    homeFlag: m.homeFlag,
+    awayFlag: m.awayFlag,
+    homeTeamLogo: m.homeTeamLogo,
+    awayTeamLogo: m.awayTeamLogo,
+    homeLabel: m.homeLabel,
+    awayLabel: m.awayLabel,
+    kickOff: m.kickOff.toISOString(),
+    homeScore: m.homeScore,
+    awayScore: m.awayScore,
+    status: m.status,
+    stage: m.stage,
+    matchday: m.matchday,
+    elapsed: m.elapsed,
+  }));
 }
 
+/**
+ * Busca todos os usuários ordenados por pontos (ranking/leaderboard).
+ */
 export async function getUsers(): Promise<UserProfile[]> {
-  if (isDbAvailable()) {
-    try {
-      let dbUsers = await prisma.user.findMany({
-        orderBy: { points: 'desc' }
-      });
+  const dbUsers = await prisma.user.findMany({
+    orderBy: { points: 'desc' },
+  });
 
-      // Auto-seed dinâmico para usuário padrão se a tabela estiver vazia
-      if (dbUsers.length === 0) {
-        console.log('Tabela de usuários vazia no Neon SQL. Criando usuário inicial...');
-        await prisma.user.create({
-          data: {
-            id: 'currentUser',
-            name: 'Você (Torcedor)',
-            email: 'usuario@copa.com',
-            image: '👑',
-            points: 0
-          }
-        });
-        dbUsers = await prisma.user.findMany({
-          orderBy: { points: 'desc' }
-        });
-      }
-
-      return dbUsers.map(u => ({
-        id: u.id,
-        name: u.name ?? 'Usuário',
-        email: u.email,
-        image: u.image ?? '👤',
-        points: u.points,
-        streak: 0,
-        misses: 0
-      }));
-    } catch (e) {
-      console.warn('Falha de conexão com o banco Neon SQL ao buscar usuários. Ativando circuito de fallback.', e);
-      dbFailed = true; // Circuit breaker ativo
-    }
-  }
-  return [...memoryUsers].sort((a, b) => b.points - a.points);
+  return dbUsers.map(u => ({
+    id: u.id,
+    name: u.name ?? 'Usuário',
+    email: u.email,
+    image: u.image ?? '👤',
+    points: u.points,
+    streak: u.streak,
+    misses: u.misses,
+  }));
 }
 
-export async function getPredictions(userId: string): Promise<Prediction[]> {
-  if (isDbAvailable()) {
-    try {
-      const dbPreds = await prisma.prediction.findMany({
-        where: { userId }
-      });
-      return dbPreds.map(p => ({
-        id: p.id,
-        userId: p.userId,
-        matchId: p.matchId,
-        homeGuess: p.homeGuess,
-        awayGuess: p.awayGuess,
-        guess: p.guess as '1' | 'X' | '2',
-        processed: p.processed
-      }));
-    } catch (e) {
-      console.warn('Falha de conexão com o banco Neon SQL ao buscar palpites. Ativando circuito de fallback.', e);
-      dbFailed = true; // Circuit breaker ativo
-    }
-  }
-  return memoryPredictions.filter(p => p.userId === userId);
+/**
+ * Busca todos os palpites de um usuário.
+ */
+export async function getPredictions(userId: string): Promise<PredictionData[]> {
+  const dbPreds = await prisma.prediction.findMany({
+    where: { userId },
+  });
+
+  return dbPreds.map(p => ({
+    id: p.id,
+    userId: p.userId,
+    matchId: p.matchId,
+    homeGuess: p.homeGuess,
+    awayGuess: p.awayGuess,
+    processed: p.processed,
+  }));
 }
 
+/**
+ * Salva (upsert) um palpite para um usuário em uma partida.
+ * Aplica o Time Gate: palpites fecham 30 min antes do kickoff.
+ */
 export async function savePrediction(
   userId: string,
   matchId: string,
   homeGuess: number,
   awayGuess: number
-): Promise<Prediction> {
-  const guess = homeGuess > awayGuess ? '1' : homeGuess < awayGuess ? '2' : 'X';
-
-  // Obter detalhes da partida para o Time Gate
-  const matches = await getMatches();
-  const match = matches.find(m => m.id === matchId);
+): Promise<PredictionData> {
+  // Buscar a partida do banco para validar Time Gate
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) throw new Error('Partida não encontrada.');
 
-  // Validar se falta menos de 30 minutos (Time Gate)
   const kickoffTime = new Date(match.kickOff).getTime();
   const limitTime = kickoffTime - 30 * 60 * 1000;
   if (Date.now() > limitTime) {
     throw new Error('Palpites estão fechados para esta partida (limite de 30 minutos antes do jogo).');
   }
 
-  if (isDbAvailable()) {
-    try {
-      const prediction = await prisma.prediction.upsert({
-        where: {
-          userId_matchId: { userId, matchId }
-        },
-        update: { homeGuess, awayGuess, guess },
-        create: { userId, matchId, homeGuess, awayGuess, guess }
-      });
-      return {
-        id: prediction.id,
-        userId: prediction.userId,
-        matchId: prediction.matchId,
-        homeGuess: prediction.homeGuess,
-        awayGuess: prediction.awayGuess,
-        guess: prediction.guess as '1' | 'X' | '2',
-        processed: prediction.processed
-      };
-    } catch (e) {
-      console.warn('Falha de conexão com o banco Neon SQL ao salvar palpite. Ativando circuito de fallback.', e);
-      dbFailed = true; // Circuit breaker ativo
-    }
-  }
+  const prediction = await prisma.prediction.upsert({
+    where: {
+      userId_matchId: { userId, matchId },
+    },
+    update: { homeGuess, awayGuess },
+    create: { userId, matchId, homeGuess, awayGuess },
+  });
 
-  // Fallback em memória
-  const existingIndex = memoryPredictions.findIndex(p => p.userId === userId && p.matchId === matchId);
-  const newPrediction: Prediction = {
-    id: existingIndex >= 0 ? memoryPredictions[existingIndex].id : `p-gen-${Date.now()}`,
-    userId,
-    matchId,
-    homeGuess,
-    awayGuess,
-    guess,
-    processed: false
+  return {
+    id: prediction.id,
+    userId: prediction.userId,
+    matchId: prediction.matchId,
+    homeGuess: prediction.homeGuess,
+    awayGuess: prediction.awayGuess,
+    processed: prediction.processed,
   };
-
-  if (existingIndex >= 0) {
-    memoryPredictions[existingIndex] = newPrediction;
-  } else {
-    memoryPredictions.push(newPrediction);
-  }
-
-  return newPrediction;
 }
 
-// Simulador da Copa / Feeder administrativo
+/**
+ * Atualiza o placar de uma partida e dispara o Score Engine se finalizada.
+ */
 export async function updateMatchScore(
   matchId: string,
   homeScore: number,
   awayScore: number,
   status: 'scheduled' | 'live' | 'finished'
-): Promise<Match> {
-  const result = homeScore > awayScore ? '1' : homeScore < awayScore ? '2' : 'X';
+): Promise<MatchData> {
+  const elapsed = status === 'finished' ? 'finished' : status === 'live' ? 'live' : 'notstarted';
 
-  if (isDbAvailable()) {
-    try {
-      const updated = await prisma.match.update({
-        where: { id: matchId },
-        data: { homeScore, awayScore, status, result }
-      });
-      
-      // Se finalizado, rodar o Score Engine
-      if (status === 'finished') {
-        await processScoringForMatch(matchId, homeScore, awayScore);
-      }
+  const updated = await prisma.match.update({
+    where: { id: matchId },
+    data: { homeScore, awayScore, status, elapsed },
+  });
 
-      return {
-        id: updated.id,
-        homeTeam: updated.homeTeam,
-        awayTeam: updated.awayTeam,
-        homeFlag: updated.homeFlag ?? '🏳️',
-        awayFlag: updated.awayFlag ?? '🏳️',
-        kickOff: updated.kickOff.toISOString(),
-        homeScore: updated.homeScore,
-        awayScore: updated.awayScore,
-        status: updated.status as 'scheduled' | 'live' | 'finished',
-        result: updated.result as '1' | 'X' | '2' | null,
-        stage: updated.stage
-      };
-    } catch (e) {
-      console.warn('Falha de conexão com o banco Neon SQL ao atualizar placar. Ativando circuito de fallback.', e);
-      dbFailed = true; // Circuit breaker ativo
-    }
+  // Se finalizado, rodar o Score Engine
+  if (status === 'finished') {
+    await processScoringForMatch(matchId);
   }
 
-  // Fallback em memória
-  const matchIndex = memoryMatches.findIndex(m => m.id === matchId);
-  if (matchIndex < 0) throw new Error('Partida não encontrada.');
-
-  const wasFinished = memoryMatches[matchIndex].status === 'finished';
-
-  const updatedMatch: Match = {
-    ...memoryMatches[matchIndex],
-    homeScore,
-    awayScore,
-    status,
-    result: status === 'finished' || status === 'live' ? result : null
+  return {
+    id: updated.id,
+    externalId: updated.externalId,
+    homeTeam: updated.homeTeam,
+    awayTeam: updated.awayTeam,
+    homeFlag: updated.homeFlag,
+    awayFlag: updated.awayFlag,
+    homeTeamLogo: updated.homeTeamLogo,
+    awayTeamLogo: updated.awayTeamLogo,
+    homeLabel: updated.homeLabel,
+    awayLabel: updated.awayLabel,
+    kickOff: updated.kickOff.toISOString(),
+    homeScore: updated.homeScore,
+    awayScore: updated.awayScore,
+    status: updated.status,
+    stage: updated.stage,
+    matchday: updated.matchday,
+    elapsed: updated.elapsed,
   };
-
-  memoryMatches[matchIndex] = updatedMatch;
-
-  // Rodar Score Engine na memória
-  if (status === 'finished' && !wasFinished) {
-    await processScoringForMatchMemory(matchId, homeScore, awayScore);
-  }
-
-  return updatedMatch;
 }
 
-// Motor de pontuação em Banco Real (Neon)
-async function processScoringForMatch(matchId: string, homeScore: number, awayScore: number) {
-  const result = homeScore > awayScore ? '1' : homeScore < awayScore ? '2' : 'X';
-  
+/**
+ * Motor de pontuação: processa todos os palpites não processados de uma partida.
+ * Calcula pontos, atualiza User.points/streak/misses.
+ */
+export async function processScoringForMatch(matchId: string): Promise<void> {
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match || match.homeScore === null || match.awayScore === null) return;
+
+  const homeScore = match.homeScore;
+  const awayScore = match.awayScore;
+
   // Buscar palpites não processados para o jogo
   const predictions = await prisma.prediction.findMany({
-    where: { matchId, processed: false }
+    where: { matchId, processed: false },
   });
 
   for (const pred of predictions) {
     const points = calculatePredictionPoints(pred.homeGuess, pred.awayGuess, homeScore, awayScore);
-    
-    // Atualizar pontos do usuário se acertou
-    if (points > 0) {
-      await prisma.user.update({
-        where: { id: pred.userId },
-        data: { points: { increment: points } }
-      });
-    }
+
+    // Calcular streak/misses
+    const isHit = points > 0;
+
+    await prisma.user.update({
+      where: { id: pred.userId },
+      data: {
+        points: { increment: points },
+        streak: isHit ? { increment: 1 } : 0,
+        misses: isHit ? 0 : { increment: 1 },
+      },
+    });
 
     // Marcar palpite como processado
     await prisma.prediction.update({
       where: { id: pred.id },
-      data: { processed: true }
+      data: { processed: true },
     });
   }
 }
 
-// Motor de pontuação na memória (Fallback)
-async function processScoringForMatchMemory(matchId: string, homeScore: number, awayScore: number) {
-  const unprocesseds = memoryPredictions.filter(p => p.matchId === matchId && !p.processed);
+/**
+ * Calcula a porcentagem de palpites (casa/empate/fora) de uma partida.
+ */
+export async function getMatchStats(matchId: string): Promise<MatchStats> {
+  const predictions = await prisma.prediction.findMany({
+    where: { matchId },
+  });
 
-  for (const pred of unprocesseds) {
-    const points = calculatePredictionPoints(pred.homeGuess, pred.awayGuess, homeScore, awayScore);
-    
-    // Atualizar pontos na memória de usuários
-    const userIndex = memoryUsers.findIndex(u => u.id === pred.userId);
-    if (userIndex >= 0 && points > 0) {
-      memoryUsers[userIndex].points += points;
-      
-      // Ajustar streaks mocados para zoeira
-      if (points === 5) {
-        memoryUsers[userIndex].streak += 1;
-        memoryUsers[userIndex].misses = 0;
-      } else if (points === 0) {
-        memoryUsers[userIndex].misses += 1;
-        memoryUsers[userIndex].streak = 0;
-      }
-    }
-    
-    pred.processed = true;
+  const total = predictions.length;
+  if (total === 0) {
+    return { home: 0, draw: 0, away: 0, total: 0 };
   }
+
+  let home = 0;
+  let draw = 0;
+  let away = 0;
+
+  for (const p of predictions) {
+    if (p.homeGuess > p.awayGuess) home++;
+    else if (p.homeGuess < p.awayGuess) away++;
+    else draw++;
+  }
+
+  return {
+    home: Math.round((home / total) * 100),
+    draw: Math.round((draw / total) * 100),
+    away: Math.round((away / total) * 100),
+    total,
+  };
 }
 
-// Função administrativa para resetar partidas de simulação
+// ─── Sincronização com API Externa ──────────────────────────────────
+
+/**
+ * Converte data no formato "MM/DD/YYYY HH:mm" para Date.
+ */
+function parseLocalDate(dateStr: string): Date {
+  // Formato: "06/11/2026 13:00"
+  const [datePart, timePart] = dateStr.split(' ');
+  const [month, day, year] = datePart.split('/');
+  const [hour, minute] = timePart.split(':');
+  return new Date(
+    parseInt(year),
+    parseInt(month) - 1,
+    parseInt(day),
+    parseInt(hour),
+    parseInt(minute)
+  );
+}
+
+/**
+ * Busca dados da WorldCup26.ir, faz upsert em massa no banco Match.
+ * Retorna relatório de quantos foram criados/atualizados.
+ */
+export async function syncFromApi(): Promise<SyncReport> {
+  const [games, teams] = await Promise.all([fetchGames(), fetchTeams()]);
+
+  if (games.length === 0) {
+    console.warn('[sync] Nenhuma partida retornada pela API externa.');
+    return { created: 0, updated: 0, source: 'worldcup26' };
+  }
+
+  // Criar mapa de times para obter bandeiras
+  const teamMap = new Map<string, ApiTeam>();
+  for (const team of teams) {
+    teamMap.set(team.id, team);
+  }
+
+  let created = 0;
+  let updated = 0;
+
+  for (const game of games) {
+    const externalId = parseInt(game.id);
+    const homeTeam = teamMap.get(game.home_team_id);
+    const awayTeam = teamMap.get(game.away_team_id);
+
+    const kickOff = parseLocalDate(game.local_date);
+    const isFinished = game.finished?.toUpperCase() === 'TRUE';
+    const status = isFinished ? 'finished' : game.time_elapsed !== 'notstarted' ? 'live' : 'scheduled';
+
+    const homeScore = isFinished || status === 'live' ? parseInt(game.home_score) || 0 : null;
+    const awayScore = isFinished || status === 'live' ? parseInt(game.away_score) || 0 : null;
+
+    const matchData = {
+      homeTeam: game.home_team_name_en || game.home_team_label || 'TBD',
+      awayTeam: game.away_team_name_en || game.away_team_label || 'TBD',
+      homeFlag: homeTeam?.iso2 || null,
+      awayFlag: awayTeam?.iso2 || null,
+      homeTeamLogo: homeTeam?.flag || null,
+      awayTeamLogo: awayTeam?.flag || null,
+      homeLabel: game.home_team_label || null,
+      awayLabel: game.away_team_label || null,
+      kickOff,
+      homeScore,
+      awayScore,
+      status,
+      stage: game.type || 'group',
+      matchday: game.matchday || null,
+      elapsed: game.time_elapsed || 'notstarted',
+      lastSyncAt: new Date(),
+    };
+
+    // Verificar se já existe
+    const existing = await prisma.match.findUnique({ where: { externalId } });
+
+    if (existing) {
+      await prisma.match.update({
+        where: { externalId },
+        data: matchData,
+      });
+      updated++;
+    } else {
+      await prisma.match.create({
+        data: {
+          externalId,
+          ...matchData,
+        },
+      });
+      created++;
+    }
+  }
+
+  // Registrar log de sincronização
+  await prisma.syncLog.create({
+    data: {
+      matchesCreated: created,
+      matchesUpdated: updated,
+      source: 'worldcup26',
+    },
+  });
+
+  console.log(`[sync] Sincronização concluída: ${created} criadas, ${updated} atualizadas.`);
+  return { created, updated, source: 'worldcup26' };
+}
+
+// ─── Funções Administrativas ────────────────────────────────────────
+
+/**
+ * Reseta toda a simulação no banco real.
+ * Zera placares, status, pontos de usuários e palpites.
+ */
 export async function resetSimulation(): Promise<void> {
-  memoryMatches = [...initialMockMatches];
-  memoryUsers = [...initialMockUsers];
-  memoryPredictions = [...initialMockPredictions];
-  dbFailed = false; // Resetar o circuit breaker para testes
+  // Resetar todos os palpites (marcar como não processados)
+  await prisma.prediction.updateMany({
+    data: { processed: false },
+  });
+
+  // Resetar placares das partidas
+  await prisma.match.updateMany({
+    data: {
+      homeScore: null,
+      awayScore: null,
+      status: 'scheduled',
+      elapsed: 'notstarted',
+    },
+  });
+
+  // Zerar pontos/streak/misses dos usuários
+  await prisma.user.updateMany({
+    data: {
+      points: 0,
+      streak: 0,
+      misses: 0,
+    },
+  });
+
+  console.log('[reset] Simulação reiniciada com sucesso no banco.');
 }
 
-// Criar competidor dinâmico na sandbox
+/**
+ * Cria um competidor na sandbox (banco real).
+ */
 export async function createSandboxUser(name: string, image: string): Promise<UserProfile> {
   const email = `${name.toLowerCase().replace(/\s+/g, '')}@bolao.com`;
-  const newUser: UserProfile = {
-    id: `user-gen-${Date.now()}`,
-    name,
-    email,
-    image,
-    points: 0,
-    streak: 0,
-    misses: 0
+
+  const dbUser = await prisma.user.create({
+    data: {
+      name,
+      email,
+      image,
+      points: 0,
+      streak: 0,
+      misses: 0,
+    },
+  });
+
+  return {
+    id: dbUser.id,
+    name: dbUser.name ?? name,
+    email: dbUser.email,
+    image: dbUser.image ?? image,
+    points: dbUser.points,
+    streak: dbUser.streak,
+    misses: dbUser.misses,
   };
-
-  if (isDbAvailable()) {
-    try {
-      const dbUser = await prisma.user.create({
-        data: {
-          name,
-          email,
-          image,
-          points: 0
-        }
-      });
-      return {
-        id: dbUser.id,
-        name: dbUser.name ?? name,
-        email: dbUser.email,
-        image: dbUser.image ?? image,
-        points: dbUser.points,
-        streak: 0,
-        misses: 0
-      };
-    } catch (e) {
-      console.warn('Falha ao inserir usuário no Neon SQL. Criando na memória...', e);
-      dbFailed = true; // Circuit breaker ativo
-    }
-  }
-
-  memoryUsers.push(newUser);
-  return newUser;
 }

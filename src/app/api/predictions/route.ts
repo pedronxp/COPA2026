@@ -10,12 +10,14 @@ export async function GET(request: Request) {
 
     const predictions = await getPredictions(userId);
     return NextResponse.json(predictions);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // Salvar um palpite (com validação do Time Gate de 30 minutos)
+// Body: { matchId, homeGuess, awayGuess } — campo "guess" removido (calculado sob demanda)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -28,7 +30,8 @@ export async function POST(request: Request) {
 
     const prediction = await savePrediction(userId, matchId, homeGuess, awayGuess);
     return NextResponse.json(prediction);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 }); // Retorna 400 para erros de validação como Time Gate
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    return NextResponse.json({ error: message }, { status: 400 }); // 400 para erros de validação como Time Gate
   }
 }

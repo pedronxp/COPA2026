@@ -2,13 +2,19 @@
 import { NextResponse } from 'next/server';
 import { getMatches, updateMatchScore } from '@/lib/matches-service';
 
-// Retornar todas as partidas
-export async function GET() {
+// Retornar partidas com filtro opcional por stage e group
+export async function GET(request: Request) {
   try {
-    const matches = await getMatches();
+    const { searchParams } = new URL(request.url);
+    const stage = searchParams.get('stage') || undefined;
+    const group = searchParams.get('group') || undefined;
+
+    const filter = (stage || group) ? { stage, group } : undefined;
+    const matches = await getMatches(filter);
     return NextResponse.json(matches);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -24,7 +30,8 @@ export async function POST(request: Request) {
 
     const updatedMatch = await updateMatchScore(matchId, homeScore, awayScore, status);
     return NextResponse.json(updatedMatch);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

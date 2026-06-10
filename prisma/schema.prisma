@@ -18,6 +18,8 @@ model User {
   emailVerified DateTime?
   image         String?
   points        Int          @default(0)
+  streak        Int          @default(0)
+  misses        Int          @default(0)
   predictions   Prediction[]
   accounts      Account[]
   sessions      Session[]
@@ -52,18 +54,25 @@ model Session {
 
 // 2. Modelo de Partidas da Copa
 model Match {
-  id          String       @id @default(uuid())
-  homeTeam    String
-  awayTeam    String
-  homeFlag    String?      // Código de emoji ou URL de bandeira
-  awayFlag    String?
-  kickOff     DateTime     // Horário de início do jogo
-  homeScore   Int?         // Placar real do time de casa (null até a partida iniciar/terminar)
-  awayScore   Int?         // Placar real do time visitante
-  status      String       @default("scheduled") // scheduled | live | finished
-  result      String?      // "1" (Casa), "X" (Empate), "2" (Fora)
-  stage       String       @default("group")     // group | round_16 | quarter | semi | final
-  predictions Prediction[]
+  id           String       @id @default(uuid())
+  externalId   Int?         @unique // ID do jogo na API externa (worldcup26.ir)
+  homeTeam     String
+  awayTeam     String
+  homeFlag     String?      // Código de emoji ou URL de bandeira
+  awayFlag     String?
+  homeTeamLogo String?      // URL da bandeira do flagcdn (time da casa)
+  awayTeamLogo String?      // URL da bandeira do flagcdn (time visitante)
+  homeLabel    String?      // Para eliminatórias: ex "Winner Match 73"
+  awayLabel    String?      // Para eliminatórias: ex "Runner-up Group A"
+  kickOff      DateTime     // Horário de início do jogo
+  homeScore    Int?         // Placar real do time de casa (null até a partida iniciar)
+  awayScore    Int?         // Placar real do time visitante
+  status       String       @default("scheduled") // scheduled | live | finished
+  stage        String       @default("group")     // group | r32 | r16 | qf | sf | third | final
+  matchday     String?      // Rodada do jogo: '1', '2', '3'
+  elapsed      String?      @default("notstarted") // minuto do jogo: 'notstarted', '45', 'halftime', 'finished'
+  lastSyncAt   DateTime?    // Última sincronização com API externa
+  predictions  Prediction[]
 }
 
 // 3. Modelo de Palpites (Predictions)
@@ -73,11 +82,19 @@ model Prediction {
   matchId   String
   homeGuess Int      // Placar chutado para o time de casa (ex: 2)
   awayGuess Int      // Placar chutado para o time visitante (ex: 1)
-  guess     String   // Vencedor/Empate derivado: "1" (Casa), "X" (Empate), "2" (Fora)
   createdAt DateTime @default(now())
   processed Boolean  @default(false)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
   @@unique([userId, matchId]) // Um único palpite por usuário por jogo
+}
+
+// 4. Log de Sincronização com API Externa
+model SyncLog {
+  id             String   @id @default(uuid())
+  syncedAt       DateTime @default(now())
+  matchesCreated Int      @default(0)
+  matchesUpdated Int      @default(0)
+  source         String   @default("worldcup26")
 }
