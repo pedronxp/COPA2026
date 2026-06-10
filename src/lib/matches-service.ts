@@ -24,6 +24,7 @@ export interface MatchData {
   matchday: string | null;
   group: string | null;
   elapsed: string | null;
+  predictionCount?: number;
 }
 
 export interface UserProfile {
@@ -155,6 +156,11 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
   const dbMatches = await prisma.match.findMany({
     where,
     orderBy: { kickOff: 'asc' },
+    include: {
+      _count: {
+        select: { predictions: true },
+      },
+    },
   });
 
   return dbMatches.map(m => ({
@@ -176,6 +182,7 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
     matchday: m.matchday,
     group: m.group,
     elapsed: m.elapsed,
+    predictionCount: m._count.predictions,
   }));
 }
 
@@ -226,17 +233,24 @@ export async function savePrediction(
   userId: string,
   matchId: string,
   homeGuess: number,
-  awayGuess: number
+  awayGuess: number,
+  windowHours: number = 48
 ): Promise<PredictionData> {
   await ensureUserExists(userId);
   // Buscar a partida do banco para validar Time Gate
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) throw new Error('Partida não encontrada.');
 
+  const now = Date.now();
   const kickoffTime = new Date(match.kickOff).getTime();
+  const openTime = kickoffTime - windowHours * 60 * 60 * 1000;
   const limitTime = kickoffTime - 30 * 60 * 1000;
-  if (Date.now() > limitTime) {
-    throw new Error('Palpites estão fechados para esta partida (limite de 30 minutos antes do jogo).');
+
+  if (now < openTime) {
+    throw new Error(`Palpites ainda não abertos para esta partida (abrem ${windowHours} horas antes do início).`);
+  }
+  if (now > limitTime) {
+    throw new Error('Palpites fechados para esta partida (limite de 30 minutos antes do início).');
   }
 
   const prediction = await prisma.prediction.upsert({
@@ -450,23 +464,28 @@ export async function syncFromApi(): Promise<SyncReport> {
       lastSyncAt: new Date(),
     };
 
-    // Verificar se já existe
     const existing = await prisma.match.findUnique({ where: { externalId } });
-
+    let matchId = '';
     if (existing) {
-      await prisma.match.update({
+      const updatedMatch = await prisma.match.update({
         where: { externalId },
         data: matchData,
       });
+      matchId = updatedMatch.id;
       updated++;
     } else {
-      await prisma.match.create({
+      const createdMatch = await prisma.match.create({
         data: {
           externalId,
           ...matchData,
         },
       });
+      matchId = createdMatch.id;
       created++;
+    }
+
+    if (matchData.status === 'finished') {
+      await processScoringForMatch(matchId);
     }
   }
 

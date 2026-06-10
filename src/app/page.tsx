@@ -21,6 +21,7 @@ interface Match {
   elapsed: string | null;
   homeLabel: string | null;
   awayLabel: string | null;
+  predictionCount?: number;
 }
 
 interface UserProfile {
@@ -94,8 +95,138 @@ export default function Home() {
   const [syncing, setSyncing] = useState<boolean>(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
-  // Tempo restante para o próximo jogo
-  const [countdownText, setCountdownText] = useState<string>('');
+  // Tempo real de sincronização dos cronômetros
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  const [predictionWindow, setPredictionWindow] = useState<number>(48);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('predictionWindow');
+    if (saved) {
+      const val = parseInt(saved);
+      if (val === 24 || val === 48) {
+        setPredictionWindow(val);
+      }
+    }
+  }, []);
+
+  const handlePredictionWindowChange = (val: number) => {
+    setPredictionWindow(val);
+    localStorage.setItem('predictionWindow', val.toString());
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getPredictionWindowStatus = (match: Match, windowHrs: number) => {
+    const kickoffTime = new Date(match.kickOff).getTime();
+    const openTime = kickoffTime - windowHrs * 60 * 60 * 1000;
+    const limitTime = kickoffTime - 30 * 60 * 1000;
+    const curr = currentTime;
+
+    if (match.status === 'finished') return { status: 'finished', isEditable: false };
+    if (match.status === 'live') return { status: 'live', isEditable: false };
+
+    if (curr < openTime) {
+      return { status: 'not_open', isEditable: false, openTime, limitTime };
+    } else if (curr >= openTime && curr <= limitTime) {
+      return { status: 'open', isEditable: true, openTime, limitTime };
+    } else {
+      return { status: 'closed', isEditable: false, openTime, limitTime };
+    }
+  };
+
+  const renderMatchTimer = (match: Match) => {
+    const windowStatus = getPredictionWindowStatus(match, predictionWindow);
+    const curr = currentTime;
+
+    if (match.status === 'finished') {
+      return (
+        <span className="badge bg-secondary" style={{ fontSize: '0.7rem' }}>
+          Encerrado
+        </span>
+      );
+    }
+
+    if (match.status === 'live') {
+      return (
+        <span className="badge-live">
+          <span className="live-dot"></span> AO VIVO
+          {match.elapsed && match.elapsed !== 'notstarted' && match.elapsed !== 'finished' && (
+            <span className="elapsed-badge ms-1">{match.elapsed === 'halftime' ? 'INT' : `${match.elapsed}'`}</span>
+          )}
+        </span>
+      );
+    }
+
+    if (windowStatus.status === 'not_open') {
+      const diff = windowStatus.openTime! - curr;
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      let text = 'Abre em ';
+      if (days > 0) text += `${days}d `;
+      text += `${hours}h ${minutes}m`;
+
+      return (
+        <span className="badge bg-dark border border-secondary text-secondary" style={{ fontSize: '0.7rem' }}>
+          <i className="bi bi-lock-fill me-1"></i> {text}
+        </span>
+      );
+    }
+
+    if (windowStatus.status === 'open') {
+      const diff = windowStatus.limitTime! - curr;
+      const isUrgent = diff < 2 * 60 * 60 * 1000; // less than 2 hours
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      const timeText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+      if (isUrgent) {
+        return (
+          <span className="badge-urgent-timer pulse-red-fast d-inline-flex align-items-center gap-1">
+            <i className="bi bi-exclamation-triangle-fill animate-bounce text-warning"></i>
+            <span>URGENTE: {timeText}</span>
+          </span>
+        );
+      }
+
+      return (
+        <span className="badge-open-timer d-inline-flex align-items-center gap-1">
+          <i className="bi bi-clock-history"></i>
+          <span>Restam {timeText}</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
+        <i className="bi bi-lock-fill me-1"></i> Fechado
+      </span>
+    );
+  };
+
+  const getNextMatchCountdownText = () => {
+    if (!nextMatch) return '';
+    const kickoffTime = new Date(nextMatch.kickOff).getTime();
+    const limitTime = kickoffTime - 30 * 60 * 1000;
+    const diff = limitTime - currentTime;
+    if (diff <= 0) return 'Mercado Fechado!';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    let text = '';
+    if (days > 0) text += `${days}d `;
+    return text + `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  };
 
   // Buscar dados da API
   const fetchData = useCallback(async (showLoader = false) => {
@@ -190,38 +321,6 @@ export default function Home() {
     fetchData(true);
   }, [fetchData]);
 
-  // Cronômetro para o fechamento do próximo jogo
-  useEffect(() => {
-    const nextSched = Array.isArray(matches) ? matches.find(m => m.status === 'scheduled') : null;
-    if (!nextSched) {
-      setCountdownText('');
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const kickoffTime = new Date(nextSched.kickOff).getTime();
-      const limitTime = kickoffTime - 30 * 60 * 1000; // Mercado fecha 30 min antes
-      const now = Date.now();
-      const diff = limitTime - now;
-
-      if (diff <= 0) {
-        setCountdownText('Mercado Fechado!');
-      } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        let text = '';
-        if (days > 0) text += `${days}d `;
-        text += `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
-        setCountdownText(text);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [matches]);
-
   const fetchLastSync = async () => {
     try {
       const res = await fetch('/api/sync');
@@ -277,7 +376,8 @@ export default function Home() {
         body: JSON.stringify({
           matchId,
           homeGuess: parseInt(guessData.home),
-          awayGuess: parseInt(guessData.away)
+          awayGuess: parseInt(guessData.away),
+          windowHours: predictionWindow
         })
       });
 
@@ -428,6 +528,13 @@ export default function Home() {
 
   // Estatísticas para o Dashboard
   const nextMatch = Array.isArray(matches) ? matches.find(m => m.status === 'scheduled') : undefined;
+  const countdownText = getNextMatchCountdownText();
+  const trendingMatches = Array.isArray(matches)
+    ? [...matches]
+        .filter(m => m.status !== 'finished')
+        .sort((a, b) => (b.predictionCount || 0) - (a.predictionCount || 0))
+        .slice(0, 3)
+    : [];
   const finishedMatches = Array.isArray(matches) ? matches.filter(m => m.status === 'finished') : [];
   const groupClassification = calculateGroupsClassification(matches);
 
@@ -568,31 +675,52 @@ export default function Home() {
     <div className="d-flex flex-column h-100 min-vh-100">
       
       {/* 1. Barra de Topo Geral */}
-      <header className="navbar sticky-top bg-dark navbar-dark px-3 py-2 border-bottom border-secondary shadow-sm">
+      <header className="premium-header sticky-top px-3 py-2 shadow-sm">
         <div className="container-fluid d-flex justify-content-between align-items-center">
           
           <div className="d-flex align-items-center gap-1">
-            <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2" style={{ letterSpacing: '0.5px' }}>
+            <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2 logo-glow" style={{ letterSpacing: '0.5px' }}>
               🏆 COPA<span className="text-info">ANT</span>
             </span>
-            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem' }}>DADOS REAIS</span>
+            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>DADOS REAIS</span>
           </div>
 
           <div className="d-flex align-items-center gap-3">
             
+            {/* Seletor de Janela de Palpite */}
+            <div className="d-flex align-items-center gap-2 bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
+              <span className="text-secondary d-none d-lg-inline ps-2 font-monospace" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
+                LIBERAÇÃO:
+              </span>
+              <button
+                className={`btn btn-sm rounded-pill px-3 py-0-5 font-monospace text-uppercase transition-all ${predictionWindow === 24 ? 'btn-neon-green text-white fw-bold active' : 'text-secondary bg-transparent border-0'}`}
+                style={{ fontSize: '0.65rem', height: '24px', display: 'flex', alignItems: 'center' }}
+                onClick={() => handlePredictionWindowChange(24)}
+              >
+                24h
+              </button>
+              <button
+                className={`btn btn-sm rounded-pill px-3 py-0-5 font-monospace text-uppercase transition-all ${predictionWindow === 48 ? 'btn-neon-green text-white fw-bold active' : 'text-secondary bg-transparent border-0'}`}
+                style={{ fontSize: '0.65rem', height: '24px', display: 'flex', alignItems: 'center' }}
+                onClick={() => handlePredictionWindowChange(48)}
+              >
+                48h
+              </button>
+            </div>
+
             {/* Seletor de Contas Sandbox no Header */}
-            <div className="d-flex align-items-center">
-              <span className="text-secondary d-none d-md-inline me-2" style={{ fontSize: '0.75rem' }}>
-                <i className="bi bi-people-fill"></i> Usuário:
+            <div className="d-flex align-items-center bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
+              <span className="text-secondary d-none d-md-inline ps-2" style={{ fontSize: '0.65rem', fontWeight: '500' }}>
+                <i className="bi bi-people-fill me-1"></i> USUÁRIO:
               </span>
               <select 
-                className="form-select form-select-sm bg-dark text-white border-secondary"
-                style={{ fontSize: '0.8rem', width: '150px' }}
+                className="premium-select bg-transparent text-white border-0"
+                style={{ fontSize: '0.75rem', width: '130px', outline: 'none', cursor: 'pointer', paddingRight: '20px' }}
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
               >
                 {users.map(u => (
-                  <option key={u.id} value={u.id}>
+                  <option key={u.id} value={u.id} className="bg-dark text-white">
                     {u.image} {u.name.split(' ')[0]} ({u.points} pts)
                   </option>
                 ))}
@@ -601,33 +729,34 @@ export default function Home() {
 
             {/* Botão de Sincronização Dinâmico no Header */}
             <button
-              className="btn d-flex align-items-center justify-content-center btn-sync-header"
+              className="btn d-flex align-items-center justify-content-center btn-sync-header hover-scale"
               onClick={handleManualSync}
               disabled={syncing}
               title="Sincronizar Partidas e Resultados com a API"
               style={{
-                width: '38px',
-                height: '38px',
+                width: '32px',
+                height: '32px',
                 borderRadius: '50%',
                 background: 'rgba(29, 42, 69, 0.4)',
-                border: '1px solid rgba(96, 239, 255, 0.3)',
+                border: '1px solid rgba(96, 239, 255, 0.25)',
                 color: 'var(--neon-cyan)',
                 transition: 'all 0.3s ease'
               }}
             >
               {syncing ? (
-                <span className="spinner-border spinner-border-sm" role="status" style={{ width: '1.2rem', height: '1.2rem' }}></span>
+                <span className="spinner-border spinner-border-sm" role="status" style={{ width: '1rem', height: '1rem' }}></span>
               ) : (
-                <i className="bi bi-arrow-repeat fs-5" style={{ display: 'inline-block', transition: 'transform 0.3s ease' }}></i>
+                <i className="bi bi-arrow-repeat fs-6 sync-icon" style={{ display: 'inline-block' }}></i>
               )}
             </button>
 
             {/* Pontos do Jogador Atual */}
-            <div className="glass-card px-3 py-1 d-flex align-items-center gap-2 border border-info border-opacity-70">
+            <div className="glass-card px-3 py-1 d-flex align-items-center gap-2 border-0 shadow-sm"
+                 style={{ background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(8, 12, 20, 0.6) 100%)', border: '1px solid rgba(14, 165, 233, 0.25)', borderRadius: '20px' }}>
               <span className="fs-5">{currentUser?.image || '👑'}</span>
               <div className="d-flex flex-column text-start">
-                <span className="text-secondary" style={{ fontSize: '0.65rem', lineHeight: 1 }}>SEUS PONTOS</span>
-                <span className="text-info fw-bold fs-6">{currentUser?.points || 0} pts</span>
+                <span className="text-secondary" style={{ fontSize: '0.55rem', lineHeight: 1, fontWeight: '700' }}>SEUS PONTOS</span>
+                <span className="text-info fw-bold font-monospace" style={{ fontSize: '0.8rem', lineHeight: 1.2 }}>{currentUser?.points || 0} PTS</span>
               </div>
             </div>
 
@@ -770,6 +899,146 @@ export default function Home() {
                           </div>
                         );
                       })()}
+
+                      {/* Seção: Jogos em Alta (Trending Matches) */}
+                      {trendingMatches.length > 0 && (
+                        <div className="glass-card p-4 mb-4 text-start border-info border-opacity-25" style={{ background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.2) 0%, rgba(15, 23, 42, 0.4) 100%)' }}>
+                          <div className="d-flex justify-content-between align-items-center mb-3">
+                            <h5 className="text-white fw-bold m-0 d-flex align-items-center gap-2">
+                              <span className="pulse-fire">🔥</span> Jogos em Alta
+                            </h5>
+                            <span className="text-secondary d-none d-sm-inline" style={{ fontSize: '0.75rem' }}>Mais palpitados pela galera</span>
+                          </div>
+
+                          <div className="row g-3">
+                            {trendingMatches.map(match => {
+                              const windowStatus = getPredictionWindowStatus(match, predictionWindow);
+                              const isEditable = windowStatus.isEditable;
+                              const stats = matchStats[match.id];
+                              const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
+                              const localGuess = localGuesses[match.id] || { home: '', away: '' };
+                              const userPred = predictions.find(p => p.matchId === match.id);
+                              const hasPrediction = !!userPred;
+                              const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
+
+                              return (
+                                <div key={`trending-${match.id}`} className="col-12 col-md-4">
+                                  <div className={`glass-card p-3 h-100 d-flex flex-column justify-content-between border-secondary border-opacity-20 bg-dark bg-opacity-30 hover-scale`} style={{ minHeight: '260px' }}>
+                                    
+                                    {/* Cabeçalho do Card */}
+                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                      <span className="text-secondary font-monospace" style={{ fontSize: '0.65rem' }}>
+                                        {new Date(match.kickOff).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às {new Date(match.kickOff).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}h
+                                      </span>
+                                      <span className="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" style={{ fontSize: '0.6rem' }}>
+                                        💬 {match.predictionCount || 0}
+                                      </span>
+                                    </div>
+
+                                    {/* Times e Placar de Palpite */}
+                                    <div className="d-flex align-items-center justify-content-between my-2">
+                                      {/* Casa */}
+                                      <div className="d-flex flex-column align-items-center" style={{ width: '30%' }}>
+                                        <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
+                                        <span className="text-white fw-bold text-center mt-1 text-truncate w-100" style={{ fontSize: '0.75rem' }}>
+                                          {match.homeTeam}
+                                        </span>
+                                      </div>
+
+                                      {/* Inputs */}
+                                      <div className="d-flex align-items-center gap-1 justify-content-center" style={{ width: '40%' }}>
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          className="score-input"
+                                          style={{ width: '34px', height: '34px', fontSize: '0.95rem', borderRadius: '6px', ...(isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : {}) }}
+                                          value={localGuess.home}
+                                          onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
+                                          disabled={!isEditable}
+                                          placeholder="-"
+                                        />
+                                        <span className="text-secondary" style={{ fontSize: '0.8rem' }}>x</span>
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          className="score-input"
+                                          style={{ width: '34px', height: '34px', fontSize: '0.95rem', borderRadius: '6px', ...(isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : {}) }}
+                                          value={localGuess.away}
+                                          onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
+                                          disabled={!isEditable}
+                                          placeholder="-"
+                                        />
+                                      </div>
+
+                                      {/* Visitante */}
+                                      <div className="d-flex flex-column align-items-center" style={{ width: '30%' }}>
+                                        <TeamFlag logo={match.awayTeamLogo} flag={match.awayFlag} teamName={match.awayTeam} />
+                                        <span className="text-white fw-bold text-center mt-1 text-truncate w-100" style={{ fontSize: '0.75rem' }}>
+                                          {match.awayTeam}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Timer de Fechamento */}
+                                    <div className="text-center my-2">
+                                      {renderMatchTimer(match)}
+                                    </div>
+
+                                    {/* Secômetro */}
+                                    <div className="my-2">
+                                      {hasStats ? (
+                                        <div className="thermostat-bar d-flex" style={{ height: '4px' }}>
+                                          <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }} title={`Vitória Casa: ${stats.home}%`}></div>
+                                          <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }} title={`Empate: ${stats.draw}%`}></div>
+                                          <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }} title={`Vitória Fora: ${stats.away}%`}></div>
+                                        </div>
+                                      ) : (
+                                        <div className="thermostat-bar" style={{ height: '4px', opacity: 0.1 }}></div>
+                                      )}
+                                    </div>
+
+                                    {/* Botão de Enviar */}
+                                    {isEditable && (
+                                      <div className="mt-1">
+                                        {userPred ? (
+                                          isPredictionSaved ? (
+                                            <button
+                                              className="btn btn-outline-success w-100 py-1"
+                                              style={{ fontSize: '0.7rem', borderColor: 'rgba(0, 255, 135, 0.4)', color: 'var(--neon-green)', background: 'rgba(0, 255, 135, 0.05)', borderRadius: '6px' }}
+                                              disabled
+                                            >
+                                              Confirmado ✓
+                                            </button>
+                                          ) : (
+                                            <button
+                                              className="btn btn-warning w-100 py-1 fw-bold text-dark"
+                                              style={{ fontSize: '0.7rem', borderRadius: '6px', boxShadow: '0 0 10px rgba(255, 193, 7, 0.2)' }}
+                                              onClick={() => saveUserPrediction(match.id)}
+                                              disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                            >
+                                              {savingPredictionId === match.id ? '...' : 'Atualizar'}
+                                            </button>
+                                          )
+                                        ) : (
+                                          <button
+                                            className="btn btn-neon-green btn-sm w-100 py-1"
+                                            style={{ fontSize: '0.7rem', borderRadius: '6px' }}
+                                            onClick={() => saveUserPrediction(match.id)}
+                                            disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                          >
+                                            {savingPredictionId === match.id ? '...' : 'Palpitar'}
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Card Próximo Jogo Regressivo */}
                       {nextMatch ? (
@@ -988,8 +1257,8 @@ export default function Home() {
                   <div className="row g-3">
                     {filterMatches(matches.filter(m => m.status !== 'finished'))
                       .map(match => {
-                        const isExpired = isTimeGateExpired(match.kickOff);
-                        const isLive = match.status === 'live';
+                        const windowStatus = getPredictionWindowStatus(match, predictionWindow);
+                        const isEditable = windowStatus.isEditable;
                         const stats = matchStats[match.id];
                         const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
                         const localGuess = localGuesses[match.id] || { home: '', away: '' };
@@ -1018,26 +1287,14 @@ export default function Home() {
                                     </span>
                                   )}
                                 </span>
-                                {isLive ? (
-                                  <span className="badge-live">
-                                    <span className="live-dot"></span> AO VIVO
-                                    {match.elapsed && match.elapsed !== 'notstarted' && match.elapsed !== 'finished' && (
-                                      <span className="elapsed-badge ms-1">{match.elapsed === 'halftime' ? 'INT' : `${match.elapsed}'`}</span>
-                                    )}
-                                  </span>
-                                ) : isExpired ? (
-                                  <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-lock-fill"></i> Fechado
-                                  </span>
-                                ) : hasPrediction ? (
-                                  <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-check-circle-fill"></i> Palpitado
-                                  </span>
-                                ) : (
-                                  <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-unlock-fill"></i> Aberto
-                                  </span>
-                                )}
+                                <div className="d-flex align-items-center gap-1">
+                                  {hasPrediction && (
+                                    <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                      ✓ Palpitado
+                                    </span>
+                                  )}
+                                  {renderMatchTimer(match)}
+                                </div>
                               </div>
 
                               {/* Placar e Botões */}
@@ -1052,7 +1309,7 @@ export default function Home() {
                                     style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
                                     value={localGuess.home}
                                     onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
-                                    disabled={isExpired || isLive}
+                                    disabled={!isEditable}
                                     placeholder="-"
                                   />
                                   <span className="text-secondary fw-bold">x</span>
@@ -1063,7 +1320,7 @@ export default function Home() {
                                     style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
                                     value={localGuess.away}
                                     onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
-                                    disabled={isExpired || isLive}
+                                    disabled={!isEditable}
                                     placeholder="-"
                                   />
                                 </div>
@@ -1072,7 +1329,7 @@ export default function Home() {
                               </div>
 
                               {/* Placar ao vivo */}
-                              {isLive && match.homeScore !== null && match.awayScore !== null && (
+                              {match.status === 'live' && match.homeScore !== null && match.awayScore !== null && (
                                 <div className="text-center my-1">
                                   <span className="text-info fw-bold fs-5">{match.homeScore} - {match.awayScore}</span>
                                   <span className="text-secondary ms-2" style={{ fontSize: '0.7rem' }}>PLACAR ATUAL</span>
@@ -1080,7 +1337,7 @@ export default function Home() {
                               )}
 
                               {/* Botão de Enviar */}
-                              {!isExpired && !isLive && (
+                              {isEditable && (
                                 <div className="mt-3">
                                   {userPred ? (
                                     isPredictionSaved ? (
@@ -1403,8 +1660,8 @@ export default function Home() {
                             {matches
                               .filter(m => m.status !== 'finished' && predictions.some(p => p.matchId === m.id))
                               .map(match => {
-                                const isExpired = isTimeGateExpired(match.kickOff);
-                                const isLive = match.status === 'live';
+                                const windowStatus = getPredictionWindowStatus(match, predictionWindow);
+                                const isEditable = windowStatus.isEditable;
                                 const stats = matchStats[match.id];
                                 const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
                                 const localGuess = localGuesses[match.id] || { home: '', away: '' };
@@ -1427,19 +1684,12 @@ export default function Home() {
                                             </span>
                                           )}
                                         </span>
-                                        {isLive ? (
-                                          <span className="badge-live">
-                                            <span className="live-dot"></span> AO VIVO
+                                        <div className="d-flex align-items-center gap-1">
+                                          <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                            ✓ Palpitado
                                           </span>
-                                        ) : isExpired ? (
-                                          <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-lock-fill"></i> Fechado
-                                          </span>
-                                        ) : (
-                                          <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-unlock-fill"></i> Editável
-                                          </span>
-                                        )}
+                                          {renderMatchTimer(match)}
+                                        </div>
                                       </div>
 
                                       {/* Placar e Botões */}
@@ -1454,7 +1704,7 @@ export default function Home() {
                                             style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
                                             value={localGuess.home}
                                             onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
-                                            disabled={isExpired || isLive}
+                                            disabled={!isEditable}
                                             placeholder="-"
                                           />
                                           <span className="text-secondary fw-bold">x</span>
@@ -1465,7 +1715,7 @@ export default function Home() {
                                             style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
                                             value={localGuess.away}
                                             onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
-                                            disabled={isExpired || isLive}
+                                            disabled={!isEditable}
                                             placeholder="-"
                                           />
                                         </div>
@@ -1474,7 +1724,7 @@ export default function Home() {
                                       </div>
 
                                       {/* Botão de Enviar / Atualizar */}
-                                      {!isExpired && !isLive && (
+                                      {isEditable && (
                                         <div className="mt-3">
                                           {isPredictionSaved ? (
                                             <button

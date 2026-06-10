@@ -1,19 +1,22 @@
 /* src/app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 
 :root {
-  --background: #090d16;
-  --foreground: #f8f9fa;
-  --card-bg: rgba(19, 27, 46, 0.7);
-  --card-border: rgba(29, 42, 69, 0.5);
+  --background: #080c14;
+  --foreground: #f8fafc;
+  --card-bg: rgba(15, 23, 42, 0.6);
+  --card-border: rgba(30, 41, 59, 0.6);
   
-  --neon-green: #00ff87;
-  --neon-cyan: #60efff;
-  --neon-red: #ff4a5a;
-  --gold: #ffd700;
-  --silver: #c0c0c0;
-  --bronze: #cd7f32;
+  --neon-green: #10b981; /* Emerald/Mint */
+  --neon-cyan: #0ea5e9;  /* Sky/Ocean Blue */
+  --neon-red: #f43f5e;   /* Rose/Coral Red */
+  --warning-yellow: #f59e0b; /* Amber */
+  --gold: #fbbf24;
+  --silver: #cbd5e1;
+  --bronze: #d97706;
   
-  --font-sans: var(--font-outfit), Arial, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
 }
 
 body {
@@ -24,7 +27,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Webkit Scrollbars */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -33,90 +36,94 @@ body {
   background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1d2a45;
-  border-radius: 4px;
+  background: #1e293b;
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--neon-cyan);
 }
 
-/* Design System - Glassmorphism Cards */
+/* Design System - Premium Glassmorphism Cards */
 .glass-card {
   background: var(--card-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--card-border);
   border-radius: 16px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
-  border-color: rgba(96, 239, 255, 0.3);
-  box-shadow: 0 12px 40px 0 rgba(96, 239, 255, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
+  box-shadow: 0 15px 40px -10px rgba(14, 165, 233, 0.05);
 }
 
 .border-success-subtle {
-  border-color: rgba(0, 255, 135, 0.35) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 255, 135, 0.03) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.02) 0%, rgba(15, 23, 42, 0.6) 100%) !important;
 }
 
-/* Placar Input Cards (Estilo GE) */
+/* Placar Input Cards */
 .score-input {
-  width: 48px;
-  height: 48px;
-  font-size: 1.4rem;
+  width: 46px;
+  height: 46px;
+  font-size: 1.25rem;
   font-weight: 700;
   text-align: center;
-  border-radius: 10px;
-  border: 2px solid #1d2a45;
-  background-color: #0c1220;
+  border-radius: 8px;
+  border: 1.5px solid #1e293b;
+  background-color: #0d1527;
   color: #fff;
-  transition: all 0.2s ease;
+  font-family: var(--font-display);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .score-input:focus {
   border-color: var(--neon-cyan);
-  box-shadow: 0 0 10px rgba(96, 239, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
   outline: none;
 }
 
 .score-input:disabled {
-  background-color: #171f30;
-  border-color: #2b3954;
-  color: #6c757d;
+  background-color: #0f172a;
+  border-color: #1e293b;
+  color: #64748b;
   cursor: not-allowed;
 }
 
-/* Botões Neon */
+/* Botões Modernos */
 .btn-neon-green {
-  background: linear-gradient(135deg, #00ff87 0%, #00d169 100%);
-  color: #090d16 !important;
-  font-weight: 700;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff !important;
+  font-weight: 600;
   border: none;
-  border-radius: 10px;
-  box-shadow: 0 0 15px rgba(0, 255, 135, 0.3);
+  border-radius: 8px;
+  padding: 8px 16px;
   transition: all 0.2s ease;
 }
 .btn-neon-green:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(0, 255, 135, 0.5);
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
-.btn-neon-green:active {
-  transform: translateY(0);
+.btn-neon-green:disabled {
+  background: #1e293b;
+  color: #64748b !important;
+  opacity: 0.6;
 }
 
 .btn-neon-outline {
   background: transparent;
-  color: var(--neon-cyan) !important;
-  border: 1px solid var(--neon-cyan);
-  font-weight: 600;
-  border-radius: 10px;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155;
+  font-weight: 500;
+  border-radius: 8px;
   transition: all 0.2s ease;
 }
 .btn-neon-outline:hover {
-  background: rgba(96, 239, 255, 0.1);
-  box-shadow: 0 0 15px rgba(96, 239, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #475569;
 }
 
 /* Live Badge Indicator */
@@ -124,7 +131,7 @@ body {
   background-color: var(--neon-red);
   color: white;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   padding: 4px 8px;
   border-radius: 6px;
   letter-spacing: 0.5px;
@@ -156,11 +163,60 @@ body {
   }
 }
 
-/* Animações e Destaque do Líder (Gold Crown) */
+/* Timer Animado de Palpites */
+.badge-open-timer {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--neon-green);
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.badge-urgent-timer {
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid var(--neon-red);
+  color: var(--neon-red);
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.15);
+}
+
+.pulse-red-fast {
+  animation: pulse-red-fast-anim 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-red-fast-anim {
+  0% {
+    opacity: 0.8;
+    box-shadow: 0 0 4px rgba(244, 63, 94, 0.1);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+  }
+}
+
+.spin-hourglass {
+  animation: spin-hourglass-anim 2s infinite ease-in-out;
+}
+
+@keyframes spin-hourglass-anim {
+  0%, 90% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(180deg);
+  }
+}
+
+/* Destaque do Líder */
 .leader-card-1 {
-  border: 1px solid rgba(255, 215, 0, 0.3) !important;
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, rgba(19, 27, 46, 0.8) 100%) !important;
-  box-shadow: 0 8px 32px 0 rgba(255, 215, 0, 0.08) !important;
+  border: 1px solid rgba(245, 158, 11, 0.25) !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.03) 0%, rgba(15, 23, 42, 0.8) 100%) !important;
   position: relative;
   overflow: hidden;
 }
@@ -172,9 +228,9 @@ body {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
+  background: linear-gradient(45deg, transparent, rgba(245, 158, 11, 0.05), transparent);
   transform: rotate(45deg);
-  animation: shine 4s infinite linear;
+  animation: shine 6s infinite linear;
 }
 
 @keyframes shine {
@@ -188,7 +244,7 @@ body {
 
 .crown-bounce {
   font-size: 1.8rem;
-  animation: crown-float 2s infinite ease-in-out;
+  animation: crown-float 2.5s infinite ease-in-out;
   display: inline-block;
 }
 
@@ -197,45 +253,45 @@ body {
     transform: translateY(0) rotate(0);
   }
   50% {
-    transform: translateY(-5px) rotate(5deg);
+    transform: translateY(-4px) rotate(4deg);
   }
 }
 
-/* Termômetro da Galera (Barra de Progresso) */
+/* Termômetro da Galera (Secômetro) */
 .thermostat-bar {
-  height: 8px;
-  background-color: #1a233a;
-  border-radius: 4px;
+  height: 6px;
+  background-color: #1e293b;
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .thermostat-segment-home {
-  background-color: var(--neon-green);
+  background: linear-gradient(90deg, #10b981, #34d399);
 }
 .thermostat-segment-draw {
-  background-color: #6c757d;
+  background-color: #475569;
 }
 .thermostat-segment-away {
-  background-color: var(--neon-cyan);
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
 }
 
-/* Navegação inferior (Estilo App Nativo - Mobile Only) */
+/* Navegação inferior (Estilo Mobile) */
 .mobile-nav-bar {
-  background: rgba(11, 15, 25, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(29, 42, 69, 0.6);
+  background: rgba(8, 12, 20, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(30, 41, 59, 0.8);
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   height: 65px;
   z-index: 1030;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .mobile-nav-item {
-  color: #6c757d;
+  color: #64748b;
   font-size: 0.75rem;
   text-decoration: none !important;
   display: flex;
@@ -248,7 +304,7 @@ body {
 }
 
 .mobile-nav-item i {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   margin-bottom: 2px;
   transition: all 0.2s ease;
 }
@@ -263,7 +319,7 @@ body {
   color: var(--neon-cyan);
 }
 
-/* Card Social Highlights (Foguinho e Dedinho) */
+/* Card Social Highlights */
 .highlight-up {
   border-left: 4px solid var(--neon-green) !important;
 }
@@ -279,40 +335,35 @@ body {
 @keyframes pulse-fire-anim {
   0% {
     transform: scale(1);
-    filter: drop-shadow(0 0 2px rgba(255, 69, 0, 0.5));
+    filter: drop-shadow(0 0 1px rgba(245, 158, 11, 0.4));
   }
   100% {
-    transform: scale(1.15);
-    filter: drop-shadow(0 0 8px rgba(255, 69, 0, 0.8));
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.7));
   }
 }
 
-/* ======================================================== */
-/* ESTRUTURA RESPONSIVA DE COMPUTADOR (DESKTOP)             */
-/* ======================================================== */
+/* ESTRUTURA RESPONSIVA DE COMPUTADOR (DESKTOP) */
 @media (min-width: 768px) {
-  /* Ocultar barra inferior no desktop */
   .mobile-nav-bar {
     display: none !important;
   }
   
-  /* Ajustes no layout de visualização */
   .desktop-layout {
     display: flex !important;
     min-height: 100vh;
   }
   
-  /* Barra Lateral (Sidebar) Fixa no Desktop */
   .desktop-sidebar {
-    width: 250px;
-    background: #0d1322;
-    border-right: 1px solid rgba(29, 42, 69, 0.6);
+    width: 260px;
+    background: #090d16;
+    border-right: 1px solid rgba(30, 41, 59, 0.7);
     position: fixed;
-    top: 56px;
+    top: 69px;
     bottom: 0;
     left: 0;
     z-index: 1000;
-    padding: 20px;
+    padding: 24px;
     display: flex !important;
     flex-direction: column;
     justify-content: space-between;
@@ -321,87 +372,82 @@ body {
   .desktop-sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
   
   .desktop-sidebar-item {
     background: transparent;
-    color: #a0aec0;
+    color: #94a3b8;
     border: none;
     padding: 12px 16px;
-    border-radius: 12px;
+    border-radius: 8px;
     text-align: left;
-    font-weight: 500;
-    font-size: 0.95rem;
+    font-weight: 600;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: all 0.25s ease;
+    transition: all 0.2s ease;
     width: 100%;
   }
   
   .desktop-sidebar-item i {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
   }
   
   .desktop-sidebar-item:hover {
-    color: #fff;
-    background: rgba(29, 42, 69, 0.4);
+    color: #f8fafc;
+    background: rgba(30, 41, 59, 0.3);
   }
   
   .desktop-sidebar-item.active {
-    background: linear-gradient(135deg, rgba(96, 239, 255, 0.15) 0%, rgba(0, 255, 135, 0.1) 100%);
+    background: rgba(14, 165, 233, 0.08);
     color: var(--neon-cyan);
-    border: 1px solid rgba(96, 239, 255, 0.2);
-    font-weight: 600;
+    border: 1px solid rgba(14, 165, 233, 0.2);
   }
   
-  /* Área de Conteúdo Principal no Desktop */
   .desktop-content {
-    margin-left: 250px;
-    padding: 24px;
+    margin-left: 260px;
+    padding: 32px;
     flex-grow: 1;
-    width: calc(100% - 250px);
+    width: calc(100% - 260px);
   }
 }
 
 @media (max-width: 767px) {
-  /* Ocultar barra lateral e layout desktop no celular */
   .desktop-sidebar {
     display: none !important;
   }
   .desktop-content {
     margin-left: 0 !important;
     width: 100% !important;
-    padding: 12px !important;
+    padding: 16px !important;
   }
 }
 
 /* Bandeiras/Logos dos Times */
 .team-flag-img {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   object-fit: cover;
   border-radius: 50%;
-  border: 2px solid rgba(96, 239, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
 }
 
 .team-flag-img:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
-/* Filtro de Grupos/Rodadas */
+/* Filtro de Grupos */
 .filter-bar {
   display: flex;
   gap: 6px;
   overflow-x: auto;
   padding-bottom: 8px;
-  -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
 .filter-bar::-webkit-scrollbar {
   display: none;
 }
@@ -412,27 +458,27 @@ body {
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid rgba(29, 42, 69, 0.6);
+  border: 1px solid #1e293b;
   background: transparent;
-  color: #a0aec0;
+  color: #94a3b8;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .filter-chip:hover {
-  border-color: rgba(96, 239, 255, 0.4);
-  color: #fff;
+  border-color: #334155;
+  color: #f8fafc;
 }
 
 .filter-chip.active {
-  background: linear-gradient(135deg, rgba(96, 239, 255, 0.15) 0%, rgba(0, 255, 135, 0.1) 100%);
+  background: rgba(14, 165, 233, 0.08);
   border-color: var(--neon-cyan);
   color: var(--neon-cyan);
 }
 
 /* Minuto Ao Vivo */
 .elapsed-badge {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: white;
   animation: elapsed-pulse 2s infinite;
@@ -443,36 +489,92 @@ body {
   50% { opacity: 0.6; }
 }
 
-/* Botão Sync */
-.btn-sync {
-  background: linear-gradient(135deg, #60efff 0%, #00b4d8 100%);
-  color: #090d16 !important;
-  font-weight: 700;
-  border: none;
-  border-radius: 10px;
-  transition: all 0.2s ease;
+/* Estilo para o ícone de sincronização */
+.btn-sync-header:hover .sync-icon {
+  transform: rotate(180deg);
+}
+.sync-icon {
+  display: inline-block;
+  transition: transform 0.4s ease;
 }
 
-.btn-sync:hover:not(:disabled) {
+/* Efeito Hover nos cards quentes */
+.hover-scale:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 20px rgba(96, 239, 255, 0.4);
 }
 
-.btn-sync:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-/* Emoji grande para partidas de eliminatórias sem time definido */
 .tbd-icon {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
-  background: rgba(29, 42, 69, 0.4);
+  font-size: 1.4rem;
+  background: rgba(30, 41, 59, 0.3);
   border-radius: 50%;
-  border: 2px dashed rgba(96, 239, 255, 0.2);
+  border: 1.5px dashed rgba(255, 255, 255, 0.15);
 }
 
+/* Premium Header Glassmorphic */
+.premium-header {
+  background: rgba(8, 12, 20, 0.75) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  z-index: 1040;
+}
+
+/* Neon logo text glow */
+.logo-glow {
+  text-shadow: 0 0 12px rgba(14, 165, 233, 0.45);
+}
+
+/* Premium styled Select dropdown */
+.premium-select {
+  border: none;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  background-size: 10px 10px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 18px;
+}
+
+.premium-select:focus {
+  outline: none;
+}
+
+/* Clock spin animation */
+.spin-clockwise {
+  animation: spin-clockwise-anim 4s infinite linear;
+}
+
+@keyframes spin-clockwise-anim {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Hourglass spin */
+.spin-hourglass {
+  animation: spin-hourglass-anim 2s infinite ease-in-out;
+}
+
+/* Bounce animation for warning icon */
+.animate-bounce {
+  animation: bounce-anim 1s infinite alternate cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes bounce-anim {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-3px); }
+}
+
+/* Dynamic window button pill */
+.btn-neon-green.active {
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}

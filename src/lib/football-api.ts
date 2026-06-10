@@ -1,5 +1,6 @@
 // src/lib/football-api.ts
 // Cliente HTTP para a API WorldCup26.ir (dados abertos da Copa do Mundo 2026)
+import backupData from './backup-data.json';
 
 const API_BASE = process.env.WORLDCUP_API_BASE || 'https://worldcup26.ir';
 const TIMEOUT_MS = 10_000;
@@ -65,14 +66,18 @@ export async function fetchGames(): Promise<ApiGame[]> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/get/games`);
     if (!response.ok) {
-      console.error(`[football-api] Erro ao buscar games: HTTP ${response.status}`);
-      return [];
+      console.warn(`[football-api] Erro ao buscar games (HTTP ${response.status}). Usando backup local.`);
+      return backupData.games as ApiGame[];
     }
     const data = await response.json();
-    return data.games ?? [];
+    if (data && Array.isArray(data.games) && data.games.length > 0) {
+      return data.games;
+    }
+    console.warn('[football-api] API retornou lista de jogos vazia ou inválida. Usando backup local.');
+    return backupData.games as ApiGame[];
   } catch (error) {
-    console.error('[football-api] Erro ao buscar games:', error);
-    return [];
+    console.error('[football-api] Erro de rede ao buscar games. Usando backup local:', error);
+    return backupData.games as ApiGame[];
   }
 }
 
@@ -84,14 +89,18 @@ export async function fetchTeams(): Promise<ApiTeam[]> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/get/teams`);
     if (!response.ok) {
-      console.error(`[football-api] Erro ao buscar teams: HTTP ${response.status}`);
-      return [];
+      console.warn(`[football-api] Erro ao buscar teams (HTTP ${response.status}). Usando backup local.`);
+      return backupData.teams as ApiTeam[];
     }
     const data = await response.json();
-    return data.teams ?? [];
+    if (data && Array.isArray(data.teams) && data.teams.length > 0) {
+      return data.teams;
+    }
+    console.warn('[football-api] API retornou lista de times vazia ou inválida. Usando backup local.');
+    return backupData.teams as ApiTeam[];
   } catch (error) {
-    console.error('[football-api] Erro ao buscar teams:', error);
-    return [];
+    console.error('[football-api] Erro de rede ao buscar teams. Usando backup local:', error);
+    return backupData.teams as ApiTeam[];
   }
 }
 

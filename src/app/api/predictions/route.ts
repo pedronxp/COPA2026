@@ -21,14 +21,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { matchId, homeGuess, awayGuess } = body;
+    const { matchId, homeGuess, awayGuess, windowHours } = body;
     const userId = request.headers.get('x-user-id') || 'currentUser';
 
     if (!matchId || homeGuess === undefined || awayGuess === undefined) {
       return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
     }
 
-    const prediction = await savePrediction(userId, matchId, homeGuess, awayGuess);
+    const prediction = await savePrediction(userId, matchId, homeGuess, awayGuess, windowHours);
     return NextResponse.json(prediction);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
