@@ -22,6 +22,7 @@ export interface MatchData {
   status: string;
   stage: string;
   matchday: string | null;
+  group: string | null;
   elapsed: string | null;
 }
 
@@ -98,7 +99,41 @@ export function calculatePredictionPoints(
 // ─── Funções de Dados (Prisma direto) ────────────────────────────────
 
 /**
- * Busca partidas do banco com filtro opcional por stage e/ou group (matchday).
+ * Garante que o usuário existe no banco de dados para evitar violações de integridade.
+ */
+export async function ensureUserExists(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    if (userId === 'currentUser') {
+      await prisma.user.create({
+        data: {
+          id: 'currentUser',
+          name: 'Você (Torcedor)',
+          email: 'usuario@copa.com',
+          image: '👑',
+          points: 0,
+          streak: 0,
+          misses: 0,
+        },
+      });
+    } else {
+      await prisma.user.create({
+        data: {
+          id: userId,
+          name: `Competidor ${userId.substring(0, 5)}`,
+          email: `${userId}@bolao.com`,
+          image: '👤',
+          points: 0,
+          streak: 0,
+          misses: 0,
+        },
+      });
+    }
+  }
+}
+
+/**
+ * Busca partidas do banco com filtro opcional por stage e/ou group.
  */
 export async function getMatches(filter?: { stage?: string; group?: string }): Promise<MatchData[]> {
   const where: Record<string, unknown> = {};
@@ -106,10 +141,15 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
   if (filter?.stage) {
     where.stage = filter.stage;
   }
-  // O campo "group" na API corresponde a filtrar por matchday ou pelo grupo da tabela
-  // Vamos usar matchday se informado
+  
   if (filter?.group) {
-    where.matchday = filter.group;
+    // Se o filtro for uma única letra de A a L, filtra pela coluna de grupo
+    if (filter.group.length === 1 && filter.group >= 'A' && filter.group <= 'L') {
+      where.group = filter.group;
+    } else {
+      // Caso contrário, pode ser filtro de matchday ou stage
+      where.matchday = filter.group;
+    }
   }
 
   const dbMatches = await prisma.match.findMany({
@@ -134,6 +174,7 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
     status: m.status,
     stage: m.stage,
     matchday: m.matchday,
+    group: m.group,
     elapsed: m.elapsed,
   }));
 }
@@ -142,6 +183,7 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
  * Busca todos os usuários ordenados por pontos (ranking/leaderboard).
  */
 export async function getUsers(): Promise<UserProfile[]> {
+  await ensureUserExists('currentUser');
   const dbUsers = await prisma.user.findMany({
     orderBy: { points: 'desc' },
   });
@@ -161,6 +203,7 @@ export async function getUsers(): Promise<UserProfile[]> {
  * Busca todos os palpites de um usuário.
  */
 export async function getPredictions(userId: string): Promise<PredictionData[]> {
+  await ensureUserExists(userId);
   const dbPreds = await prisma.prediction.findMany({
     where: { userId },
   });
@@ -185,6 +228,7 @@ export async function savePrediction(
   homeGuess: number,
   awayGuess: number
 ): Promise<PredictionData> {
+  await ensureUserExists(userId);
   // Buscar a partida do banco para validar Time Gate
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) throw new Error('Partida não encontrada.');
@@ -250,6 +294,7 @@ export async function updateMatchScore(
     awayScore: updated.awayScore,
     status: updated.status,
     stage: updated.stage,
+    group: updated.group,
     matchday: updated.matchday,
     elapsed: updated.elapsed,
   };
@@ -328,20 +373,28 @@ export async function getMatchStats(matchId: string): Promise<MatchStats> {
 // ─── Sincronização com API Externa ──────────────────────────────────
 
 /**
- * Converte data no formato "MM/DD/YYYY HH:mm" para Date.
+ * Converte data no formato "MM/DD/YYYY HH:mm" da API externa para UTC real 
+ * usando a região correspondente do fuso horário do estádio na Copa de 2026.
  */
-function parseLocalDate(dateStr: string): Date {
-  // Formato: "06/11/2026 13:00"
+function parseLocalDateWithOffset(dateStr: string, stadiumId: string): Date {
+  // Formato: "06/11/2026 17:00"
   const [datePart, timePart] = dateStr.split(' ');
   const [month, day, year] = datePart.split('/');
   const [hour, minute] = timePart.split(':');
-  return new Date(
-    parseInt(year),
-    parseInt(month) - 1,
-    parseInt(day),
-    parseInt(hour),
-    parseInt(minute)
-  );
+
+  // Mapeamento de fusos horários da Copa de 2026 (Horário de Verão em junho/julho):
+  // Eastern (Boston, Miami, NY, Phila, Atlanta, Toronto): UTC-4
+  // Central (CDT/Cidade do México, Monterrey, Guadalajara, Dallas, Houston, Kansas City): UTC-5
+  // Western (Seattle, Vancouver, SF Bay Area, Los Angeles): UTC-7
+  let offset = '-05:00'; // Central por padrão
+  if (['7', '8', '9', '10', '11', '12'].includes(stadiumId)) {
+    offset = '-04:00'; // Eastern
+  } else if (['13', '14', '15', '16'].includes(stadiumId)) {
+    offset = '-07:00'; // Western
+  }
+
+  const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00${offset}`;
+  return new Date(isoString);
 }
 
 /**
@@ -370,7 +423,7 @@ export async function syncFromApi(): Promise<SyncReport> {
     const homeTeam = teamMap.get(game.home_team_id);
     const awayTeam = teamMap.get(game.away_team_id);
 
-    const kickOff = parseLocalDate(game.local_date);
+    const kickOff = parseLocalDateWithOffset(game.local_date, game.stadium_id);
     const isFinished = game.finished?.toUpperCase() === 'TRUE';
     const status = isFinished ? 'finished' : game.time_elapsed !== 'notstarted' ? 'live' : 'scheduled';
 
@@ -391,6 +444,7 @@ export async function syncFromApi(): Promise<SyncReport> {
       awayScore,
       status,
       stage: game.type || 'group',
+      group: game.group || null,
       matchday: game.matchday || null,
       elapsed: game.time_elapsed || 'notstarted',
       lastSyncAt: new Date(),

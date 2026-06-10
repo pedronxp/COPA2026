@@ -48,16 +48,30 @@ interface MatchStatsEntry {
   away: number;
 }
 
+interface TeamStats {
+  name: string;
+  logo: string | null;
+  flag: string | null;
+  points: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+}
+
 export default function Home() {
-  // Estados da Aplicação
-  const [activeTab, setActiveTab] = useState<'home' | 'matches' | 'leaderboard' | 'history' | 'admin'>('home');
+  // Estados da Aplicação (admin removido, calendar adicionado)
+  const [activeTab, setActiveTab] = useState<'home' | 'matches' | 'leaderboard' | 'calendar' | 'history'>('home');
   const [matches, setMatches] = useState<Match[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   
-  // Usuário Selecionado para simulação de Sandbox
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  // Usuário Selecionado para simulação de Sandbox/Contas
   const [selectedUserId, setSelectedUserId] = useState<string>('currentUser');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   
   // Estado de carregamento e mensagens
   const [loading, setLoading] = useState<boolean>(true);
@@ -67,31 +81,26 @@ export default function Home() {
   // Estados dos inputs de palpites locais
   const [localGuesses, setLocalGuesses] = useState<Record<string, { home: string; away: string }>>({});
 
-  // Estados do Criador de Competidores Sandbox
-  const [newCompetitorName, setNewCompetitorName] = useState<string>('');
-  const [newCompetitorAvatar, setNewCompetitorAvatar] = useState<string>('😎');
-
-  // Estados do Painel de Simulação (Admin)
-  const [simulatingMatchId, setSimulatingMatchId] = useState<string | null>(null);
-  const [simHomeScore, setSimHomeScore] = useState<string>('0');
-  const [simAwayScore, setSimAwayScore] = useState<string>('0');
-  const [simStatus, setSimStatus] = useState<'scheduled' | 'live' | 'finished'>('live');
-
   // Stats reais do Secômetro (busca da API)
   const [matchStats, setMatchStats] = useState<Record<string, MatchStatsEntry>>({});
 
   // Filtro por grupo/rodada na aba Palpites
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
 
+  // Filtro de Grupo selecionado na aba Tabela/Calendário
+  const [selectedGroupTab, setSelectedGroupTab] = useState<string>('A');
+
   // Sync automático - estado
   const [syncing, setSyncing] = useState<boolean>(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
+  // Tempo restante para o próximo jogo
+  const [countdownText, setCountdownText] = useState<string>('');
+
   // Buscar dados da API
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showLoader = false) => {
     try {
-      setLoading(true);
-      
+      if (showLoader) setLoading(true);
       // Partidas
       const matchesRes = await fetch('/api/matches');
       let matchesData: Match[] = [];
@@ -100,11 +109,7 @@ export default function Home() {
         if (Array.isArray(data)) {
           matchesData = data;
           setMatches(matchesData);
-        } else {
-          console.warn('Matches API não retornou array:', data);
         }
-      } else {
-        console.warn('Erro na requisição de Matches:', matchesRes.status);
       }
 
       // Usuários (Ranking)
@@ -115,11 +120,7 @@ export default function Home() {
         if (Array.isArray(data)) {
           usersData = data;
           setUsers(usersData);
-        } else {
-          console.warn('Leaderboard API não retornou array:', data);
         }
-      } else {
-        console.warn('Erro na requisição de Leaderboard:', usersRes.status);
       }
 
       // Usuário logado
@@ -136,11 +137,7 @@ export default function Home() {
         if (Array.isArray(data)) {
           predsData = data;
           setPredictions(predsData);
-        } else {
-          console.warn('Predictions API não retornou array:', data);
         }
-      } else {
-        console.warn('Erro na requisição de Predictions:', predsRes.status);
       }
 
       // Inicializar guesses locais
@@ -165,7 +162,7 @@ export default function Home() {
               statsMap[m.id] = statsData;
             }
           } catch {
-            // Ignora erros de stats individuais
+            // Ignora erros de stats
           }
         })
       );
@@ -184,20 +181,46 @@ export default function Home() {
     const syncData = async () => {
       try {
         await fetch('/api/sync', { method: 'POST' });
+        fetchLastSync();
       } catch (e) {
         console.warn('Sync automático falhou:', e);
       }
     };
     syncData();
-    fetchData();
+    fetchData(true);
   }, [fetchData]);
 
-  // Buscar último sync ao carregar aba admin
+  // Cronômetro para o fechamento do próximo jogo
   useEffect(() => {
-    if (activeTab === 'admin') {
-      fetchLastSync();
+    const nextSched = Array.isArray(matches) ? matches.find(m => m.status === 'scheduled') : null;
+    if (!nextSched) {
+      setCountdownText('');
+      return;
     }
-  }, [activeTab]);
+
+    const interval = setInterval(() => {
+      const kickoffTime = new Date(nextSched.kickOff).getTime();
+      const limitTime = kickoffTime - 30 * 60 * 1000; // Mercado fecha 30 min antes
+      const now = Date.now();
+      const diff = limitTime - now;
+
+      if (diff <= 0) {
+        setCountdownText('Mercado Fechado!');
+      } else {
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        let text = '';
+        if (days > 0) text += `${days}d `;
+        text += `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+        setCountdownText(text);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [matches]);
 
   const fetchLastSync = async () => {
     try {
@@ -209,7 +232,7 @@ export default function Home() {
         }
       }
     } catch {
-      // Ignora erros
+      // Ignora
     }
   };
 
@@ -263,10 +286,13 @@ export default function Home() {
 
       showToast('Palpite registrado!', 'success');
       
-      // Atualizar lista
+      // Atualizar lista de palpites
       const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}`);
       const predsData = await predsRes.json();
       setPredictions(predsData);
+      
+      // Recarregar os dados do secômetro e ranking
+      fetchData(false);
 
     } catch (error: any) {
       showToast(error.message, 'danger');
@@ -289,88 +315,18 @@ export default function Home() {
     }
   };
 
-  // Adicionar um novo competidor real para testes
-  const handleAddCompetitor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCompetitorName.trim()) return;
-
-    try {
-      const res = await fetch('/api/leaderboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newCompetitorName.trim(),
-          image: newCompetitorAvatar
-        })
-      });
-
-      if (!res.ok) throw new Error('Erro ao criar competidor.');
-
-      showToast(`Competidor "${newCompetitorName}" adicionado!`, 'success');
-      setNewCompetitorName('');
-      fetchData();
-
-    } catch (err: any) {
-      console.warn('POST /api/leaderboard não disponível. Executando em memória de sandbox.', err);
-    }
-  };
-
-  // Atualizar partida no simulador
-  const handleSimulateMatch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!simulatingMatchId) return;
-
-    try {
-      const res = await fetch('/api/matches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          matchId: simulatingMatchId,
-          homeScore: parseInt(simHomeScore),
-          awayScore: parseInt(simAwayScore),
-          status: simStatus
-        })
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Erro ao simular.');
-      }
-
-      showToast('Resultado aplicado e pontos recalculados!', 'success');
-      setSimulatingMatchId(null);
-      fetchData();
-
-    } catch (error: any) {
-      showToast(error.message, 'danger');
-    }
-  };
-
-  // Resetar toda a simulação
-  const handleResetSimulation = async () => {
-    if (!confirm('Reiniciar o Bolão? Todos os pontos voltarão a zero e palpites serão apagados.')) return;
-    try {
-      const res = await fetch('/api/simulation/reset', { method: 'POST' });
-      if (!res.ok) throw new Error('Erro ao reiniciar.');
-      showToast('Simulação reiniciada!', 'success');
-      setSelectedUserId('currentUser');
-      fetchData();
-      setActiveTab('home');
-    } catch (error: any) {
-      showToast(error.message, 'danger');
-    }
-  };
-
-  // Sync manual com a API WorldCup26.ir
+  // Sincronização manual (disparada pelo botão do header)
   const handleManualSync = async () => {
+    if (syncing) return;
     setSyncing(true);
     try {
       const res = await fetch('/api/sync', { method: 'POST' });
-      if (!res.ok) throw new Error('Erro ao sincronizar.');
       const data = await res.json();
-      showToast(`Sincronização concluída! ${data.matchesUpdated || 0} partidas atualizadas.`, 'success');
+      if (!res.ok) throw new Error(data.error || 'Falha ao sincronizar.');
+
+      showToast(`Tabela sincronizada! ${data.created} criadas, ${data.updated} atualizadas.`, 'success');
       fetchLastSync();
-      fetchData();
+      fetchData(false);
     } catch (error: any) {
       showToast(error.message || 'Falha na sincronização.', 'danger');
     } finally {
@@ -384,9 +340,120 @@ export default function Home() {
     window.open(url, '_blank');
   };
 
+  // Cálculo da classificação dos grupos para a aba Tabela
+  const calculateGroupsClassification = (matchList: Match[]) => {
+    const groups: Record<string, Record<string, TeamStats>> = {};
+    const groupMatches = matchList.filter(m => m.stage === 'group' && m.group);
+
+    groupMatches.forEach(m => {
+      const grp = m.group!;
+      if (!groups[grp]) {
+        groups[grp] = {};
+      }
+
+      if (!groups[grp][m.homeTeam]) {
+        groups[grp][m.homeTeam] = {
+          name: m.homeTeam,
+          logo: m.homeTeamLogo,
+          flag: m.homeFlag,
+          points: 0,
+          played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          goalDifference: 0
+        };
+      }
+      if (!groups[grp][m.awayTeam]) {
+        groups[grp][m.awayTeam] = {
+          name: m.awayTeam,
+          logo: m.awayTeamLogo,
+          flag: m.awayFlag,
+          points: 0,
+          played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          goalDifference: 0
+        };
+      }
+
+      if (m.status === 'finished' && m.homeScore !== null && m.awayScore !== null) {
+        const home = groups[grp][m.homeTeam];
+        const away = groups[grp][m.awayTeam];
+
+        home.played += 1;
+        away.played += 1;
+        home.goalsFor += m.homeScore;
+        home.goalsAgainst += m.awayScore;
+        away.goalsFor += m.awayScore;
+        away.goalsAgainst += m.homeScore;
+
+        if (m.homeScore > m.awayScore) {
+          home.wins += 1;
+          home.points += 3;
+          away.losses += 1;
+        } else if (m.homeScore < m.awayScore) {
+          away.wins += 1;
+          away.points += 3;
+          home.losses += 1;
+        } else {
+          home.draws += 1;
+          home.points += 1;
+          away.draws += 1;
+          away.points += 1;
+        }
+
+        home.goalDifference = home.goalsFor - home.goalsAgainst;
+        away.goalDifference = away.goalsFor - away.goalsAgainst;
+      }
+    });
+
+    const sortedGroups: Record<string, TeamStats[]> = {};
+    Object.keys(groups).forEach(grp => {
+      sortedGroups[grp] = Object.values(groups[grp]).sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+        if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+        return a.name.localeCompare(b.name);
+      });
+    });
+
+    return sortedGroups;
+  };
+
   // Estatísticas para o Dashboard
   const nextMatch = Array.isArray(matches) ? matches.find(m => m.status === 'scheduled') : undefined;
   const finishedMatches = Array.isArray(matches) ? matches.filter(m => m.status === 'finished') : [];
+  const groupClassification = calculateGroupsClassification(matches);
+
+  // Palpites Recentes do Usuário para o Dashboard da Home (ordenados por data de jogo mais recente)
+  const recentUserPredictions = Array.isArray(predictions) && Array.isArray(matches)
+    ? [...predictions]
+        .map(p => {
+          const match = matches.find(m => m.id === p.matchId);
+          return { prediction: p, match };
+        })
+        .filter(item => item.match && item.match.status === 'finished')
+        .sort((a, b) => new Date(b.match!.kickOff).getTime() - new Date(a.match!.kickOff).getTime())
+        .slice(0, 3)
+    : [];
+
+  // Palpites Futuros do Usuário para o Dashboard da Home (ordenados por data de jogo mais próxima)
+  const upcomingUserPredictions = Array.isArray(predictions) && Array.isArray(matches)
+    ? [...predictions]
+        .map(p => {
+          const match = matches.find(m => m.id === p.matchId);
+          return { prediction: p, match };
+        })
+        .filter(item => item.match && item.match.status !== 'finished')
+        .sort((a, b) => new Date(a.match!.kickOff).getTime() - new Date(b.match!.kickOff).getTime())
+        .slice(0, 3)
+    : [];
   
   const isTimeGateExpired = (kickOffStr: string) => {
     const kickOff = new Date(kickOffStr).getTime();
@@ -396,17 +463,14 @@ export default function Home() {
 
   // Streaks reais dos competidores ativos
   const usersInAlta = Array.isArray(users)
-    ? [...users].filter(u => u.streak > 0).sort((a, b) => b.streak - a.streak)
+    ? [...users].filter(u => u.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 5)
     : [];
 
   const usersInBaixa = Array.isArray(users)
-    ? [...users].filter(u => u.misses > 0).sort((a, b) => b.misses - a.misses)
+    ? [...users].filter(u => u.misses > 0).sort((a, b) => b.misses - a.misses).slice(0, 5)
     : [];
 
-  // Emojis de avatar para seleção
-  const avatars = ['😎', '⚽', '👑', '🏃', '🧤', '🔥', '🏆', '⭐', '🦁', '🦊'];
-
-  // Filtros disponíveis
+  // Filtros disponíveis de rodada
   const filterOptions = [
     { value: 'all', label: 'Todos' },
     { value: 'A', label: 'Grupo A' },
@@ -421,22 +485,23 @@ export default function Home() {
     { value: 'J', label: 'Grupo J' },
     { value: 'K', label: 'Grupo K' },
     { value: 'L', label: 'Grupo L' },
-    { value: 'r32', label: 'R32' },
-    { value: 'r16', label: 'R16' },
-    { value: 'qf', label: 'QF' },
-    { value: 'sf', label: 'SF' },
-    { value: 'third', label: '3º' },
+    { value: 'r32', label: 'Trinta e dois avos (R32)' },
+    { value: 'r16', label: 'Oitavas (R16)' },
+    { value: 'qf', label: 'Quartas (QF)' },
+    { value: 'sf', label: 'Semifinal (SF)' },
+    { value: 'third', label: '3º Lugar' },
     { value: 'final', label: 'Final' },
   ];
+
+  // Letras de Grupos de A a L para a aba Tabela
+  const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
   // Filtrar partidas conforme seleção
   const filterMatches = (matchList: Match[]) => {
     if (selectedFilter === 'all') return matchList;
-    // Filtro por grupo (letras A-L)
     if (selectedFilter.length === 1 && selectedFilter >= 'A' && selectedFilter <= 'L') {
       return matchList.filter(m => m.group === selectedFilter);
     }
-    // Filtro por stage
     return matchList.filter(m => m.stage === selectedFilter);
   };
 
@@ -452,9 +517,20 @@ export default function Home() {
       );
     }
     if (flag) {
-      return <span className="display-6">{flag}</span>;
+      // Usar flagcdn para bandeiras circulares baseado no ISO de 2 letras
+      return (
+        <img
+          src={`https://flagcdn.com/w80/${flag.toLowerCase()}.png`}
+          alt={teamName}
+          className="team-flag-img"
+          onError={(e) => {
+            // Fallback para emoji de bandeira se falhar
+            (e.target as HTMLElement).style.display = 'none';
+          }}
+        />
+      );
     }
-    return <span className="display-6">🏳️</span>;
+    return <span className="tbd-icon">🏳️</span>;
   };
 
   // Componente de renderização de time para eliminatórias (TBD)
@@ -465,7 +541,6 @@ export default function Home() {
     const teamFlag = isHome ? match.homeFlag : match.awayFlag;
     const teamLabel = isHome ? match.homeLabel : match.awayLabel;
 
-    // Se é eliminatória com label e sem nome de time real
     const isKnockoutTBD = match.stage !== 'group' && teamLabel && (!teamName || teamName === teamLabel);
 
     if (isKnockoutTBD) {
@@ -496,23 +571,23 @@ export default function Home() {
       <header className="navbar sticky-top bg-dark navbar-dark px-3 py-2 border-bottom border-secondary shadow-sm">
         <div className="container-fluid d-flex justify-content-between align-items-center">
           
-          <div className="d-flex align-items-center">
+          <div className="d-flex align-items-center gap-1">
             <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2" style={{ letterSpacing: '0.5px' }}>
               🏆 COPA<span className="text-info">ANT</span>
             </span>
-            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem' }}>EFEITOS NEON</span>
+            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem' }}>DADOS REAIS</span>
           </div>
 
           <div className="d-flex align-items-center gap-3">
             
             {/* Seletor de Contas Sandbox no Header */}
             <div className="d-flex align-items-center">
-              <span className="text-secondary d-none d-sm-inline me-2" style={{ fontSize: '0.75rem' }}>
-                <i className="bi bi-people-fill"></i> Jogar como:
+              <span className="text-secondary d-none d-md-inline me-2" style={{ fontSize: '0.75rem' }}>
+                <i className="bi bi-people-fill"></i> Usuário:
               </span>
               <select 
                 className="form-select form-select-sm bg-dark text-white border-secondary"
-                style={{ fontSize: '0.8rem', width: '160px' }}
+                style={{ fontSize: '0.8rem', width: '150px' }}
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
               >
@@ -523,6 +598,29 @@ export default function Home() {
                 ))}
               </select>
             </div>
+
+            {/* Botão de Sincronização Dinâmico no Header */}
+            <button
+              className="btn d-flex align-items-center justify-content-center btn-sync-header"
+              onClick={handleManualSync}
+              disabled={syncing}
+              title="Sincronizar Partidas e Resultados com a API"
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: 'rgba(29, 42, 69, 0.4)',
+                border: '1px solid rgba(96, 239, 255, 0.3)',
+                color: 'var(--neon-cyan)',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {syncing ? (
+                <span className="spinner-border spinner-border-sm" role="status" style={{ width: '1.2rem', height: '1.2rem' }}></span>
+              ) : (
+                <i className="bi bi-arrow-repeat fs-5" style={{ display: 'inline-block', transition: 'transform 0.3s ease' }}></i>
+              )}
+            </button>
 
             {/* Pontos do Jogador Atual */}
             <div className="glass-card px-3 py-1 d-flex align-items-center gap-2 border border-info border-opacity-70">
@@ -556,28 +654,28 @@ export default function Home() {
               className={`desktop-sidebar-item ${activeTab === 'matches' ? 'active' : ''}`}
               onClick={() => setActiveTab('matches')}
             >
-              <i className="bi bi-lightning-charge-fill"></i> Palpites (Jogos)
+              <i className="bi bi-lightning-charge-fill"></i> Dar Palpites
+            </button>
+
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'calendar' ? 'active' : ''}`}
+              onClick={() => setActiveTab('calendar')}
+            >
+              <i className="bi bi-calendar-event-fill"></i> Tabela / Grupos
             </button>
 
             <button 
               className={`desktop-sidebar-item ${activeTab === 'leaderboard' ? 'active' : ''}`}
               onClick={() => setActiveTab('leaderboard')}
             >
-              <i className="bi bi-trophy-fill"></i> Tabela / Ranking
+              <i className="bi bi-trophy-fill"></i> Ranking Geral
             </button>
 
             <button 
               className={`desktop-sidebar-item ${activeTab === 'history' ? 'active' : ''}`}
               onClick={() => setActiveTab('history')}
             >
-              <i className="bi bi-clock-history"></i> Histórico
-            </button>
-
-            <button 
-              className={`desktop-sidebar-item ${activeTab === 'admin' ? 'active' : ''}`}
-              onClick={() => setActiveTab('admin')}
-            >
-              <i className="bi bi-person-gear"></i> Simulador Sandbox
+              <i className="bi bi-clock-history"></i> Seus Palpites
             </button>
 
           </div>
@@ -589,7 +687,7 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* ÁREA DE CONTEÚDO PRINCIPAL (Se adapta responsivamente) */}
+        {/* ÁREA DE CONTEÚDO PRINCIPAL */}
         <main className="desktop-content pb-5 mb-5 flex-grow-1">
           
           {/* Toast de Alerta */}
@@ -605,17 +703,16 @@ export default function Home() {
           {loading ? (
             <div className="d-flex flex-column align-items-center justify-content-center py-5">
               <div className="spinner-border text-info mb-3" role="status"></div>
-              <span className="text-secondary">Sincronizando tabelas com o Neon SQL...</span>
+              <span className="text-secondary">Conectando ao banco Neon SQL & API Oficial...</span>
             </div>
           ) : (
             <>
               {/* ======================================================== */}
-              {/* ABA: HOME (Layout responsivo com colunas no desktop)     */}
+              {/* ABA: HOME (Dashboard principal responsivo)               */}
               {/* ======================================================== */}
               {activeTab === 'home' && (
                 <div className="fade-in animate__animated animate__fadeIn">
                   
-                  {/* Grid responsivo: 2 colunas no desktop, 1 coluna no celular */}
                   <div className="row g-4">
                     
                     {/* Coluna Principal da Home (Esquerda) */}
@@ -623,24 +720,62 @@ export default function Home() {
                       
                       {/* Banner de Boas-vindas */}
                       <div className="glass-card p-4 mb-4 text-start border-info border-opacity-25" style={{ background: 'linear-gradient(135deg, rgba(0, 255, 135, 0.05) 0%, rgba(96, 239, 255, 0.1) 100%)' }}>
-                        <h4 className="text-white fw-bold mb-2">Chegou a hora de provar que você entende! ⚽</h4>
+                        <h4 className="text-white fw-bold mb-2">Bolão Copa 2026 com Dados em Tempo Real ⚽</h4>
                         <p className="text-secondary mb-3" style={{ fontSize: '0.9rem' }}>
-                          Dê palpites nos placares das partidas antes de a bola rolar. Pontue na tabela oficial no estilo do Globo Esporte (GE) e desafie seus amigos!
+                          Acompanhe o calendário oficial, veja a tabela de classificação dos grupos atualizada instantaneamente e registre seus palpites!
                         </p>
-                        <div className="d-flex gap-2">
+                        <div className="d-flex gap-2 flex-wrap">
                           <button className="btn btn-neon-green px-4 py-2" onClick={() => setActiveTab('matches')}>
                             <i className="bi bi-lightning-charge-fill"></i> Ir para Palpites
                           </button>
                           <button className="btn btn-neon-outline px-4 py-2" onClick={handleShareWhatsApp}>
-                            <i className="bi bi-whatsapp"></i> Compartilhar Bolão
+                            <i className="bi bi-whatsapp"></i> Compartilhar
                           </button>
                         </div>
                       </div>
 
+                      {/* Card de Desempenho no Bolão */}
+                      {(() => {
+                        const userRank = users.findIndex(u => u.id === selectedUserId) + 1;
+                        return (
+                          <div className="glass-card p-4 mb-4 text-start border-info border-opacity-35" style={{ background: 'linear-gradient(135deg, rgba(96, 239, 255, 0.05) 0%, rgba(19, 27, 46, 0.7) 100%)' }}>
+                            <h5 className="text-white fw-bold mb-3">👑 Seu Desempenho no Bolão</h5>
+                            <div className="row g-3">
+                              <div className="col-4 text-center border-end border-secondary border-opacity-20">
+                                <div className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>RANKING</div>
+                                <div className="fs-3 fw-extrabold text-warning mt-1">
+                                  {userRank > 0 ? `#${userRank}º` : '-'}
+                                </div>
+                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>de {users.length} jogadores</div>
+                              </div>
+                              <div className="col-4 text-center border-end border-secondary border-opacity-20">
+                                <div className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>PONTOS</div>
+                                <div className="fs-3 fw-extrabold text-info mt-1">{currentUser?.points || 0}</div>
+                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>pontos acumulados</div>
+                              </div>
+                              <div className="col-4 text-center">
+                                <div className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>SEQUÊNCIA</div>
+                                <div className="fs-4 fw-bold mt-1 text-white">
+                                  {currentUser && currentUser.streak > 0 ? (
+                                    <span className="text-success"><i className="bi bi-fire text-danger"></i> {currentUser.streak} 🔥</span>
+                                  ) : currentUser && currentUser.misses > 0 ? (
+                                    <span className="text-danger"><i className="bi bi-snow text-primary"></i> {currentUser.misses} ❄️</span>
+                                  ) : (
+                                    <span className="text-secondary" style={{ fontSize: '0.85rem' }}>Nenhuma</span>
+                                  )}
+                                </div>
+                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>streak ativa</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Card Próximo Jogo Regressivo */}
                       {nextMatch ? (
                         <div className="glass-card p-4 mb-4 text-center border-secondary">
-                          <span className="text-secondary fw-semibold text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>FECHAMENTO DE MERCADO</span>
+                          <span className="text-secondary fw-semibold text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>PRÓXIMO JOGO DA COPA</span>
+                          
                           <div className="d-flex align-items-center justify-content-around my-3">
                             <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
                               <TeamFlag logo={nextMatch.homeTeamLogo} flag={nextMatch.homeFlag} teamName={nextMatch.homeTeam} />
@@ -652,64 +787,112 @@ export default function Home() {
                               <span className="fw-bold text-white mt-2 fs-5">{nextMatch.awayTeam}</span>
                             </div>
                           </div>
+
+                          {countdownText && (
+                            <div className="mb-2">
+                              <span className="text-secondary" style={{ fontSize: '0.8rem' }}>FECHAMENTO DO MERCADO EM:</span>
+                              <div className="fs-4 fw-bold text-warning font-monospace mt-1">{countdownText}</div>
+                            </div>
+                          )}
+
                           <div className="pt-2 border-top border-secondary text-secondary" style={{ fontSize: '0.85rem' }}>
                             <i className="bi bi-clock-fill text-warning me-1"></i>
-                            O palpite trava automaticamente exatamente **30 minutos antes** do jogo começar.
+                            Início: {new Date(nextMatch.kickOff).toLocaleDateString('pt-BR', {
+                              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                            })}h (Horário de Brasília)
                           </div>
                         </div>
                       ) : (
                         <div className="glass-card p-4 mb-4 text-center text-secondary">
                           <i className="bi bi-check2-circle fs-1 text-success mb-2"></i>
-                          <h5>Nenhuma partida agendada</h5>
-                          <p className="m-0" style={{ fontSize: '0.85rem' }}>Todos os jogos cadastrados já estão em andamento ou foram finalizados!</p>
+                          <h5>Nenhuma partida agendada no momento</h5>
+                          <p className="m-0" style={{ fontSize: '0.85rem' }}>Aguardando sincronização de novas rodadas ou a Copa terminou.</p>
                         </div>
                       )}
 
-                      {/* Tabela de como Pontuar (Explicação) */}
-                      <div className="glass-card p-4 text-start">
+                      {/* Resumo de Palpites do Usuário */}
+                      <div className="glass-card p-4 text-start mb-4">
                         <h5 className="text-white fw-bold mb-3">
-                          <i className="bi bi-award text-info me-2"></i> Sistema de Pontuação (GE)
+                          <i className="bi bi-check2-all text-info me-2"></i> Resumo de Seus Palpites
                         </h5>
-                        <div className="table-responsive">
-                          <table className="table table-dark table-borderless m-0" style={{ fontSize: '0.85rem' }}>
-                            <thead>
-                              <tr className="text-secondary border-bottom border-secondary">
-                                <th scope="col">Cenário do Palpite</th>
-                                <th scope="col" className="text-end">Pontos</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-bottom border-secondary border-opacity-25">
-                                <td className="py-2">🎯 **Placar Exato** (ex: Apostou 2x1, Placar final 2x1)</td>
-                                <td className="text-end text-info fw-bold py-2">+5</td>
-                              </tr>
-                              <tr className="border-bottom border-secondary border-opacity-25">
-                                <td className="py-2">⚽ **Vencedor e Saldo** (ex: Apostou 2x0, Placar final 3x1 - diferença de 2 gols)</td>
-                                <td className="text-end text-info fw-bold py-2">+3</td>
-                              </tr>
-                              <tr className="border-bottom border-secondary border-opacity-25">
-                                <td className="py-2">🏃 **Vencedor Simples** (ex: Apostou 2x1, Placar final 3x0 - acertou quem ganhou mas errou saldo)</td>
-                                <td className="text-end text-info fw-bold py-2">+2</td>
-                              </tr>
-                              <tr className="border-bottom border-secondary border-opacity-25">
-                                <td className="py-2">🤝 **Empate Não Exato** (ex: Apostou 1x1, Placar final 2x2)</td>
-                                <td className="text-end text-info fw-bold py-2">+2</td>
-                              </tr>
-                              <tr>
-                                <td className="py-2">❌ **Erro Total** (Errou quem venceria ou errou o empate)</td>
-                                <td className="text-end text-secondary py-2">0</td>
-                              </tr>
-                            </tbody>
-                          </table>
+                        <div className="row g-3">
+                          {/* Coluna 1: Próximos Palpites */}
+                          <div className="col-12 col-md-6 border-end border-secondary border-opacity-10">
+                            <h6 className="text-secondary fw-bold mb-2" style={{ fontSize: '0.8rem' }}>🎯 PRÓXIMOS PALPITES</h6>
+                            {upcomingUserPredictions.length > 0 ? (
+                              <div className="d-flex flex-column gap-2">
+                                {upcomingUserPredictions.map(item => {
+                                  const match = item.match!;
+                                  const pred = item.prediction;
+                                  return (
+                                    <div key={pred.id} className="p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+                                      <div className="d-flex flex-column text-truncate" style={{ maxWidth: '75%' }}>
+                                        <span className="text-white fw-bold text-truncate" style={{ fontSize: '0.8rem' }}>
+                                          {match.homeTeam} vs {match.awayTeam}
+                                        </span>
+                                        <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                          {new Date(match.kickOff).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}h
+                                        </span>
+                                      </div>
+                                      <span className="badge bg-secondary font-monospace" style={{ fontSize: '0.75rem' }}>
+                                        {pred.homeGuess} x {pred.awayGuess}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-secondary m-0" style={{ fontSize: '0.75rem' }}>
+                                Nenhum palpite salvo para os próximos jogos.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Coluna 2: Resultados Recentes */}
+                          <div className="col-12 col-md-6">
+                            <h6 className="text-secondary fw-bold mb-2" style={{ fontSize: '0.8rem' }}>🏆 ÚLTIMOS RESULTADOS</h6>
+                            {recentUserPredictions.length > 0 ? (
+                              <div className="d-flex flex-column gap-2">
+                                {recentUserPredictions.map(item => {
+                                  const match = item.match!;
+                                  const pred = item.prediction;
+                                  const pts = calculatePredictionPoints(pred.homeGuess, pred.awayGuess, match.homeScore || 0, match.awayScore || 0);
+                                  let badgeClass = 'bg-danger';
+                                  if (pts === 5) badgeClass = 'bg-success';
+                                  else if (pts > 0) badgeClass = 'bg-info text-dark';
+
+                                  return (
+                                    <div key={pred.id} className="p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+                                      <div className="d-flex flex-column text-truncate" style={{ maxWidth: '70%' }}>
+                                        <span className="text-white fw-bold text-truncate" style={{ fontSize: '0.8rem' }}>
+                                          {match.homeTeam} {match.homeScore} x {match.awayScore} {match.awayTeam}
+                                        </span>
+                                        <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                          Palpite: {pred.homeGuess} x {pred.awayGuess}
+                                        </span>
+                                      </div>
+                                      <span className={`badge ${badgeClass}`} style={{ fontSize: '0.7rem' }}>
+                                        +{pts} pts
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-secondary m-0" style={{ fontSize: '0.75rem' }}>
+                                Nenhum palpite finalizado processado.
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                     </div>
 
-                    {/* Coluna Lateral da Home (Direita - Apenas desktop, flui no mobile) */}
+                    {/* Coluna Lateral da Home (Direita) */}
                     <div className="col-12 col-lg-4">
                       
-                      {/* Estatísticas de Andamento */}
+                      {/* Progresso do Campeonato */}
                       <div className="glass-card p-3 mb-4 text-start">
                         <h6 className="text-white fw-bold mb-3">📊 Progresso do Bolão</h6>
                         <div className="d-flex justify-content-around text-center mb-2">
@@ -728,7 +911,7 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* Efeitos Sociais (Em alta / Em baixa) */}
+                      {/* Sequências (Em alta / Em baixa) */}
                       <div className="d-flex flex-column gap-3 mb-4">
                         
                         {/* EM ALTA 🔥 */}
@@ -747,7 +930,7 @@ export default function Home() {
                               ))}
                             </div>
                           ) : (
-                            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>Ninguém acumulou acertos ainda.</span>
+                            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>Ninguém acumulou acertos seguidos.</span>
                           )}
                         </div>
 
@@ -773,22 +956,6 @@ export default function Home() {
 
                       </div>
 
-                      {/* Mini Ranking Rápido */}
-                      <div className="glass-card p-3 text-start">
-                        <h6 className="text-white fw-bold mb-3">🏆 Top 3 Classificação</h6>
-                        <div className="d-flex flex-column gap-2">
-                          {users.slice(0, 3).map((u, i) => (
-                            <div key={u.id} className="d-flex justify-content-between align-items-center py-1" style={{ fontSize: '0.8rem' }}>
-                              <span className="text-light">
-                                <strong className="text-secondary me-2">#{i + 1}</strong>
-                                {u.image} {u.name.split(' ')[0]}
-                              </span>
-                              <span className="text-info fw-bold">{u.points} pts</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
                     </div>
 
                   </div>
@@ -797,7 +964,7 @@ export default function Home() {
               )}
 
               {/* ======================================================== */}
-              {/* ABA: PALPITES (Grid de duas colunas no desktop)          */}
+              {/* ABA: PALPITES (Dar Palpites nas rodadas)                */}
               {/* ======================================================== */}
               {activeTab === 'matches' && (
                 <div className="fade-in animate__animated animate__fadeIn">
@@ -817,7 +984,7 @@ export default function Home() {
                     ))}
                   </div>
                   
-                  {/* Grid Responsivo de Jogos (1 coluna celular, 2 colunas desktop grande) */}
+                  {/* Grid Responsivo de Jogos */}
                   <div className="row g-3">
                     {filterMatches(matches.filter(m => m.status !== 'finished'))
                       .map(match => {
@@ -826,17 +993,20 @@ export default function Home() {
                         const stats = matchStats[match.id];
                         const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
                         const localGuess = localGuesses[match.id] || { home: '', away: '' };
+                        const userPred = predictions.find(p => p.matchId === match.id);
+                        const hasPrediction = !!userPred;
+                        const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
 
                         return (
                           <div key={match.id} className="col-12 col-lg-6">
-                            <div className="glass-card p-3 h-100 d-flex flex-column justify-content-between text-start">
+                            <div className={`glass-card p-3 h-100 d-flex flex-column justify-content-between text-start ${hasPrediction ? 'border-success-subtle' : ''}`}>
                               
                               {/* Status e Data */}
                               <div className="d-flex justify-content-between align-items-center mb-3">
                                 <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
                                   {new Date(match.kickOff).toLocaleDateString('pt-BR', {
                                     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                                  })}
+                                  })}h
                                   {match.group && (
                                     <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.6rem' }}>
                                       Grupo {match.group}
@@ -859,6 +1029,10 @@ export default function Home() {
                                   <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
                                     <i className="bi bi-lock-fill"></i> Fechado
                                   </span>
+                                ) : hasPrediction ? (
+                                  <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
+                                    <i className="bi bi-check-circle-fill"></i> Palpitado
+                                  </span>
                                 ) : (
                                   <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
                                     <i className="bi bi-unlock-fill"></i> Aberto
@@ -875,6 +1049,7 @@ export default function Home() {
                                     type="text"
                                     inputMode="numeric"
                                     className="score-input"
+                                    style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
                                     value={localGuess.home}
                                     onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
                                     disabled={isExpired || isLive}
@@ -885,6 +1060,7 @@ export default function Home() {
                                     type="text"
                                     inputMode="numeric"
                                     className="score-input"
+                                    style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
                                     value={localGuess.away}
                                     onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
                                     disabled={isExpired || isLive}
@@ -906,17 +1082,47 @@ export default function Home() {
                               {/* Botão de Enviar */}
                               {!isExpired && !isLive && (
                                 <div className="mt-3">
-                                  <button
-                                    className="btn btn-neon-green btn-sm w-100 py-1"
-                                    onClick={() => saveUserPrediction(match.id)}
-                                    disabled={savingPredictionId === match.id}
-                                  >
-                                    {savingPredictionId === match.id ? 'Salvando...' : 'Confirmar Palpite'}
-                                  </button>
+                                  {userPred ? (
+                                    isPredictionSaved ? (
+                                      <button
+                                        className="btn btn-outline-success w-100 py-1"
+                                        style={{
+                                          borderColor: 'rgba(0, 255, 135, 0.5)',
+                                          color: 'var(--neon-green)',
+                                          background: 'rgba(0, 255, 135, 0.05)',
+                                          fontWeight: '600',
+                                          borderRadius: '10px'
+                                        }}
+                                        disabled
+                                      >
+                                        Palpite Confirmado ✓
+                                      </button>
+                                    ) : (
+                                      <button
+                                        className="btn btn-warning w-100 py-1 fw-bold text-dark"
+                                        style={{
+                                          borderRadius: '10px',
+                                          boxShadow: '0 0 15px rgba(255, 193, 7, 0.3)'
+                                        }}
+                                        onClick={() => saveUserPrediction(match.id)}
+                                        disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                      >
+                                        {savingPredictionId === match.id ? 'Salvando...' : 'Atualizar Palpite'}
+                                      </button>
+                                    )
+                                  ) : (
+                                    <button
+                                      className="btn btn-neon-green btn-sm w-100 py-1"
+                                      onClick={() => saveUserPrediction(match.id)}
+                                      disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                    >
+                                      {savingPredictionId === match.id ? 'Salvando...' : 'Confirmar Palpite'}
+                                    </button>
+                                  )}
                                 </div>
                               )}
 
-                              {/* Secômetro - Stats Reais */}
+                              {/* Secômetro */}
                               <div className="mt-3 pt-2 border-top border-secondary border-opacity-30">
                                 {hasStats ? (
                                   <>
@@ -947,12 +1153,7 @@ export default function Home() {
                   {filterMatches(matches.filter(m => m.status !== 'finished')).length === 0 && (
                     <div className="text-center py-5 text-secondary">
                       <i className="bi bi-check-circle fs-1 text-success"></i>
-                      <p className="mt-2">
-                        {selectedFilter === 'all'
-                          ? 'Sem partidas pendentes de palpites!'
-                          : `Nenhuma partida encontrada para o filtro "${filterOptions.find(f => f.value === selectedFilter)?.label || selectedFilter}".`
-                        }
-                      </p>
+                      <p className="mt-2">Sem partidas pendentes de palpites neste filtro.</p>
                     </div>
                   )}
 
@@ -960,7 +1161,139 @@ export default function Home() {
               )}
 
               {/* ======================================================== */}
-              {/* ABA: LEADERBOARD / RANKING                               */}
+              {/* ABA: CALENDÁRIO E TABELA DE CLASSIFICAÇÃO DOS GRUPOS     */}
+              {/* ======================================================== */}
+              {activeTab === 'calendar' && (
+                <div className="fade-in animate__animated animate__fadeIn text-start">
+                  
+                  <h4 className="text-white fw-bold mb-3">📅 Tabela de Classificação & Jogos</h4>
+
+                  {/* Seletor de Grupos */}
+                  <div className="filter-bar mb-4">
+                    {groupLetters.map(letter => (
+                      <button
+                        key={letter}
+                        className={`filter-chip ${selectedGroupTab === letter ? 'active' : ''}`}
+                        onClick={() => setSelectedGroupTab(letter)}
+                      >
+                        Grupo {letter}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Classificação do Grupo Selecionado */}
+                  <div className="glass-card p-3 mb-4">
+                    <h5 className="text-info fw-bold mb-3">Tabela do Grupo {selectedGroupTab}</h5>
+                    <div className="table-responsive">
+                      <table className="table table-dark table-striped align-middle m-0" style={{ fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr className="text-secondary">
+                            <th scope="col" style={{ width: '40px' }}>#</th>
+                            <th scope="col">Seleção</th>
+                            <th scope="col" className="text-center" title="Pontos">P</th>
+                            <th scope="col" className="text-center" title="Jogos">J</th>
+                            <th scope="col" className="text-center" title="Vitórias">V</th>
+                            <th scope="col" className="text-center" title="Empates">E</th>
+                            <th scope="col" className="text-center" title="Derrotas">D</th>
+                            <th scope="col" className="text-center" title="Gols Pró">GP</th>
+                            <th scope="col" className="text-center" title="Gols Contra">GC</th>
+                            <th scope="col" className="text-center" title="Saldo de Gols">SG</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {groupClassification[selectedGroupTab] ? (
+                            groupClassification[selectedGroupTab].map((team, idx) => (
+                              <tr key={team.name} className={idx < 2 ? 'border-start border-info border-4' : ''}>
+                                <td>{idx + 1}</td>
+                                <td className="fw-bold text-white d-flex align-items-center gap-2">
+                                  <TeamFlag logo={team.logo} flag={team.flag} teamName={team.name} />
+                                  <span>{team.name}</span>
+                                </td>
+                                <td className="text-center text-info fw-bold">{team.points}</td>
+                                <td className="text-center">{team.played}</td>
+                                <td className="text-center">{team.wins}</td>
+                                <td className="text-center">{team.draws}</td>
+                                <td className="text-center">{team.losses}</td>
+                                <td className="text-center">{team.goalsFor}</td>
+                                <td className="text-center">{team.goalsAgainst}</td>
+                                <td className="text-center text-secondary">{team.goalDifference > 0 ? `+${team.goalDifference}` : team.goalDifference}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={10} className="text-center text-secondary py-3">Carregando dados dos times...</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-2 text-secondary px-1" style={{ fontSize: '0.7rem' }}>
+                      * Os dois primeiros classificados avançam para a fase de 32 avos (R32).
+                    </div>
+                  </div>
+
+                  {/* Confrontos do Grupo Selecionado */}
+                  <div className="glass-card p-3">
+                    <h5 className="text-white fw-bold mb-3">Confrontos do Grupo {selectedGroupTab}</h5>
+                    
+                    <div className="d-flex flex-column gap-3">
+                      {matches
+                        .filter(m => m.stage === 'group' && m.group === selectedGroupTab)
+                        .map(match => {
+                          const isFinished = match.status === 'finished';
+                          const isLive = match.status === 'live';
+                          
+                          return (
+                            <div key={match.id} className="d-flex align-items-center justify-content-between p-3 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-10">
+                              
+                              {/* Data e hora local */}
+                              <div style={{ width: '22%' }} className="text-secondary">
+                                <span style={{ fontSize: '0.75rem', display: 'block' }}>
+                                  {new Date(match.kickOff).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                </span>
+                                <span style={{ fontSize: '0.7rem', display: 'block' }}>
+                                  {new Date(match.kickOff).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}h
+                                </span>
+                              </div>
+
+                              {/* Time Casa */}
+                              <div className="d-flex align-items-center justify-content-end gap-2 text-end" style={{ width: '28%' }}>
+                                <span className="fw-bold text-white text-truncate" style={{ fontSize: '0.8rem' }}>{match.homeTeam}</span>
+                                <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
+                              </div>
+
+                              {/* Placar */}
+                              <div className="text-center px-2 d-flex flex-column align-items-center" style={{ width: '20%' }}>
+                                {isFinished ? (
+                                  <span className="fs-5 fw-extrabold text-info font-monospace">{match.homeScore} - {match.awayScore}</span>
+                                ) : isLive ? (
+                                  <div className="d-flex flex-column">
+                                    <span className="fs-5 fw-extrabold text-danger font-monospace">{match.homeScore} - {match.awayScore}</span>
+                                    <span className="badge bg-danger elapsed-badge mt-1" style={{ fontSize: '0.55rem' }}>LIVE {match.elapsed}'</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-secondary fw-semibold font-monospace" style={{ fontSize: '0.85rem' }}>VS</span>
+                                )}
+                              </div>
+
+                              {/* Time Fora */}
+                              <div className="d-flex align-items-center justify-content-start gap-2 text-start" style={{ width: '30%' }}>
+                                <TeamFlag logo={match.awayTeamLogo} flag={match.awayFlag} teamName={match.awayTeam} />
+                                <span className="fw-bold text-white text-truncate" style={{ fontSize: '0.8rem' }}>{match.awayTeam}</span>
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* ABA: LEADERBOARD / RANKING GERAL                         */}
               {/* ======================================================== */}
               {activeTab === 'leaderboard' && (
                 <div className="fade-in animate__animated animate__fadeIn">
@@ -1023,7 +1356,7 @@ export default function Home() {
                               </div>
                             </div>
                             <div className="d-flex align-items-center gap-2">
-                              {user.streak >= 3 && <span className="pulse-fire">🔥</span>}
+                              {user.streak >= 3 && <span className="pulse-fire" title={`Sequência de ${user.streak} acertos`}>🔥</span>}
                               <span className="text-info fw-bold fs-5">{user.points} pts</span>
                             </div>
                           </div>
@@ -1036,285 +1369,260 @@ export default function Home() {
               )}
 
               {/* ======================================================== */}
-              {/* ABA: HISTÓRICO                                           */}
+              {/* ABA: HISTÓRICO DE PALPITES DO JOGADOR                    */}
               {/* ======================================================== */}
               {activeTab === 'history' && (
                 <div className="fade-in animate__animated animate__fadeIn">
                   
-                  <h4 className="text-white fw-bold mb-3 text-start">📜 Resultados Encerrados</h4>
+                  <h4 className="text-white fw-bold mb-4 text-start">📜 Seus Palpites (Próximos & Histórico)</h4>
 
-                  <div className="row g-3">
-                    {matches
-                      .filter(m => m.status === 'finished')
-                      .map(match => {
-                        const userPred = predictions.find(p => p.matchId === match.id);
-                        let scoreBadge = { text: 'Sem palpite', class: 'bg-secondary' };
-                        let ptsObtidos = 0;
-
-                        if (userPred) {
-                          ptsObtidos = calculatePredictionPoints(
-                            userPred.homeGuess,
-                            userPred.awayGuess,
-                            match.homeScore || 0,
-                            match.awayScore || 0
-                          );
-
-                          if (ptsObtidos === 5) scoreBadge = { text: 'Placar Exato (+5)', class: 'bg-success' };
-                          else if (ptsObtidos === 3) scoreBadge = { text: 'Vencedor & Saldo (+3)', class: 'bg-success bg-opacity-75' };
-                          else if (ptsObtidos === 2) scoreBadge = { text: 'Vencedor Simples (+2)', class: 'bg-info text-dark' };
-                          else scoreBadge = { text: 'Errou Placar (0)', class: 'bg-danger' };
-                        }
-
-                        return (
-                          <div key={match.id} className="col-12 col-lg-6">
-                            <div className="glass-card p-3 h-100 text-start d-flex flex-column justify-content-between">
-                              
-                              <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-35">
-                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                                  Encerrado
-                                  {match.group && (
-                                    <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.55rem' }}>
-                                      Grupo {match.group}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className={`badge ${scoreBadge.class}`} style={{ fontSize: '0.7rem' }}>
-                                  {scoreBadge.text}
-                                </span>
-                              </div>
-
-                              <div className="d-flex align-items-center justify-content-between my-2 text-center">
-                                <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
-                                  <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
-                                  <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.homeTeam}</span>
-                                </div>
-                                <div className="d-flex flex-column align-items-center" style={{ width: '34%' }}>
-                                  <span className="fs-3 fw-bold text-info">
-                                    {match.homeScore} - {match.awayScore}
-                                  </span>
-                                  <span className="text-secondary" style={{ fontSize: '0.65rem' }}>RESULTADO REAL</span>
-                                </div>
-                                <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
-                                  <TeamFlag logo={match.awayTeamLogo} flag={match.awayFlag} teamName={match.awayTeam} />
-                                  <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.awayTeam}</span>
-                                </div>
-                              </div>
-
-                              {userPred ? (
-                                <div className="mt-2 p-2 rounded text-center bg-dark bg-opacity-40 border border-secondary border-opacity-25" style={{ fontSize: '0.8rem' }}>
-                                  <span className="text-secondary">Palpite feito:</span>{' '}
-                                  <strong className="text-white">
-                                    {match.homeTeam} {userPred.homeGuess} x {userPred.awayGuess} {match.awayTeam}
-                                  </strong>
-                                </div>
-                              ) : (
-                                <div className="mt-2 p-2 rounded text-center bg-danger bg-opacity-10 border border-danger border-opacity-25" style={{ fontSize: '0.8rem' }}>
-                                  <span className="text-danger">Não palpitou</span>
-                                </div>
-                              )}
-
-                            </div>
+                  {predictions.length === 0 ? (
+                    <div className="text-center py-5 text-secondary glass-card p-5">
+                      <i className="bi bi-patch-question-fill fs-1 text-info mb-3 d-block"></i>
+                      <h5>Você ainda não fez nenhum palpite!</h5>
+                      <p className="mb-4 text-secondary" style={{ fontSize: '0.85rem' }}>Comece a palpitar nos próximos jogos e suba no ranking!</p>
+                      <button className="btn btn-neon-green px-4 py-2" onClick={() => setActiveTab('matches')}>
+                        <i className="bi bi-lightning-charge-fill"></i> Dar Palpites Agora
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="d-flex flex-column gap-4">
+                      
+                      {/* Seção 1: Próximos Jogos Palpitados */}
+                      <div>
+                        <h5 className="text-info fw-bold mb-3 text-start">
+                          <i className="bi bi-calendar-event me-2"></i> Próximos Jogos Palpitados
+                        </h5>
+                        
+                        {matches.filter(m => m.status !== 'finished' && predictions.some(p => p.matchId === m.id)).length === 0 ? (
+                          <div className="glass-card p-4 text-center text-secondary">
+                            <p className="m-0" style={{ fontSize: '0.85rem' }}>Nenhum palpite pendente para próximos jogos.</p>
                           </div>
-                        );
-                      })}
-                  </div>
+                        ) : (
+                          <div className="row g-3">
+                            {matches
+                              .filter(m => m.status !== 'finished' && predictions.some(p => p.matchId === m.id))
+                              .map(match => {
+                                const isExpired = isTimeGateExpired(match.kickOff);
+                                const isLive = match.status === 'live';
+                                const stats = matchStats[match.id];
+                                const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
+                                const localGuess = localGuesses[match.id] || { home: '', away: '' };
+                                const userPred = predictions.find(p => p.matchId === match.id);
+                                const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
 
-                  {matches.filter(m => m.status === 'finished').length === 0 && (
-                    <div className="text-center py-5 text-secondary">
-                      <i className="bi bi-clock-history fs-1"></i>
-                      <p className="mt-2">Aguardando encerramento das partidas.</p>
+                                return (
+                                  <div key={match.id} className="col-12 col-lg-6">
+                                    <div className="glass-card p-3 h-100 d-flex flex-column justify-content-between text-start border-success-subtle">
+                                      
+                                      {/* Status e Data */}
+                                      <div className="d-flex justify-content-between align-items-center mb-3">
+                                        <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                          {new Date(match.kickOff).toLocaleDateString('pt-BR', {
+                                            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                                          })}h
+                                          {match.group && (
+                                            <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.6rem' }}>
+                                              Grupo {match.group}
+                                            </span>
+                                          )}
+                                        </span>
+                                        {isLive ? (
+                                          <span className="badge-live">
+                                            <span className="live-dot"></span> AO VIVO
+                                          </span>
+                                        ) : isExpired ? (
+                                          <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-lock-fill"></i> Fechado
+                                          </span>
+                                        ) : (
+                                          <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-unlock-fill"></i> Editável
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Placar e Botões */}
+                                      <div className="d-flex align-items-center justify-content-between my-2">
+                                        <TeamDisplay match={match} side="home" />
+
+                                        <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '36%' }}>
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="score-input"
+                                            style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
+                                            value={localGuess.home}
+                                            onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
+                                            disabled={isExpired || isLive}
+                                            placeholder="-"
+                                          />
+                                          <span className="text-secondary fw-bold">x</span>
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="score-input"
+                                            style={isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : undefined}
+                                            value={localGuess.away}
+                                            onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
+                                            disabled={isExpired || isLive}
+                                            placeholder="-"
+                                          />
+                                        </div>
+
+                                        <TeamDisplay match={match} side="away" />
+                                      </div>
+
+                                      {/* Botão de Enviar / Atualizar */}
+                                      {!isExpired && !isLive && (
+                                        <div className="mt-3">
+                                          {isPredictionSaved ? (
+                                            <button
+                                              className="btn btn-outline-success w-100 py-1"
+                                              style={{
+                                                borderColor: 'rgba(0, 255, 135, 0.5)',
+                                                color: 'var(--neon-green)',
+                                                background: 'rgba(0, 255, 135, 0.05)',
+                                                fontWeight: '600',
+                                                borderRadius: '10px'
+                                              }}
+                                              disabled
+                                            >
+                                              Palpite Confirmado ✓
+                                            </button>
+                                          ) : (
+                                            <button
+                                              className="btn btn-warning w-100 py-1 fw-bold text-dark"
+                                              style={{
+                                                borderRadius: '10px',
+                                                boxShadow: '0 0 15px rgba(255, 193, 7, 0.3)'
+                                              }}
+                                              onClick={() => saveUserPrediction(match.id)}
+                                              disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                            >
+                                              {savingPredictionId === match.id ? 'Salvando...' : 'Atualizar Palpite'}
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Secômetro */}
+                                      <div className="mt-3 pt-2 border-top border-secondary border-opacity-30">
+                                        {hasStats ? (
+                                          <>
+                                            <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
+                                              <span>Média dos palpites:</span>
+                                              <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
+                                            </div>
+                                            <div className="thermostat-bar d-flex">
+                                              <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
+                                              <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
+                                              <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
+                                            </div>
+                                          </>
+                                        ) : (
+                                          <div className="text-secondary text-center" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-bar-chart-line me-1"></i>
+                                            Nenhum outro palpite registrado
+                                          </div>
+                                        )}
+                                      </div>
+
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Seção 2: Partidas Encerradas */}
+                      <div>
+                        <h5 className="text-white fw-bold mb-3 text-start">
+                          <i className="bi bi-clock-history me-2"></i> Partidas Encerradas com Palpites
+                        </h5>
+                        
+                        {matches.filter(m => m.status === 'finished' && predictions.some(p => p.matchId === m.id)).length === 0 ? (
+                          <div className="glass-card p-4 text-center text-secondary">
+                            <p className="m-0" style={{ fontSize: '0.85rem' }}>Nenhum palpite encerrado ainda.</p>
+                          </div>
+                        ) : (
+                          <div className="row g-3">
+                            {matches
+                              .filter(m => m.status === 'finished' && predictions.some(p => p.matchId === m.id))
+                              .map(match => {
+                                const userPred = predictions.find(p => p.matchId === match.id);
+                                let scoreBadge = { text: 'Sem palpite', class: 'bg-secondary' };
+                                let ptsObtidos = 0;
+
+                                if (userPred) {
+                                  ptsObtidos = calculatePredictionPoints(
+                                    userPred.homeGuess,
+                                    userPred.awayGuess,
+                                    match.homeScore || 0,
+                                    match.awayScore || 0
+                                  );
+
+                                  if (ptsObtidos === 5) scoreBadge = { text: 'Placar Exato (+5)', class: 'bg-success' };
+                                  else if (ptsObtidos === 3) scoreBadge = { text: 'Vencedor & Saldo (+3)', class: 'bg-success bg-opacity-75' };
+                                  else if (ptsObtidos === 2) scoreBadge = { text: 'Vencedor Simples (+2)', class: 'bg-info text-dark' };
+                                  else scoreBadge = { text: 'Errou Placar (0)', class: 'bg-danger' };
+                                }
+
+                                return (
+                                  <div key={match.id} className="col-12 col-lg-6">
+                                    <div className="glass-card p-3 h-100 text-start d-flex flex-column justify-content-between">
+                                      
+                                      <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-35">
+                                        <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                          Encerrado
+                                          {match.group && (
+                                            <span className="ms-1 badge bg-dark border border-secondary" style={{ fontSize: '0.55rem' }}>
+                                              Grupo {match.group}
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className={`badge ${scoreBadge.class}`} style={{ fontSize: '0.7rem' }}>
+                                          {scoreBadge.text}
+                                        </span>
+                                      </div>
+
+                                      <div className="d-flex align-items-center justify-content-between my-2 text-center">
+                                        <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
+                                          <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
+                                          <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.homeTeam}</span>
+                                        </div>
+                                        <div className="d-flex flex-column align-items-center" style={{ width: '34%' }}>
+                                          <span className="fs-3 fw-bold text-info">
+                                            {match.homeScore} - {match.awayScore}
+                                          </span>
+                                          <span className="text-secondary" style={{ fontSize: '0.65rem' }}>RESULTADO REAL</span>
+                                        </div>
+                                        <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
+                                          <TeamFlag logo={match.awayTeamLogo} flag={match.awayFlag} teamName={match.awayTeam} />
+                                          <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.awayTeam}</span>
+                                        </div>
+                                      </div>
+
+                                      {userPred && (
+                                        <div className="mt-2 p-2 rounded text-center bg-dark bg-opacity-40 border border-secondary border-opacity-25" style={{ fontSize: '0.8rem' }}>
+                                          <span className="text-secondary">Palpite feito:</span>{' '}
+                                          <strong className="text-white">
+                                            {match.homeTeam} {userPred.homeGuess} x {userPred.awayGuess} {match.awayTeam}
+                                          </strong>
+                                        </div>
+                                      )}
+
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+
                     </div>
                   )}
-
-                </div>
-              )}
-
-              {/* ======================================================== */}
-              {/* ABA: SIMULADOR SANDBOX / GERENCIAR DADOS                */}
-              {/* ======================================================== */}
-              {activeTab === 'admin' && (
-                <div className="fade-in animate__animated animate__fadeIn">
-                  
-                  <h4 className="text-white fw-bold mb-3 d-flex justify-content-between align-items-center">
-                    <span>🛠️ Painel Sandbox Administrativo</span>
-                    <button className="btn btn-danger btn-sm px-3" onClick={handleResetSimulation}>
-                      <i className="bi bi-arrow-counterclockwise"></i> Resetar Bolão
-                    </button>
-                  </h4>
-
-                  {/* Grid de Ferramentas Sandbox: 2 Colunas */}
-                  <div className="row g-4 text-start">
-                    
-                    {/* Coluna 1: Criar Competidores Sandbox */}
-                    <div className="col-12 col-md-6">
-                      <div className="glass-card p-4 h-100">
-                        <h5 className="text-white fw-bold mb-3">👥 Adicionar Amigos (Sandbox)</h5>
-                        <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                          Crie competidores adicionais para preencher o ranking e simular rivalidades. Cada competidor criado pode receber palpites individuais!
-                        </p>
-
-                        <form onSubmit={handleAddCompetitor}>
-                          <div className="mb-3">
-                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Nome do Amigo:</label>
-                            <input 
-                              type="text" 
-                              className="form-control bg-dark text-white border-secondary"
-                              placeholder="Ex: Pedro, Maria, Thiago..."
-                              value={newCompetitorName}
-                              onChange={(e) => setNewCompetitorName(e.target.value)}
-                              required
-                            />
-                          </div>
-
-                          <div className="mb-3">
-                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Escolha o Avatar:</label>
-                            <div className="d-flex flex-wrap gap-2">
-                              {avatars.map(av => (
-                                <button
-                                  type="button"
-                                  key={av}
-                                  className={`btn btn-sm ${newCompetitorAvatar === av ? 'btn-info text-dark' : 'btn-dark border-secondary'}`}
-                                  style={{ fontSize: '1.1rem' }}
-                                  onClick={() => setNewCompetitorAvatar(av)}
-                                >
-                                  {av}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <button type="submit" className="btn btn-neon-outline btn-sm w-100 mt-2 py-2">
-                            <i className="bi bi-person-plus-fill"></i> Criar Competidor
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-
-                    {/* Coluna 2: Simular Resultados de Jogos */}
-                    <div className="col-12 col-md-6">
-                      <div className="glass-card p-4 h-100">
-                        <h5 className="text-white fw-bold mb-3">⚽ Simular Jogo da Copa</h5>
-                        <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                          Defina o placar final de um jogo. Ao marcar como **&quot;Encerrado&quot;**, as pontuações e o ranking de todos os competidores são recalculados na hora.
-                        </p>
-
-                        <form onSubmit={handleSimulateMatch}>
-                          <div className="mb-3">
-                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Selecione a Partida:</label>
-                            <select 
-                              className="form-select bg-dark text-white border-secondary"
-                              value={simulatingMatchId || ''}
-                              onChange={(e) => {
-                                const mId = e.target.value;
-                                setSimulatingMatchId(mId);
-                                const m = matches.find(j => j.id === mId);
-                                if (m) {
-                                  setSimHomeScore((m.homeScore ?? 0).toString());
-                                  setSimAwayScore((m.awayScore ?? 0).toString());
-                                  setSimStatus(m.status as any);
-                                }
-                              }}
-                              required
-                            >
-                              <option value="">-- Escolha um jogo --</option>
-                              {matches.map(m => (
-                                <option key={m.id} value={m.id}>
-                                  {m.homeFlag || '🏳️'} {m.homeTeam} vs {m.awayTeam} {m.awayFlag || '🏳️'} ({m.status.toUpperCase()})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {simulatingMatchId && (
-                            <>
-                              <div className="row g-2 mb-3">
-                                <div className="col-4">
-                                  <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Placar Casa:</label>
-                                  <input 
-                                    type="number" 
-                                    className="form-control bg-dark text-white border-secondary text-center fw-bold"
-                                    value={simHomeScore}
-                                    onChange={(e) => setSimHomeScore(e.target.value)}
-                                    min="0"
-                                    required
-                                  />
-                                </div>
-                                <div className="col-4">
-                                  <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Placar Fora:</label>
-                                  <input 
-                                    type="number" 
-                                    className="form-control bg-dark text-white border-secondary text-center fw-bold"
-                                    value={simAwayScore}
-                                    onChange={(e) => setSimAwayScore(e.target.value)}
-                                    min="0"
-                                    required
-                                  />
-                                </div>
-                                <div className="col-4">
-                                  <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Status:</label>
-                                  <select 
-                                    className="form-select bg-dark text-white border-secondary"
-                                    value={simStatus}
-                                    onChange={(e) => setSimStatus(e.target.value as any)}
-                                    required
-                                  >
-                                    <option value="scheduled">Agendado</option>
-                                    <option value="live">Ao Vivo</option>
-                                    <option value="finished">Encerrado</option>
-                                  </select>
-                                </div>
-                              </div>
-
-                              <button type="submit" className="btn btn-neon-green btn-sm w-100 py-2">
-                                <i className="bi bi-play-fill"></i> Aplicar Placar & Recalcular Pontos
-                              </button>
-                            </>
-                          )}
-                        </form>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* Seção de Sincronização com API */}
-                  <div className="row g-4 mt-2 text-start">
-                    <div className="col-12">
-                      <div className="glass-card p-4">
-                        <h5 className="text-white fw-bold mb-3">
-                          <i className="bi bi-cloud-arrow-down-fill text-info me-2"></i>
-                          Sincronizar Jogos da Copa
-                        </h5>
-                        <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                          Busca os dados mais recentes da API WorldCup26.ir e atualiza as partidas, placares e status no banco Neon.
-                        </p>
-                        <div className="d-flex align-items-center gap-3 flex-wrap">
-                          <button
-                            className="btn btn-sync px-4 py-2"
-                            onClick={handleManualSync}
-                            disabled={syncing}
-                          >
-                            {syncing ? (
-                              <>
-                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                Sincronizando...
-                              </>
-                            ) : (
-                              <>
-                                <i className="bi bi-arrow-repeat me-1"></i>
-                                Sincronizar Agora
-                              </>
-                            )}
-                          </button>
-                          {lastSyncAt && (
-                            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                              <i className="bi bi-clock me-1"></i>
-                              Último sync: {new Date(lastSyncAt).toLocaleString('pt-BR')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                 </div>
               )}
@@ -1341,9 +1649,17 @@ export default function Home() {
           onClick={() => setActiveTab('matches')}
         >
           <i className="bi bi-lightning-charge-fill"></i>
-          <span>Palpites</span>
+          <span>Palpitar</span>
         </button>
-
+ 
+        <button 
+          className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'calendar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('calendar')}
+        >
+          <i className="bi bi-calendar-event-fill"></i>
+          <span>Tabela</span>
+        </button>
+ 
         <button 
           className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'leaderboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('leaderboard')}
@@ -1351,21 +1667,13 @@ export default function Home() {
           <i className="bi bi-trophy-fill"></i>
           <span>Ranking</span>
         </button>
-
+ 
         <button 
           className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
           <i className="bi bi-clock-history"></i>
-          <span>Histórico</span>
-        </button>
-
-        <button 
-          className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'admin' ? 'active' : ''}`}
-          onClick={() => setActiveTab('admin')}
-        >
-          <i className="bi bi-person-gear"></i>
-          <span>Simulador</span>
+          <span>Meus Palpites</span>
         </button>
 
       </nav>

@@ -69,6 +69,7 @@ model Match {
   awayScore    Int?         // Placar real do time visitante
   status       String       @default("scheduled") // scheduled | live | finished
   stage        String       @default("group")     // group | r32 | r16 | qf | sf | third | final
+  group        String?      // Grupo da Copa (A, B, C, etc.)
   matchday     String?      // Rodada do jogo: '1', '2', '3'
   elapsed      String?      @default("notstarted") // minuto do jogo: 'notstarted', '45', 'halftime', 'finished'
   lastSyncAt   DateTime?    // Última sincronização com API externa
