@@ -316,3 +316,44 @@ export async function resetSimulation(): Promise<void> {
   memoryUsers = [...initialMockUsers];
   memoryPredictions = [...initialMockPredictions];
 }
+
+// Criar competidor dinâmico na sandbox
+export async function createSandboxUser(name: string, image: string): Promise<UserProfile> {
+  const email = `${name.toLowerCase().replace(/\s+/g, '')}@bolao.com`;
+  const newUser: UserProfile = {
+    id: `user-gen-${Date.now()}`,
+    name,
+    email,
+    image,
+    points: 0,
+    streak: 0,
+    misses: 0
+  };
+
+  if (isDbAvailable()) {
+    try {
+      const dbUser = await prisma.user.create({
+        data: {
+          name,
+          email,
+          image,
+          points: 0
+        }
+      });
+      return {
+        id: dbUser.id,
+        name: dbUser.name ?? name,
+        email: dbUser.email,
+        image: dbUser.image ?? image,
+        points: dbUser.points,
+        streak: 0,
+        misses: 0
+      };
+    } catch (e) {
+      console.warn('Falha ao inserir usuário no Neon SQL. Criando na memória...', e);
+    }
+  }
+
+  memoryUsers.push(newUser);
+  return newUser;
+}

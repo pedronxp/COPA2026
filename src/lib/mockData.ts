@@ -34,16 +34,12 @@ export interface Prediction {
   processed: boolean;
 }
 
-// Usuários mocados para ranking e zoeira
+// Inicializa a base apenas com o perfil do próprio usuário para remover os dados falsos
 export const initialMockUsers: UserProfile[] = [
-  { id: 'user-1', name: 'Casimiro Miguel', email: 'caze@bolao.com', image: '🔥', points: 28, streak: 4, misses: 0 },
-  { id: 'user-2', name: 'Neymar Jr', email: 'ney@bolao.com', image: '⚽', points: 23, streak: 2, misses: 0 },
-  { id: 'user-3', name: 'Galvão Bueno', email: 'galvao@bolao.com', image: '🎙️', points: 19, streak: 0, misses: 3 },
-  { id: 'user-4', name: 'Luva de Pedreiro', email: 'luva@bolao.com', image: '🧤', points: 12, streak: 0, misses: 5 },
-  { id: 'currentUser', name: 'Você (Torcedor)', email: 'usuario@copa.com', image: '👑', points: 15, streak: 1, misses: 0 }
+  { id: 'currentUser', name: 'Você (Torcedor)', email: 'usuario@copa.com', image: '👑', points: 0, streak: 0, misses: 0 }
 ];
 
-// Partidas iniciais da Copa de 2026 (11 a 13 de Junho)
+// Partidas oficiais da Copa de 2026 (fase inicial real)
 export const initialMockMatches: Match[] = [
   {
     id: 'match-1',
@@ -125,21 +121,5 @@ export const initialMockMatches: Match[] = [
   }
 ];
 
-// Palpites aleatórios pré-definidos para os bots
-export const initialMockPredictions: Prediction[] = [
-  // Caze palpites
-  { id: 'p-1', userId: 'user-1', matchId: 'match-1', homeGuess: 2, awayGuess: 0, guess: '1', processed: false },
-  { id: 'p-2', userId: 'user-1', matchId: 'match-2', homeGuess: 1, awayGuess: 1, guess: 'X', processed: false },
-  { id: 'p-3', userId: 'user-1', matchId: 'match-4', homeGuess: 3, awayGuess: 1, guess: '1', processed: false },
-  
-  // Neymar palpites
-  { id: 'p-4', userId: 'user-2', matchId: 'match-1', homeGuess: 1, awayGuess: 1, guess: 'X', processed: false },
-  { id: 'p-5', userId: 'user-2', matchId: 'match-4', homeGuess: 4, awayGuess: 0, guess: '1', processed: false },
-  
-  // Galvão palpites
-  { id: 'p-6', userId: 'user-3', matchId: 'match-1', homeGuess: 3, awayGuess: 0, guess: '1', processed: false },
-  { id: 'p-7', userId: 'user-3', matchId: 'match-4', homeGuess: 2, awayGuess: 0, guess: '1', processed: false },
-  
-  // Luva palpites
-  { id: 'p-8', userId: 'user-4', matchId: 'match-4', homeGuess: 1, awayGuess: 2, guess: '2', processed: false }
-];
+// Inicia os palpites vazios, sem palpites fake de robôs
+export const initialMockPredictions: Prediction[] = [];

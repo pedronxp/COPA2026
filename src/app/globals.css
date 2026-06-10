@@ -58,9 +58,9 @@ body {
 
 /* Placar Input Cards (Estilo GE) */
 .score-input {
-  width: 50px;
-  height: 50px;
-  font-size: 1.5rem;
+  width: 48px;
+  height: 48px;
+  font-size: 1.4rem;
   font-weight: 700;
   text-align: center;
   border-radius: 10px;
@@ -214,7 +214,7 @@ body {
   background-color: var(--neon-cyan);
 }
 
-/* Navegação inferior (Estilo App Nativo) */
+/* Navegação inferior (Estilo App Nativo - Mobile Only) */
 .mobile-nav-bar {
   background: rgba(11, 15, 25, 0.95);
   backdrop-filter: blur(10px);
@@ -279,5 +279,95 @@ body {
   100% {
     transform: scale(1.15);
     filter: drop-shadow(0 0 8px rgba(255, 69, 0, 0.8));
+  }
+}
+
+/* ======================================================== */
+/* ESTRUTURA RESPONSIVA DE COMPUTADOR (DESKTOP)             */
+/* ======================================================== */
+@media (min-width: 768px) {
+  /* Ocultar barra inferior no desktop */
+  .mobile-nav-bar {
+    display: none !important;
+  }
+  
+  /* Ajustes no layout de visualização */
+  .desktop-layout {
+    display: flex !important;
+    min-height: 100vh;
+  }
+  
+  /* Barra Lateral (Sidebar) Fixa no Desktop */
+  .desktop-sidebar {
+    width: 250px;
+    background: #0d1322;
+    border-right: 1px solid rgba(29, 42, 69, 0.6);
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    padding: 20px;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .desktop-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .desktop-sidebar-item {
+    background: transparent;
+    color: #a0aec0;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 12px;
+    text-align: left;
+    font-weight: 500;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.25s ease;
+    width: 100%;
+  }
+  
+  .desktop-sidebar-item i {
+    font-size: 1.2rem;
+  }
+  
+  .desktop-sidebar-item:hover {
+    color: #fff;
+    background: rgba(29, 42, 69, 0.4);
+  }
+  
+  .desktop-sidebar-item.active {
+    background: linear-gradient(135deg, rgba(96, 239, 255, 0.15) 0%, rgba(0, 255, 135, 0.1) 100%);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(96, 239, 255, 0.2);
+    font-weight: 600;
+  }
+  
+  /* Área de Conteúdo Principal no Desktop */
+  .desktop-content {
+    margin-left: 250px;
+    padding: 24px;
+    flex-grow: 1;
+    width: calc(100% - 250px);
+  }
+}
+
+@media (max-width: 767px) {
+  /* Ocultar barra lateral e layout desktop no celular */
+  .desktop-sidebar {
+    display: none !important;
+  }
+  .desktop-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 12px !important;
   }
 }

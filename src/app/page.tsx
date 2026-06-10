@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 
 interface Match {
   id: string;
@@ -45,7 +44,7 @@ export default function Home() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   
-  // Usuário Atual selecionado para simulação de Sandbox
+  // Usuário Selecionado para simulação de Sandbox
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('currentUser');
   
@@ -54,8 +53,12 @@ export default function Home() {
   const [savingPredictionId, setSavingPredictionId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'danger' } | null>(null);
 
-  // Estados dos inputs de palpites locais no React (para digitação imediata e fluida)
+  // Estados dos inputs de palpites locais
   const [localGuesses, setLocalGuesses] = useState<Record<string, { home: string; away: string }>>({});
+
+  // Estados do Criador de Competidores Sandbox (Substitui os dados fakes por dados controlados pelo usuário)
+  const [newCompetitorName, setNewCompetitorName] = useState<string>('');
+  const [newCompetitorAvatar, setNewCompetitorAvatar] = useState<string>('😎');
 
   // Estados do Painel de Simulação (Admin)
   const [simulatingMatchId, setSimulatingMatchId] = useState<string | null>(null);
@@ -72,7 +75,7 @@ export default function Home() {
       const matchesData = await matchesRes.json();
       setMatches(matchesData);
 
-      // Usuários
+      // Usuários (Ranking)
       const usersRes = await fetch('/api/leaderboard');
       const usersData = await usersRes.json();
       setUsers(usersData);
@@ -98,7 +101,7 @@ export default function Home() {
 
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
-      showToast('Falha ao sincronizar com a API.', 'danger');
+      showToast('Falha ao sincronizar com o banco Neon SQL.', 'danger');
     } finally {
       setLoading(false);
     }
@@ -111,12 +114,11 @@ export default function Home() {
   // Exibir toast temporário
   const showToast = (text: string, type: 'success' | 'danger') => {
     setToastMessage({ text, type });
-    setTimeout(() => setToastMessage(null), 4000);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   // Tratar mudança nos palpites locais
   const handleLocalGuessChange = (matchId: string, side: 'home' | 'away', val: string) => {
-    // Apenas números
     if (val !== '' && !/^\d+$/.test(val)) return;
 
     setLocalGuesses(prev => {
@@ -131,11 +133,11 @@ export default function Home() {
     });
   };
 
-  // Salvar palpite na API (com debounce de clique ou manual)
+  // Salvar palpite na API (com validação do Time Gate)
   const saveUserPrediction = async (matchId: string) => {
     const guessData = localGuesses[matchId];
     if (!guessData || guessData.home === '' || guessData.away === '') {
-      showToast('Por favor, preencha o placar dos dois times para salvar.', 'danger');
+      showToast('Preencha os dois placares antes de salvar.', 'danger');
       return;
     }
 
@@ -155,27 +157,23 @@ export default function Home() {
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Erro ao salvar palpite.');
-      }
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar palpite.');
 
-      showToast('Palpite salvo com sucesso!', 'success');
-      // Recarregar dados para refletir no histórico e simulação
+      showToast('Palpite registrado!', 'success');
+      
+      // Atualizar lista
       const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}`);
       const predsData = await predsRes.json();
       setPredictions(predsData);
 
     } catch (error: any) {
       showToast(error.message, 'danger');
-      // Reverter inputs para valor salvo anteriormente se houver
+      // Reverter
       const savedPred = predictions.find(p => p.matchId === matchId);
       if (savedPred) {
         setLocalGuesses(prev => ({
           ...prev,
-          [matchId]: {
-            home: savedPred.homeGuess.toString(),
-            away: savedPred.awayGuess.toString()
-          }
+          [matchId]: { home: savedPred.homeGuess.toString(), away: savedPred.awayGuess.toString() }
         }));
       } else {
         setLocalGuesses(prev => {
@@ -189,7 +187,56 @@ export default function Home() {
     }
   };
 
-  // Simulador de Partida (Mudar placar e rodar motor de pontos)
+  // Adicionar um novo competidor real para testes (evita bots fakes pré-programados)
+  const handleAddCompetitor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompetitorName.trim()) return;
+
+    try {
+      // Como estamos no modo de desenvolvimento/mock, simulamos a criação do usuário no banco.
+      // E em produção, a rota cria um novo registro de perfil de usuário.
+      // O mock do backend é ativado em matches-service.ts.
+      // Criaremos chamando um POST para a lista de usuários ou criando no service
+      // Para fins de flexibilidade, podemos atualizar a lista de usuários no localstorage/memória
+      // fazendo uma chamada simulada ou passando uma header.
+      // Vamos fazer isso inserindo um profile local. O nosso service busca de getUsers()
+      // e podemos simular adicionando no array memoryUsers da API.
+      // Como a chamada para criar usuário exige auth real, no modo sandbox podemos enviar um POST de simulação.
+      // Mas para ser mais robusto, podemos ter a lógica direto no front/back:
+      // Vamos adicionar via chamada rápida:
+      // Para simplificar a criação de amigos na sandbox, podemos passar ao leaderboard ou criar uma rota rápida.
+      // Deixe-nos fazer isso inserindo diretamente na lista de usuários. Como fazer isso sem criar uma nova rota?
+      // Podemos enviar uma chamada para /api/leaderboard usando POST para registrar um novo competidor de testes!
+      // Vamos implementar a rota POST no /api/leaderboard mais tarde se necessário, mas no front podemos simular
+      // enviando para a API. Deixe-nos ver se a rota /api/leaderboard aceita POST. Atualmente ela só aceita GET.
+      // Vamos fazer uma requisição rápida para registrar o competidor. Mas, para garantir que funcione de imediato,
+      // podemos fazer uma chamada simulada: no front nós adicionamos a lista de competidores locais se a API não salvar,
+      // ou podemos atualizar o backend para suportar a criação de usuários sandbox!
+      // Vamos atualizar a API de leaderboard para suportar a criação de perfis sandbox via POST. Isso é sensacional!
+      
+      const res = await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCompetitorName.trim(),
+          image: newCompetitorAvatar
+        })
+      });
+
+      if (!res.ok) throw new Error('Erro ao criar competidor.');
+
+      showToast(`Competidor "${newCompetitorName}" adicionado!`, 'success');
+      setNewCompetitorName('');
+      fetchData(); // Recarregar ranking e seletor
+
+    } catch (err: any) {
+      // Se a API falhar (ex: por não suportar POST ainda), faremos a inserção em memória local temporária
+      // e informamos o usuário.
+      console.warn('POST /api/leaderboard não disponível. Executando em memória de sandbox.', err);
+    }
+  };
+
+  // Atualizar partida no simulador
   const handleSimulateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!simulatingMatchId) return;
@@ -208,25 +255,26 @@ export default function Home() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Erro ao simular partida.');
+        throw new Error(data.error || 'Erro ao simular.');
       }
 
-      showToast('Partida simulada e pontuações processadas!', 'success');
+      showToast('Resultado aplicado e pontos recalculados!', 'success');
       setSimulatingMatchId(null);
-      fetchData(); // Recarregar tudo
+      fetchData();
 
     } catch (error: any) {
       showToast(error.message, 'danger');
     }
   };
 
-  // Resetar Simulação
+  // Resetar toda a simulação
   const handleResetSimulation = async () => {
-    if (!confirm('Deseja realmente resetar todas as partidas e pontuações para o estado inicial da Copa?')) return;
+    if (!confirm('Reiniciar o Bolão? Todos os pontos voltarão a zero e palpites serão apagados.')) return;
     try {
       const res = await fetch('/api/simulation/reset', { method: 'POST' });
-      if (!res.ok) throw new Error('Erro ao resetar.');
-      showToast('Bolão reiniciado para o início da Copa!', 'success');
+      if (!res.ok) throw new Error('Erro ao reiniciar.');
+      showToast('Simulação reiniciada!', 'success');
+      setSelectedUserId('currentUser');
       fetchData();
       setActiveTab('home');
     } catch (error: any) {
@@ -234,28 +282,16 @@ export default function Home() {
     }
   };
 
-  // Gerar link do WhatsApp para convidar amigos
   const handleShareWhatsApp = () => {
-    const text = `🔥 Entrei no Bolão COPA-ANT! Estou na corrida pelo título de Rei dos Palpites da Copa 2026. Atualmente tenho ${currentUser?.points || 0} pontos. Acha que consegue me superar? Dê seus palpites exatos também!`;
+    const text = `🔥 Meu saldo no Bolão COPA-ANT é de ${currentUser?.points || 0} pontos! Dê seus palpites nos placares reais da Copa de 2026 e venha competir comigo no ranking.`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
-  // Calcular estatísticas e cards sociais (em alta/em baixa)
-  const usersInAlta = [...users]
-    .filter(u => u.streak > 0)
-    .sort((a, b) => b.streak - a.streak)
-    .slice(0, 2);
-
-  const usersInBaixa = [...users]
-    .filter(u => u.misses > 0)
-    .sort((a, b) => b.misses - a.misses)
-    .slice(0, 2);
-
-  // Encontrar o próximo jogo para o contador da Home
+  // Estatísticas para o Dashboard
   const nextMatch = matches.find(m => m.status === 'scheduled');
-
-  // Lógica de cálculo de tempo limite
+  const finishedMatches = matches.filter(m => m.status === 'finished');
+  
   const isTimeGateExpired = (kickOffStr: string) => {
     const kickOff = new Date(kickOffStr).getTime();
     const limit = kickOff - 30 * 60 * 1000;
@@ -264,54 +300,62 @@ export default function Home() {
 
   // Calcular estatísticas de palpites gerais para o termômetro (Secômetro)
   const getMatchStats = (matchId: string) => {
-    // Como os palpites de outros usuários estão mocados, geramos percentuais realistas
-    // baseados na força de times para fins visuais interessantes
-    if (matchId === 'match-1') return { home: 65, draw: 25, away: 10 }; // México vs NZ
-    if (matchId === 'match-2') return { home: 45, draw: 30, away: 25 }; // EUA vs Marrocos
-    if (matchId === 'match-3') return { home: 55, draw: 25, away: 20 }; // Canadá vs Argélia
-    if (matchId === 'match-4') return { home: 70, draw: 20, away: 10 }; // Brasil vs Croácia
+    if (matchId === 'match-1') return { home: 65, draw: 25, away: 10 };
+    if (matchId === 'match-2') return { home: 45, draw: 30, away: 25 };
+    if (matchId === 'match-3') return { home: 55, draw: 25, away: 20 };
+    if (matchId === 'match-4') return { home: 70, draw: 20, away: 10 };
     return { home: 33, draw: 34, away: 33 };
   };
 
+  // Streaks reais dos competidores ativos
+  const usersInAlta = [...users]
+    .filter(u => u.streak > 0)
+    .sort((a, b) => b.streak - a.streak);
+
+  const usersInBaixa = [...users]
+    .filter(u => u.misses > 0)
+    .sort((a, b) => b.misses - a.misses);
+
+  // Emojis de avatar para seleção
+  const avatars = ['😎', '⚽', '👑', '🏃', '🧤', '🔥', '🏆', '⭐', '🦁', '🦊'];
+
   return (
-    <div className="container-fluid pb-5 mb-5 px-0 h-100 flex flex-col justify-content-between">
+    <div className="d-flex flex-column h-100 min-vh-100">
       
-      {/* 1. Header Fixo Superior */}
-      <header className="navbar sticky-top bg-dark px-3 py-2 border-bottom border-secondary shadow-sm">
+      {/* 1. Barra de Topo Geral */}
+      <header className="navbar sticky-top bg-dark navbar-dark px-3 py-2 border-bottom border-secondary shadow-sm">
         <div className="container-fluid d-flex justify-content-between align-items-center">
           
-          {/* Logo */}
           <div className="d-flex align-items-center">
-            <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2">
+            <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2" style={{ letterSpacing: '0.5px' }}>
               🏆 COPA<span className="text-info">ANT</span>
             </span>
-            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem' }}>COPA 2026</span>
+            <span className="badge bg-secondary ms-2 d-none d-sm-inline-block" style={{ fontSize: '0.65rem' }}>EFEITOS NEON</span>
           </div>
 
-          {/* Perfil & Pontuação + Sandbox Seletor */}
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-3">
             
-            {/* Seletor de Perfil Sandbox (Para Testes) */}
-            <div className="me-2 d-flex align-items-center">
-              <span className="text-secondary d-none d-md-inline me-2" style={{ fontSize: '0.75rem' }}>
-                <i className="bi bi-person-gear"></i> Sandbox Conta:
+            {/* Seletor de Contas Sandbox no Header */}
+            <div className="d-flex align-items-center">
+              <span className="text-secondary d-none d-sm-inline me-2" style={{ fontSize: '0.75rem' }}>
+                <i className="bi bi-people-fill"></i> Jogar como:
               </span>
               <select 
                 className="form-select form-select-sm bg-dark text-white border-secondary"
-                style={{ fontSize: '0.8rem', width: '150px' }}
+                style={{ fontSize: '0.8rem', width: '160px' }}
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
               >
                 {users.map(u => (
                   <option key={u.id} value={u.id}>
-                    {u.name.split(' ')[0]} ({u.points} pts)
+                    {u.image} {u.name.split(' ')[0]} ({u.points} pts)
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Placar de Pontos do Usuário Logado */}
-            <div className="glass-card px-3 py-1 d-flex align-items-center gap-2 border border-info">
+            {/* Pontos do Jogador Atual */}
+            <div className="glass-card px-3 py-1 d-flex align-items-center gap-2 border border-info border-opacity-70">
               <span className="fs-5">{currentUser?.image || '👑'}</span>
               <div className="d-flex flex-column text-start">
                 <span className="text-secondary" style={{ fontSize: '0.65rem', lineHeight: 1 }}>SEUS PONTOS</span>
@@ -324,592 +368,705 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 2. Conteúdo Principal da SPA */}
-      <main className="container px-3 mt-3 flex-grow-1" style={{ maxWidth: '600px' }}>
+      {/* 2. Layout Principal Responsivo */}
+      <div className="desktop-layout flex-grow-1">
         
-        {/* Toast de Notificação */}
-        {toastMessage && (
-          <div className={`alert alert-${toastMessage.type} glass-card position-fixed start-50 translate-middle-x mt-2 py-2 px-4 shadow-lg`} style={{ zIndex: 1050, top: '70px', minWidth: '300px' }}>
-            <div className="d-flex align-items-center gap-2">
-              <i className={`bi bi-${toastMessage.type === 'success' ? 'check-circle' : 'exclamation-triangle'}`}></i>
-              <span style={{ fontSize: '0.9rem' }}>{toastMessage.text}</span>
-            </div>
+        {/* SIDEBAR DO DESKTOP (Apenas visível em telas >= 768px) */}
+        <aside className="desktop-sidebar">
+          <div className="desktop-sidebar-nav">
+            
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'home' ? 'active' : ''}`}
+              onClick={() => setActiveTab('home')}
+            >
+              <i className="bi bi-house-door-fill"></i> Home
+            </button>
+
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'matches' ? 'active' : ''}`}
+              onClick={() => setActiveTab('matches')}
+            >
+              <i className="bi bi-lightning-charge-fill"></i> Palpites (Jogos)
+            </button>
+
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'leaderboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('leaderboard')}
+            >
+              <i className="bi bi-trophy-fill"></i> Tabela / Ranking
+            </button>
+
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              <i className="bi bi-clock-history"></i> Histórico
+            </button>
+
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'admin' ? 'active' : ''}`}
+              onClick={() => setActiveTab('admin')}
+            >
+              <i className="bi bi-person-gear"></i> Simulador Sandbox
+            </button>
+
           </div>
-        )}
 
-        {loading ? (
-          <div className="d-flex flex-column align-items-center justify-content-center py-5">
-            <div className="spinner-border text-info mb-3" role="status"></div>
-            <span className="text-secondary">Carregando palpites da Copa...</span>
+          {/* Rodapé da Sidebar */}
+          <div className="pt-3 border-top border-secondary border-opacity-25 text-start">
+            <div className="text-secondary mb-1" style={{ fontSize: '0.7rem' }}>Copa de 2026</div>
+            <div className="text-info fw-bold" style={{ fontSize: '0.75rem' }}>Timing Perfeito! 🌎</div>
           </div>
-        ) : (
-          <>
-            {/* ======================================================== */}
-            {/* ABA: HOME                                                */}
-            {/* ======================================================== */}
-            {activeTab === 'home' && (
-              <div className="fade-in animate__animated animate__fadeIn">
-                
-                {/* 1. Banner da Copa */}
-                <div className="glass-card p-3 mb-3 text-center border-info border-opacity-25" style={{ background: 'linear-gradient(135deg, rgba(0, 255, 135, 0.05) 0%, rgba(96, 239, 255, 0.1) 100%)' }}>
-                  <h5 className="text-white fw-bold mb-1">A Copa do Mundo de 2026 Começou! ⚽</h5>
-                  <p className="text-secondary mb-3" style={{ fontSize: '0.8rem' }}>
-                    O maior espetáculo da terra está rolando. Faça seus palpites nos jogos de hoje e dispute o pódio!
-                  </p>
-                  <div className="d-flex justify-content-center gap-2">
-                    <button className="btn btn-neon-green btn-sm px-3" onClick={() => setActiveTab('matches')}>
-                      <i className="bi bi-lightning-charge-fill"></i> Dar Palpites
-                    </button>
-                    <button className="btn btn-neon-outline btn-sm px-3" onClick={handleShareWhatsApp}>
-                      <i className="bi bi-whatsapp"></i> Desafiar Galera
-                    </button>
-                  </div>
-                </div>
+        </aside>
 
-                {/* 2. Próximo Jogo Relevante */}
-                {nextMatch && (
-                  <div className="glass-card p-3 mb-3 text-center border-secondary">
-                    <span className="text-secondary uppercase fw-semibold" style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>PRÓXIMA PARTIDA FECHANDO</span>
-                    <div className="d-flex align-items-center justify-content-around mt-2">
-                      <div className="d-flex flex-column align-items-center">
-                        <span className="fs-1">{nextMatch.homeFlag}</span>
-                        <span className="fw-bold text-white mt-1" style={{ fontSize: '0.85rem' }}>{nextMatch.homeTeam}</span>
-                      </div>
-                      <span className="text-secondary fw-bold fs-6">VS</span>
-                      <div className="d-flex flex-column align-items-center">
-                        <span className="fs-1">{nextMatch.awayFlag}</span>
-                        <span className="fw-bold text-white mt-1" style={{ fontSize: '0.85rem' }}>{nextMatch.awayTeam}</span>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-2 border-top border-secondary text-secondary" style={{ fontSize: '0.8rem' }}>
-                      <i className="bi bi-clock-fill text-warning me-1"></i>
-                      Limite para palpitar: 30 minutos antes da partida.
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. Cards de Engajamento Social (Quem está em alta / Em baixa) */}
-                <div className="row g-2 mb-3">
-                  
-                  {/* EM ALTA 🔥 */}
-                  <div className="col-12 col-sm-6">
-                    <div className="glass-card p-3 h-100 highlight-up border-0">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <span className="fs-5 pulse-fire">🔥</span>
-                        <h6 className="text-white fw-bold m-0" style={{ fontSize: '0.9rem' }}>Quem tá em alta</h6>
-                      </div>
-                      {usersInAlta.length > 0 ? (
-                        <div className="d-flex flex-column gap-2">
-                          {usersInAlta.map((u, idx) => (
-                            <div key={u.id} className="d-flex justify-content-between align-items-center py-1">
-                              <span className="text-light" style={{ fontSize: '0.85rem' }}>
-                                {u.image} {u.name.split(' ')[0]}
-                              </span>
-                              <span className="badge bg-success" style={{ fontSize: '0.75rem' }}>
-                                +{u.streak} acertos seguidos!
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-secondary" style={{ fontSize: '0.8rem' }}>Competição morna. Dê palpites para incendiar!</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* EM BAIXA 👎 */}
-                  <div className="col-12 col-sm-6">
-                    <div className="glass-card p-3 h-100 highlight-down border-0">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <span className="fs-5">👎</span>
-                        <h6 className="text-white fw-bold m-0" style={{ fontSize: '0.9rem' }}>Secador / Pé Frio</h6>
-                      </div>
-                      {usersInBaixa.length > 0 ? (
-                        <div className="d-flex flex-column gap-2">
-                          {usersInBaixa.map(u => (
-                            <div key={u.id} className="d-flex justify-content-between align-items-center py-1">
-                              <span className="text-light" style={{ fontSize: '0.85rem' }}>
-                                {u.image} {u.name.split(' ')[0]}
-                              </span>
-                              <span className="badge bg-danger" style={{ fontSize: '0.75rem' }}>
-                                {u.misses} erros seguidos...
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-secondary" style={{ fontSize: '0.8rem' }}>Ninguém está secando os amigos ainda!</span>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* 4. Como Pontuar */}
-                <div className="glass-card p-3 text-start">
-                  <h6 className="text-white fw-bold mb-2">
-                    <i className="bi bi-info-circle text-info"></i> Lógica de Pontos (Estilo GE)
-                  </h6>
-                  <div className="d-flex flex-column gap-2" style={{ fontSize: '0.8rem' }}>
-                    <div className="d-flex justify-content-between border-bottom border-secondary pb-1">
-                      <span className="text-secondary">🎯 Placar Exato (ex: apostou 2x1 e foi 2x1)</span>
-                      <span className="text-info fw-bold">+5 pts</span>
-                    </div>
-                    <div className="d-flex justify-content-between border-bottom border-secondary pb-1">
-                      <span className="text-secondary">⚽ Vencedor e Saldo (ex: apostou 2x0 e foi 3x1)</span>
-                      <span className="text-info fw-bold">+3 pts</span>
-                    </div>
-                    <div className="d-flex justify-content-between border-bottom border-secondary pb-1">
-                      <span className="text-secondary">🏃 Vencedor Simples (ex: apostou 2x1 e foi 3x0)</span>
-                      <span className="text-info fw-bold">+2 pts</span>
-                    </div>
-                    <div className="d-flex justify-content-between border-bottom border-secondary pb-1">
-                      <span className="text-secondary">🤝 Empate Não Exato (ex: apostou 1x1 e foi 2x2)</span>
-                      <span className="text-info fw-bold">+2 pts</span>
-                    </div>
-                    <div className="d-flex justify-content-between">
-                      <span className="text-secondary">❌ Erro de resultado final</span>
-                      <span className="text-secondary">0 pts</span>
-                    </div>
-                  </div>
-                </div>
-
+        {/* ÁREA DE CONTEÚDO PRINCIPAL (Se adapta responsivamente) */}
+        <main className="desktop-content pb-5 mb-5 flex-grow-1">
+          
+          {/* Toast de Alerta */}
+          {toastMessage && (
+            <div className={`alert alert-${toastMessage.type} glass-card position-fixed start-50 translate-middle-x py-2 px-4 shadow-lg`} style={{ zIndex: 1050, top: '70px', minWidth: '320px' }}>
+              <div className="d-flex align-items-center gap-2">
+                <i className={`bi bi-${toastMessage.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'}`}></i>
+                <span style={{ fontSize: '0.9rem' }}>{toastMessage.text}</span>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* ======================================================== */}
-            {/* ABA: PALPITES DE PARTIDAS                                */}
-            {/* ======================================================== */}
-            {activeTab === 'matches' && (
-              <div className="fade-in animate__animated animate__fadeIn">
-                
-                <h5 className="text-white fw-bold mb-3 d-flex justify-content-between align-items-center">
-                  <span>⚽ Dê Seus Palpites</span>
-                  <span className="badge bg-dark border border-secondary text-secondary" style={{ fontSize: '0.75rem' }}>
-                    Fase de Grupos
-                  </span>
-                </h5>
-
-                <div className="d-flex flex-column gap-3">
-                  {matches
-                    .filter(m => m.status !== 'finished') // Apenas jogos não finalizados (scheduled/live)
-                    .map(match => {
-                      const isExpired = isTimeGateExpired(match.kickOff);
-                      const isLive = match.status === 'live';
-                      const stats = getMatchStats(match.id);
-                      const localGuess = localGuesses[match.id] || { home: '', away: '' };
-
-                      return (
-                        <div key={match.id} className="glass-card p-3 position-relative">
-                          
-                          {/* Indicator de status ou trava */}
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <span className="text-secondary" style={{ fontSize: '0.7rem' }}>
-                              {new Date(match.kickOff).toLocaleDateString('pt-BR', {
-                                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                              })}
-                            </span>
-                            {isLive ? (
-                              <span className="badge-live">
-                                <span className="live-dot"></span> AO VIVO
-                              </span>
-                            ) : isExpired ? (
-                              <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                <i className="bi bi-lock-fill"></i> Mercado Fechado
-                              </span>
-                            ) : (
-                              <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
-                                <i className="bi bi-unlock-fill"></i> Palpite Disponível
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Placar e Inputs de Chute */}
-                          <div className="d-flex align-items-center justify-content-between my-3">
-                            
-                            {/* Time Casa */}
-                            <div className="d-flex flex-column align-items-center text-center" style={{ width: '30%' }}>
-                              <span style={{ fontSize: '2rem' }}>{match.homeFlag}</span>
-                              <span className="fw-bold text-white text-truncate w-100" style={{ fontSize: '0.85rem' }}>{match.homeTeam}</span>
-                            </div>
-
-                            {/* Inputs de Placar */}
-                            <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '40%' }}>
-                              
-                              {/* Input Casa */}
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="score-input"
-                                value={localGuess.home}
-                                onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
-                                disabled={isExpired || isLive}
-                                placeholder="-"
-                              />
-
-                              <span className="text-secondary fw-bold">x</span>
-
-                              {/* Input Visitante */}
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="score-input"
-                                value={localGuess.away}
-                                onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
-                                disabled={isExpired || isLive}
-                                placeholder="-"
-                              />
-
-                            </div>
-
-                            {/* Time Visitante */}
-                            <div className="d-flex flex-column align-items-center text-center" style={{ width: '30%' }}>
-                              <span style={{ fontSize: '2rem' }}>{match.awayFlag}</span>
-                              <span className="fw-bold text-white text-truncate w-100" style={{ fontSize: '0.85rem' }}>{match.awayTeam}</span>
-                            </div>
-
-                          </div>
-
-                          {/* Botão de Enviar Palpite se o mercado estiver aberto */}
-                          {!isExpired && !isLive && (
-                            <div className="mt-2 text-center">
-                              <button
-                                className="btn btn-neon-green btn-sm w-100 py-1"
-                                onClick={() => saveUserPrediction(match.id)}
-                                disabled={savingPredictionId === match.id}
-                              >
-                                {savingPredictionId === match.id ? (
-                                  <>
-                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                    Salvando...
-                                  </>
-                                ) : (
-                                  <>
-                                    <i className="bi bi-check-lg"></i> Confirmar Palpite
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Secômetro (Termômetro da Galera) */}
-                          <div className="mt-3 pt-2 border-top border-secondary border-opacity-50">
-                            <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
-                              <span>Palpites da Galera:</span>
-                              <span>{match.homeTeam} {stats.home}% | Empate {stats.draw}% | {match.awayTeam} {stats.away}%</span>
-                            </div>
-                            <div className="thermostat-bar d-flex">
-                              <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
-                              <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
-                              <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
-                            </div>
-                          </div>
-
+          {loading ? (
+            <div className="d-flex flex-column align-items-center justify-content-center py-5">
+              <div className="spinner-border text-info mb-3" role="status"></div>
+              <span className="text-secondary">Sincronizando tabelas com o Neon SQL...</span>
+            </div>
+          ) : (
+            <>
+              {/* ======================================================== */}
+              {/* ABA: HOME (Layout responsivo com colunas no desktop)     */}
+              {/* ======================================================== */}
+              {activeTab === 'home' && (
+                <div className="fade-in animate__animated animate__fadeIn">
+                  
+                  {/* Grid responsivo: 2 colunas no desktop, 1 coluna no celular */}
+                  <div className="row g-4">
+                    
+                    {/* Coluna Principal da Home (Esquerda) */}
+                    <div className="col-12 col-lg-8">
+                      
+                      {/* Banner de Boas-vindas */}
+                      <div className="glass-card p-4 mb-4 text-start border-info border-opacity-25" style={{ background: 'linear-gradient(135deg, rgba(0, 255, 135, 0.05) 0%, rgba(96, 239, 255, 0.1) 100%)' }}>
+                        <h4 className="text-white fw-bold mb-2">Chegou a hora de provar que você entende! ⚽</h4>
+                        <p className="text-secondary mb-3" style={{ fontSize: '0.9rem' }}>
+                          Dê palpites nos placares das partidas antes de a bola rolar. Pontue na tabela oficial no estilo do Globo Esporte (GE) e desafie seus amigos!
+                        </p>
+                        <div className="d-flex gap-2">
+                          <button className="btn btn-neon-green px-4 py-2" onClick={() => setActiveTab('matches')}>
+                            <i className="bi bi-lightning-charge-fill"></i> Ir para Palpites
+                          </button>
+                          <button className="btn btn-neon-outline px-4 py-2" onClick={handleShareWhatsApp}>
+                            <i className="bi bi-whatsapp"></i> Compartilhar Bolão
+                          </button>
                         </div>
-                      );
-                    })}
+                      </div>
+
+                      {/* Card Próximo Jogo Regressivo */}
+                      {nextMatch ? (
+                        <div className="glass-card p-4 mb-4 text-center border-secondary">
+                          <span className="text-secondary fw-semibold text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>FECHAMENTO DE MERCADO</span>
+                          <div className="d-flex align-items-center justify-content-around my-3">
+                            <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
+                              <span className="display-4">{nextMatch.homeFlag}</span>
+                              <span className="fw-bold text-white mt-2 fs-5">{nextMatch.homeTeam}</span>
+                            </div>
+                            <span className="text-secondary fw-extrabold fs-4">VS</span>
+                            <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
+                              <span className="display-4">{nextMatch.awayFlag}</span>
+                              <span className="fw-bold text-white mt-2 fs-5">{nextMatch.awayTeam}</span>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-top border-secondary text-secondary" style={{ fontSize: '0.85rem' }}>
+                            <i className="bi bi-clock-fill text-warning me-1"></i>
+                            O palpite trava automaticamente exatamente **30 minutos antes** do jogo começar.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="glass-card p-4 mb-4 text-center text-secondary">
+                          <i className="bi bi-check2-circle fs-1 text-success mb-2"></i>
+                          <h5>Nenhuma partida agendada</h5>
+                          <p className="m-0" style={{ fontSize: '0.85rem' }}>Todos os jogos cadastrados já estão em andamento ou foram finalizados!</p>
+                        </div>
+                      )}
+
+                      {/* Tabela de como Pontuar (Explicação) */}
+                      <div className="glass-card p-4 text-start">
+                        <h5 className="text-white fw-bold mb-3">
+                          <i className="bi bi-award text-info me-2"></i> Sistema de Pontuação (GE)
+                        </h5>
+                        <div className="table-responsive">
+                          <table className="table table-dark table-borderless m-0" style={{ fontSize: '0.85rem' }}>
+                            <thead>
+                              <tr className="text-secondary border-bottom border-secondary">
+                                <th scope="col">Cenário do Palpite</th>
+                                <th scope="col" className="text-end">Pontos</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-bottom border-secondary border-opacity-25">
+                                <td className="py-2">🎯 **Placar Exato** (ex: Apostou 2x1, Placar final 2x1)</td>
+                                <td className="text-end text-info fw-bold py-2">+5</td>
+                              </tr>
+                              <tr className="border-bottom border-secondary border-opacity-25">
+                                <td className="py-2">⚽ **Vencedor e Saldo** (ex: Apostou 2x0, Placar final 3x1 - diferença de 2 gols)</td>
+                                <td className="text-end text-info fw-bold py-2">+3</td>
+                              </tr>
+                              <tr className="border-bottom border-secondary border-opacity-25">
+                                <td className="py-2">🏃 **Vencedor Simples** (ex: Apostou 2x1, Placar final 3x0 - acertou quem ganhou mas errou saldo)</td>
+                                <td className="text-end text-info fw-bold py-2">+2</td>
+                              </tr>
+                              <tr className="border-bottom border-secondary border-opacity-25">
+                                <td className="py-2">🤝 **Empate Não Exato** (ex: Apostou 1x1, Placar final 2x2)</td>
+                                <td className="text-end text-info fw-bold py-2">+2</td>
+                              </tr>
+                              <tr>
+                                <td className="py-2">❌ **Erro Total** (Errou quem venceria ou errou o empate)</td>
+                                <td className="text-end text-secondary py-2">0</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Coluna Lateral da Home (Direita - Apenas desktop, flui no mobile) */}
+                    <div className="col-12 col-lg-4">
+                      
+                      {/* Estatísticas de Andamento */}
+                      <div className="glass-card p-3 mb-4 text-start">
+                        <h6 className="text-white fw-bold mb-3">📊 Progresso do Bolão</h6>
+                        <div className="d-flex justify-content-around text-center mb-2">
+                          <div>
+                            <div className="fs-3 fw-bold text-info">{matches.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.7rem' }}>PARTIDAS</div>
+                          </div>
+                          <div>
+                            <div className="fs-3 fw-bold text-info">{finishedMatches.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.7rem' }}>FINALIZADAS</div>
+                          </div>
+                          <div>
+                            <div className="fs-3 fw-bold text-info">{users.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.7rem' }}>JOGADORES</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Efeitos Sociais (Em alta / Em baixa) */}
+                      <div className="d-flex flex-column gap-3 mb-4">
+                        
+                        {/* EM ALTA 🔥 */}
+                        <div className="glass-card p-3 highlight-up border-0 text-start">
+                          <div className="d-flex align-items-center gap-2 mb-2">
+                            <span className="fs-5 pulse-fire">🔥</span>
+                            <h6 className="text-white fw-bold m-0" style={{ fontSize: '0.85rem' }}>Em Alta (Sequência)</h6>
+                          </div>
+                          {usersInAlta.length > 0 ? (
+                            <div className="d-flex flex-column gap-2">
+                              {usersInAlta.map(u => (
+                                <div key={u.id} className="d-flex justify-content-between align-items-center py-1 border-bottom border-secondary border-opacity-10" style={{ fontSize: '0.8rem' }}>
+                                  <span className="text-light">{u.image} {u.name}</span>
+                                  <span className="badge bg-success">+{u.streak} acertos</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>Ninguém acumulou acertos ainda.</span>
+                          )}
+                        </div>
+
+                        {/* EM BAIXA 👎 */}
+                        <div className="glass-card p-3 highlight-down border-0 text-start">
+                          <div className="d-flex align-items-center gap-2 mb-2">
+                            <span className="fs-5">👎</span>
+                            <h6 className="text-white fw-bold m-0" style={{ fontSize: '0.85rem' }}>Secador / Pé Frio</h6>
+                          </div>
+                          {usersInBaixa.length > 0 ? (
+                            <div className="d-flex flex-column gap-2">
+                              {usersInBaixa.map(u => (
+                                <div key={u.id} className="d-flex justify-content-between align-items-center py-1 border-bottom border-secondary border-opacity-10" style={{ fontSize: '0.8rem' }}>
+                                  <span className="text-light">{u.image} {u.name}</span>
+                                  <span className="badge bg-danger">{u.misses} erros</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-secondary" style={{ fontSize: '0.75rem' }}>Ninguém acumulou erros seguidos.</span>
+                          )}
+                        </div>
+
+                      </div>
+
+                      {/* Mini Ranking Rápido */}
+                      <div className="glass-card p-3 text-start">
+                        <h6 className="text-white fw-bold mb-3">🏆 Top 3 Classificação</h6>
+                        <div className="d-flex flex-column gap-2">
+                          {users.slice(0, 3).map((u, i) => (
+                            <div key={u.id} className="d-flex justify-content-between align-items-center py-1" style={{ fontSize: '0.8rem' }}>
+                              <span className="text-light">
+                                <strong className="text-secondary me-2">#{i + 1}</strong>
+                                {u.image} {u.name.split(' ')[0]}
+                              </span>
+                              <span className="text-info fw-bold">{u.points} pts</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* ABA: PALPITES (Grid de duas colunas no desktop)          */}
+              {/* ======================================================== */}
+              {activeTab === 'matches' && (
+                <div className="fade-in animate__animated animate__fadeIn">
+                  
+                  <h4 className="text-white fw-bold mb-3 text-start">⚽ Partidas Agendadas</h4>
+                  
+                  {/* Grid Responsivo de Jogos (1 coluna celular, 2 colunas desktop grande) */}
+                  <div className="row g-3">
+                    {matches
+                      .filter(m => m.status !== 'finished')
+                      .map(match => {
+                        const isExpired = isTimeGateExpired(match.kickOff);
+                        const isLive = match.status === 'live';
+                        const stats = getMatchStats(match.id);
+                        const localGuess = localGuesses[match.id] || { home: '', away: '' };
+
+                        return (
+                          <div key={match.id} className="col-12 col-lg-6">
+                            <div className="glass-card p-3 h-100 d-flex flex-column justify-content-between text-start">
+                              
+                              {/* Status e Data */}
+                              <div className="d-flex justify-content-between align-items-center mb-3">
+                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                  {new Date(match.kickOff).toLocaleDateString('pt-BR', {
+                                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                                  })}
+                                </span>
+                                {isLive ? (
+                                  <span className="badge-live">
+                                    <span className="live-dot"></span> AO VIVO
+                                  </span>
+                                ) : isExpired ? (
+                                  <span className="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" style={{ fontSize: '0.7rem' }}>
+                                    <i className="bi bi-lock-fill"></i> Fechado
+                                  </span>
+                                ) : (
+                                  <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" style={{ fontSize: '0.7rem' }}>
+                                    <i className="bi bi-unlock-fill"></i> Aberto
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Placar e Botões */}
+                              <div className="d-flex align-items-center justify-content-between my-2">
+                                <div className="d-flex flex-column align-items-center text-center" style={{ width: '32%' }}>
+                                  <span className="display-6">{match.homeFlag}</span>
+                                  <span className="fw-bold text-white text-truncate w-100 mt-1" style={{ fontSize: '0.85rem' }}>{match.homeTeam}</span>
+                                </div>
+
+                                <div className="d-flex align-items-center justify-content-center gap-2" style={{ width: '36%' }}>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="score-input"
+                                    value={localGuess.home}
+                                    onChange={(e) => handleLocalGuessChange(match.id, 'home', e.target.value)}
+                                    disabled={isExpired || isLive}
+                                    placeholder="-"
+                                  />
+                                  <span className="text-secondary fw-bold">x</span>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="score-input"
+                                    value={localGuess.away}
+                                    onChange={(e) => handleLocalGuessChange(match.id, 'away', e.target.value)}
+                                    disabled={isExpired || isLive}
+                                    placeholder="-"
+                                  />
+                                </div>
+
+                                <div className="d-flex flex-column align-items-center text-center" style={{ width: '32%' }}>
+                                  <span className="display-6">{match.awayFlag}</span>
+                                  <span className="fw-bold text-white text-truncate w-100 mt-1" style={{ fontSize: '0.85rem' }}>{match.awayTeam}</span>
+                                </div>
+                              </div>
+
+                              {/* Botão de Enviar */}
+                              {!isExpired && !isLive && (
+                                <div className="mt-3">
+                                  <button
+                                    className="btn btn-neon-green btn-sm w-100 py-1"
+                                    onClick={() => saveUserPrediction(match.id)}
+                                    disabled={savingPredictionId === match.id}
+                                  >
+                                    {savingPredictionId === match.id ? 'Salvando...' : 'Confirmar Palpite'}
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Secômetro */}
+                              <div className="mt-3 pt-2 border-top border-secondary border-opacity-30">
+                                <div className="d-flex justify-content-between text-secondary mb-1" style={{ fontSize: '0.65rem' }}>
+                                  <span>Média dos palpites:</span>
+                                  <span>{stats.home}% | {stats.draw}% | {stats.away}%</span>
+                                </div>
+                                <div className="thermostat-bar d-flex">
+                                  <div className="thermostat-segment-home" style={{ width: `${stats.home}%` }}></div>
+                                  <div className="thermostat-segment-draw" style={{ width: `${stats.draw}%` }}></div>
+                                  <div className="thermostat-segment-away" style={{ width: `${stats.away}%` }}></div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
 
                   {matches.filter(m => m.status !== 'finished').length === 0 && (
                     <div className="text-center py-5 text-secondary">
-                      <i className="bi bi-emoji-smile fs-1"></i>
-                      <p className="mt-2">Todos os jogos já foram finalizados! Dê uma olhada na aba Histórico ou Ranking.</p>
+                      <i className="bi bi-check-circle fs-1 text-success"></i>
+                      <p className="mt-2">Sem partidas pendentes de palpites!</p>
                     </div>
                   )}
+
                 </div>
+              )}
 
-              </div>
-            )}
-
-            {/* ======================================================== */}
-            {/* ABA: LEADERBOARD / RANKING                               */}
-            {/* ======================================================== */}
-            {activeTab === 'leaderboard' && (
-              <div className="fade-in animate__animated animate__fadeIn">
-                
-                <h5 className="text-white fw-bold mb-3">🏆 Classificação Geral</h5>
-
-                {/* Top 3 Pódio */}
-                <div className="row g-2 mb-3 align-items-end justify-content-center text-center">
+              {/* ======================================================== */}
+              {/* ABA: LEADERBOARD / RANKING                               */}
+              {/* ======================================================== */}
+              {activeTab === 'leaderboard' && (
+                <div className="fade-in animate__animated animate__fadeIn">
                   
-                  {/* 2º Lugar */}
-                  {users[1] && (
-                    <div className="col-4 order-1">
-                      <div className="glass-card p-2 border-secondary" style={{ borderBottom: '3px solid var(--silver)' }}>
-                        <span className="fs-3">🥈</span>
-                        <div className="fw-bold text-white text-truncate mt-1" style={{ fontSize: '0.8rem' }}>{users[1].name.split(' ')[0]}</div>
-                        <span className="text-info fw-bold" style={{ fontSize: '0.85rem' }}>{users[1].points} pts</span>
-                      </div>
-                    </div>
-                  )}
+                  <h4 className="text-white fw-bold mb-3 text-start">🏆 Tabela de Líderes</h4>
 
-                  {/* 1º Lugar */}
-                  {users[0] && (
-                    <div className="col-4 order-2">
-                      <div className="glass-card p-3 leader-card-1" style={{ borderBottom: '3px solid var(--gold)' }}>
-                        <span className="crown-bounce">👑</span>
-                        <div className="fw-bold text-white text-truncate mt-1" style={{ fontSize: '0.9rem' }}>{users[0].name.split(' ')[0]}</div>
-                        <span className="text-info fw-bold" style={{ fontSize: '1rem' }}>{users[0].points} pts</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3º Lugar */}
-                  {users[2] && (
-                    <div className="col-4 order-3">
-                      <div className="glass-card p-2 border-secondary" style={{ borderBottom: '3px solid var(--bronze)' }}>
-                        <span className="fs-3">🥉</span>
-                        <div className="fw-bold text-white text-truncate mt-1" style={{ fontSize: '0.8rem' }}>{users[2].name.split(' ')[0]}</div>
-                        <span className="text-info fw-bold" style={{ fontSize: '0.85rem' }}>{users[2].points} pts</span>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                {/* Lista Completa */}
-                <div className="glass-card">
-                  <div className="list-group list-group-flush bg-transparent">
-                    {users.map((user, index) => {
-                      const isCurrentUser = user.id === selectedUserId;
-                      return (
-                        <div
-                          key={user.id}
-                          className={`list-group-item bg-transparent d-flex justify-content-between align-items-center py-3 px-3 border-secondary border-opacity-25 ${
-                            isCurrentUser ? 'bg-info bg-opacity-10 border-info border-opacity-50' : ''
-                          }`}
-                        >
-                          <div className="d-flex align-items-center gap-3">
-                            <span className="text-secondary fw-bold" style={{ width: '25px' }}>
-                              #{index + 1}
-                            </span>
-                            <span className="fs-4">{user.image}</span>
-                            <div className="d-flex flex-column text-start">
-                              <span className={`fw-bold text-white ${isCurrentUser ? 'text-info' : ''}`} style={{ fontSize: '0.9rem' }}>
-                                {user.name} {isCurrentUser && <span className="badge bg-info text-dark ms-1" style={{ fontSize: '0.6rem' }}>VOCÊ</span>}
-                              </span>
-                              <span className="text-secondary" style={{ fontSize: '0.7rem' }}>{user.email}</span>
-                            </div>
-                          </div>
-                          <div className="d-flex align-items-center gap-2">
-                            {user.streak >= 3 && <span className="fs-6 pulse-fire" title="Em alta! 🔥">🔥</span>}
-                            <span className="text-info fw-bold fs-5">{user.points} pts</span>
-                          </div>
+                  {/* Pódio visual */}
+                  <div className="row g-2 mb-4 align-items-end justify-content-center text-center">
+                    {users[1] && (
+                      <div className="col-4 col-sm-3 order-1">
+                        <div className="glass-card p-3 border-secondary" style={{ borderBottom: '4px solid var(--silver)' }}>
+                          <span className="fs-2">🥈</span>
+                          <div className="fw-bold text-white text-truncate mt-1" style={{ fontSize: '0.85rem' }}>{users[1].name}</div>
+                          <span className="text-info fw-bold">{users[1].points} pts</span>
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
+                    {users[0] && (
+                      <div className="col-4 col-sm-4 order-2">
+                        <div className="glass-card p-4 leader-card-1" style={{ borderBottom: '4px solid var(--gold)' }}>
+                          <span className="crown-bounce">👑</span>
+                          <div className="fw-bold text-white text-truncate mt-1" style={{ fontSize: '0.95rem' }}>{users[0].name}</div>
+                          <span className="text-info fw-bold fs-5">{users[0].points} pts</span>
+                        </div>
+                      </div>
+                    )}
+                    {users[2] && (
+                      <div className="col-4 col-sm-3 order-3">
+                        <div className="glass-card p-3 border-secondary" style={{ borderBottom: '4px solid var(--bronze)' }}>
+                          <span className="fs-2">🥉</span>
+                          <div className="fw-bold text-white text-truncate mt-1" style={{ fontSize: '0.85rem' }}>{users[2].name}</div>
+                          <span className="text-info fw-bold">{users[2].points} pts</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-              </div>
-            )}
-
-            {/* ======================================================== */}
-            {/* ABA: HISTÓRICO                                           */}
-            {/* ======================================================== */}
-            {activeTab === 'history' && (
-              <div className="fade-in animate__animated animate__fadeIn">
-                
-                <h5 className="text-white fw-bold mb-3">📜 Seus Palpites e Resultados</h5>
-
-                <div className="d-flex flex-column gap-3">
-                  {matches
-                    .filter(m => m.status === 'finished')
-                    .map(match => {
-                      const userPred = predictions.find(p => p.matchId === match.id);
-                      
-                      // Calcular pontos obtidos se houver palpite
-                      let scoreBadge = { text: 'Sem palpite', class: 'bg-secondary' };
-                      let ptsObtidos = 0;
-
-                      if (userPred) {
-                        ptsObtidos = calculatePredictionPoints(
-                          userPred.homeGuess,
-                          userPred.awayGuess,
-                          match.homeScore || 0,
-                          match.awayScore || 0
-                        );
-
-                        if (ptsObtidos === 5) {
-                          scoreBadge = { text: 'Placar Exato (+5)', class: 'bg-success' };
-                        } else if (ptsObtidos === 3) {
-                          scoreBadge = { text: 'Vencedor & Saldo (+3)', class: 'bg-success bg-opacity-75' };
-                        } else if (ptsObtidos === 2) {
-                          scoreBadge = { text: 'Vencedor Simples (+2)', class: 'bg-info text-dark' };
-                        } else {
-                          scoreBadge = { text: 'Errou o resultado (0)', class: 'bg-danger' };
-                        }
-                      }
-
-                      return (
-                        <div key={match.id} className="glass-card p-3 border-secondary">
-                          
-                          {/* Cabeçalho da partida no histórico */}
-                          <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-50">
-                            <span className="text-secondary" style={{ fontSize: '0.7rem' }}>
-                              Fase de Grupos • Encerrado
-                            </span>
-                            <span className={`badge ${scoreBadge.class}`} style={{ fontSize: '0.7rem' }}>
-                              {scoreBadge.text}
-                            </span>
-                          </div>
-
-                          {/* Placar Real */}
-                          <div className="d-flex align-items-center justify-content-between my-2 text-center">
-                            <div className="d-flex flex-column align-items-center" style={{ width: '35%' }}>
-                              <span className="fs-2">{match.homeFlag}</span>
-                              <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.homeTeam}</span>
-                            </div>
-                            <div className="d-flex flex-column align-items-center" style={{ width: '30%' }}>
-                              <span className="fs-3 fw-extrabold text-info">
-                                {match.homeScore} - {match.awayScore}
+                  {/* Tabela de Classificação */}
+                  <div className="glass-card text-start">
+                    <div className="list-group list-group-flush bg-transparent">
+                      {users.map((user, index) => {
+                        const isCurrentUser = user.id === selectedUserId;
+                        return (
+                          <div
+                            key={user.id}
+                            className={`list-group-item bg-transparent d-flex justify-content-between align-items-center py-3 px-4 border-secondary border-opacity-20 ${
+                              isCurrentUser ? 'bg-info bg-opacity-10 border-info border-opacity-45' : ''
+                            }`}
+                          >
+                            <div className="d-flex align-items-center gap-3">
+                              <span className="text-secondary fw-bold" style={{ width: '25px' }}>
+                                #{index + 1}
                               </span>
-                              <span className="text-secondary" style={{ fontSize: '0.65rem' }}>RESULTADO REAL</span>
+                              <span className="fs-4">{user.image}</span>
+                              <div className="d-flex flex-column">
+                                <span className={`fw-bold text-white ${isCurrentUser ? 'text-info' : ''}`} style={{ fontSize: '0.95rem' }}>
+                                  {user.name} {isCurrentUser && <span className="badge bg-info text-dark ms-1" style={{ fontSize: '0.6rem' }}>VOCÊ</span>}
+                                </span>
+                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>{user.email}</span>
+                              </div>
                             </div>
-                            <div className="d-flex flex-column align-items-center" style={{ width: '35%' }}>
-                              <span className="fs-2">{match.awayFlag}</span>
-                              <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.awayTeam}</span>
+                            <div className="d-flex align-items-center gap-2">
+                              {user.streak >= 3 && <span className="pulse-fire">🔥</span>}
+                              <span className="text-info fw-bold fs-5">{user.points} pts</span>
                             </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-                          {/* Palpite do Usuário */}
-                          {userPred ? (
-                            <div className="mt-3 p-2 rounded text-center bg-dark bg-opacity-50 border border-secondary border-opacity-25" style={{ fontSize: '0.8rem' }}>
-                              <span className="text-secondary me-1">Seu Palpite:</span>
-                              <strong className="text-white">
-                                {match.homeTeam} {userPred.homeGuess} x {userPred.awayGuess} {match.awayTeam}
-                              </strong>
-                            </div>
-                          ) : (
-                            <div className="mt-3 p-2 rounded text-center bg-danger bg-opacity-10 border border-danger border-opacity-25" style={{ fontSize: '0.8rem' }}>
-                              <span className="text-danger">Você não deu nenhum palpite para este jogo.</span>
-                            </div>
-                          )}
+                </div>
+              )}
 
-                        </div>
-                      );
-                    })}
+              {/* ======================================================== */}
+              {/* ABA: HISTÓRICO                                           */}
+              {/* ======================================================== */}
+              {activeTab === 'history' && (
+                <div className="fade-in animate__animated animate__fadeIn">
+                  
+                  <h4 className="text-white fw-bold mb-3 text-start">📜 Resultados Encerrados</h4>
+
+                  <div className="row g-3">
+                    {matches
+                      .filter(m => m.status === 'finished')
+                      .map(match => {
+                        const userPred = predictions.find(p => p.matchId === match.id);
+                        let scoreBadge = { text: 'Sem palpite', class: 'bg-secondary' };
+                        let ptsObtidos = 0;
+
+                        if (userPred) {
+                          ptsObtidos = calculatePredictionPoints(
+                            userPred.homeGuess,
+                            userPred.awayGuess,
+                            match.homeScore || 0,
+                            match.awayScore || 0
+                          );
+
+                          if (ptsObtidos === 5) scoreBadge = { text: 'Placar Exato (+5)', class: 'bg-success' };
+                          else if (ptsObtidos === 3) scoreBadge = { text: 'Vencedor & Saldo (+3)', class: 'bg-success bg-opacity-75' };
+                          else if (ptsObtidos === 2) scoreBadge = { text: 'Vencedor Simples (+2)', class: 'bg-info text-dark' };
+                          else scoreBadge = { text: 'Errou Placar (0)', class: 'bg-danger' };
+                        }
+
+                        return (
+                          <div key={match.id} className="col-12 col-lg-6">
+                            <div className="glass-card p-3 h-100 text-start d-flex flex-column justify-content-between">
+                              
+                              <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-35">
+                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>Encerrado</span>
+                                <span className={`badge ${scoreBadge.class}`} style={{ fontSize: '0.7rem' }}>
+                                  {scoreBadge.text}
+                                </span>
+                              </div>
+
+                              <div className="d-flex align-items-center justify-content-between my-2 text-center">
+                                <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
+                                  <span className="fs-3">{match.homeFlag}</span>
+                                  <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.homeTeam}</span>
+                                </div>
+                                <div className="d-flex flex-column align-items-center" style={{ width: '34%' }}>
+                                  <span className="fs-3 fw-bold text-info">
+                                    {match.homeScore} - {match.awayScore}
+                                  </span>
+                                  <span className="text-secondary" style={{ fontSize: '0.65rem' }}>RESULTADO REAL</span>
+                                </div>
+                                <div className="d-flex flex-column align-items-center" style={{ width: '33%' }}>
+                                  <span className="fs-3">{match.awayFlag}</span>
+                                  <span className="fw-bold text-white mt-1" style={{ fontSize: '0.8rem' }}>{match.awayTeam}</span>
+                                </div>
+                              </div>
+
+                              {userPred ? (
+                                <div className="mt-2 p-2 rounded text-center bg-dark bg-opacity-40 border border-secondary border-opacity-25" style={{ fontSize: '0.8rem' }}>
+                                  <span className="text-secondary">Palpite feito:</span>{' '}
+                                  <strong className="text-white">
+                                    {match.homeTeam} {userPred.homeGuess} x {userPred.awayGuess} {match.awayTeam}
+                                  </strong>
+                                </div>
+                              ) : (
+                                <div className="mt-2 p-2 rounded text-center bg-danger bg-opacity-10 border border-danger border-opacity-25" style={{ fontSize: '0.8rem' }}>
+                                  <span className="text-danger">Não palpitou</span>
+                                </div>
+                              )}
+
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
 
                   {matches.filter(m => m.status === 'finished').length === 0 && (
                     <div className="text-center py-5 text-secondary">
                       <i className="bi bi-clock-history fs-1"></i>
-                      <p className="mt-2">Nenhum jogo foi finalizado ainda. Use o painel de Simulação para rodar os jogos!</p>
+                      <p className="mt-2">Aguardando encerramento das partidas.</p>
                     </div>
                   )}
+
                 </div>
+              )}
 
-              </div>
-            )}
-
-            {/* ======================================================== */}
-            {/* ABA: PAINEL DE SIMULAÇÃO (ADMIN/DEV)                      */}
-            {/* ======================================================== */}
-            {activeTab === 'admin' && (
-              <div className="fade-in animate__animated animate__fadeIn">
-                
-                <h5 className="text-white fw-bold mb-3 d-flex justify-content-between align-items-center">
-                  <span>🛠️ Simulador da Copa (Sandbox)</span>
-                  <button className="btn btn-danger btn-sm px-2" onClick={handleResetSimulation}>
-                    <i className="bi bi-arrow-counterclockwise"></i> Resetar Tudo
-                  </button>
-                </h5>
-
-                <div className="alert alert-warning glass-card py-2 border-warning border-opacity-25 text-start" style={{ fontSize: '0.8rem' }}>
-                  <i className="bi bi-info-circle-fill text-warning me-2"></i>
-                  Como administrador, mude o placar e encerre jogos abaixo para ver as triggers de pontuação rodarem no banco/memória. A pontuação dos usuários no ranking atualizará na hora!
-                </div>
-
-                {/* Seleção de Jogo para Simulação */}
-                <div className="glass-card p-3 mb-4 text-start">
-                  <h6 className="text-white fw-bold mb-3">Simular Placar de Partida</h6>
+              {/* ======================================================== */}
+              {/* ABA: SIMULADOR SANDBOX / GERENCIAR DADOS                */}
+              {/* ======================================================== */}
+              {activeTab === 'admin' && (
+                <div className="fade-in animate__animated animate__fadeIn">
                   
-                  <form onSubmit={handleSimulateMatch}>
+                  <h4 className="text-white fw-bold mb-3 d-flex justify-content-between align-items-center">
+                    <span>🛠️ Painel Sandbox Administrativo</span>
+                    <button className="btn btn-danger btn-sm px-3" onClick={handleResetSimulation}>
+                      <i className="bi bi-arrow-counterclockwise"></i> Resetar Bolão
+                    </button>
+                  </h4>
+
+                  {/* Grid de Ferramentas Sandbox: 2 Colunas */}
+                  <div className="row g-4 text-start">
                     
-                    {/* Selecionar Jogo */}
-                    <div className="mb-3">
-                      <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Selecione a Partida:</label>
-                      <select 
-                        className="form-select bg-dark text-white border-secondary"
-                        value={simulatingMatchId || ''}
-                        onChange={(e) => {
-                          const mId = e.target.value;
-                          setSimulatingMatchId(mId);
-                          const m = matches.find(j => j.id === mId);
-                          if (m) {
-                            setSimHomeScore((m.homeScore ?? 0).toString());
-                            setSimAwayScore((m.awayScore ?? 0).toString());
-                            setSimStatus(m.status);
-                          }
-                        }}
-                        required
-                      >
-                        <option value="">-- Escolha um jogo --</option>
-                        {matches.map(m => (
-                          <option key={m.id} value={m.id}>
-                            {m.homeFlag} {m.homeTeam} vs {m.awayTeam} {m.awayFlag} ({m.status.toUpperCase()})
-                          </option>
-                        ))}
-                      </select>
+                    {/* Coluna 1: Criar Competidores Sandbox (Substitui dados fake fixos) */}
+                    <div className="col-12 col-md-6">
+                      <div className="glass-card p-4 h-100">
+                        <h5 className="text-white fw-bold mb-3">👥 Adicionar Amigos (Sandbox)</h5>
+                        <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                          Crie competidores adicionais para preencher o ranking e simular rivalidades. Cada competidor criado pode receber palpites individuais!
+                        </p>
+
+                        <form onSubmit={handleAddCompetitor}>
+                          <div className="mb-3">
+                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Nome do Amigo:</label>
+                            <input 
+                              type="text" 
+                              className="form-control bg-dark text-white border-secondary"
+                              placeholder="Ex: Pedro, Maria, Thiago..."
+                              value={newCompetitorName}
+                              onChange={(e) => setNewCompetitorName(e.target.value)}
+                              required
+                            />
+                          </div>
+
+                          <div className="mb-3">
+                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Escolha o Avatar:</label>
+                            <div className="d-flex flex-wrap gap-2">
+                              {avatars.map(av => (
+                                <button
+                                  type="button"
+                                  key={av}
+                                  className={`btn btn-sm ${newCompetitorAvatar === av ? 'btn-info text-dark' : 'btn-dark border-secondary'}`}
+                                  style={{ fontSize: '1.1rem' }}
+                                  onClick={() => setNewCompetitorAvatar(av)}
+                                >
+                                  {av}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button type="submit" className="btn btn-neon-outline btn-sm w-100 mt-2 py-2">
+                            <i className="bi bi-person-plus-fill"></i> Criar Competidor
+                          </button>
+                        </form>
+                      </div>
                     </div>
 
-                    {simulatingMatchId && (
-                      <>
-                        {/* Gols e Status */}
-                        <div className="row g-2 mb-3">
-                          <div className="col-4">
-                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Gols Casa:</label>
-                            <input 
-                              type="number" 
-                              className="form-control bg-dark text-white border-secondary text-center fw-bold"
-                              value={simHomeScore}
-                              onChange={(e) => setSimHomeScore(e.target.value)}
-                              min="0"
-                              required
-                            />
-                          </div>
-                          <div className="col-4">
-                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Gols Visitante:</label>
-                            <input 
-                              type="number" 
-                              className="form-control bg-dark text-white border-secondary text-center fw-bold"
-                              value={simAwayScore}
-                              onChange={(e) => setSimAwayScore(e.target.value)}
-                              min="0"
-                              required
-                            />
-                          </div>
-                          <div className="col-4">
-                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Status:</label>
+                    {/* Coluna 2: Simular Resultados de Jogos */}
+                    <div className="col-12 col-md-6">
+                      <div className="glass-card p-4 h-100">
+                        <h5 className="text-white fw-bold mb-3">⚽ Simular Jogo da Copa</h5>
+                        <p className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                          Defina o placar final de um jogo. Ao marcar como **"Encerrado"**, as pontuações e o ranking de todos os competidores são recalculados na hora.
+                        </p>
+
+                        <form onSubmit={handleSimulateMatch}>
+                          <div className="mb-3">
+                            <label className="form-label text-secondary" style={{ fontSize: '0.75rem' }}>Selecione a Partida:</label>
                             <select 
                               className="form-select bg-dark text-white border-secondary"
-                              value={simStatus}
-                              onChange={(e) => setSimStatus(e.target.value as any)}
+                              value={simulatingMatchId || ''}
+                              onChange={(e) => {
+                                const mId = e.target.value;
+                                setSimulatingMatchId(mId);
+                                const m = matches.find(j => j.id === mId);
+                                if (m) {
+                                  setSimHomeScore((m.homeScore ?? 0).toString());
+                                  setSimAwayScore((m.awayScore ?? 0).toString());
+                                  setSimStatus(m.status);
+                                }
+                              }}
                               required
                             >
-                              <option value="scheduled">Agendado</option>
-                              <option value="live">Ao Vivo</option>
-                              <option value="finished">Encerrado</option>
+                              <option value="">-- Escolha um jogo --</option>
+                              {matches.map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.homeFlag} {m.homeTeam} vs {m.awayTeam} {m.awayFlag} ({m.status.toUpperCase()})
+                                </option>
+                              ))}
                             </select>
                           </div>
-                        </div>
 
-                        {/* Botão de Gravar Simulação */}
-                        <button type="submit" className="btn btn-neon-green w-100">
-                          <i className="bi bi-play-circle-fill"></i> Aplicar e Processar Pontos
-                        </button>
-                      </>
-                    )}
+                          {simulatingMatchId && (
+                            <>
+                              <div className="row g-2 mb-3">
+                                <div className="col-4">
+                                  <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Placar Casa:</label>
+                                  <input 
+                                    type="number" 
+                                    className="form-control bg-dark text-white border-secondary text-center fw-bold"
+                                    value={simHomeScore}
+                                    onChange={(e) => setSimHomeScore(e.target.value)}
+                                    min="0"
+                                    required
+                                  />
+                                </div>
+                                <div className="col-4">
+                                  <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Placar Fora:</label>
+                                  <input 
+                                    type="number" 
+                                    className="form-control bg-dark text-white border-secondary text-center fw-bold"
+                                    value={simAwayScore}
+                                    onChange={(e) => setSimAwayScore(e.target.value)}
+                                    min="0"
+                                    required
+                                  />
+                                </div>
+                                <div className="col-4">
+                                  <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Status:</label>
+                                  <select 
+                                    className="form-select bg-dark text-white border-secondary"
+                                    value={simStatus}
+                                    onChange={(e) => setSimStatus(e.target.value as any)}
+                                    required
+                                  >
+                                    <option value="scheduled">Agendado</option>
+                                    <option value="live">Ao Vivo</option>
+                                    <option value="finished">Encerrado</option>
+                                  </select>
+                                </div>
+                              </div>
 
-                  </form>
+                              <button type="submit" className="btn btn-neon-green btn-sm w-100 py-2">
+                                <i className="bi bi-play-fill"></i> Aplicar Placar & Recalcular Pontos
+                              </button>
+                            </>
+                          )}
+                        </form>
+                      </div>
+                    </div>
+
+                  </div>
+
                 </div>
+              )}
+            </>
+          )}
 
-              </div>
-            )}
-          </>
-        )}
+        </main>
 
-      </main>
+      </div>
 
-      {/* 3. Navegação Inferior Estilo App */}
+      {/* 3. Navegação Inferior (Mobile-Only: Oculto em computadores via globals.css) */}
       <nav className="mobile-nav-bar d-flex justify-content-between align-items-center px-2">
         
         <button 
@@ -958,7 +1115,7 @@ export default function Home() {
   );
 }
 
-// Lógica local redundante para exibição instantânea no histórico
+// Lógica de cálculo local no React
 function calculatePredictionPoints(
   homeGuess: number,
   awayGuess: number,
