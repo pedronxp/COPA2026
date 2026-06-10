@@ -1,0 +1,83 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Modelos de Autenticação e Perfis (NextAuth)
+model User {
+  id            String       @id @default(uuid())
+  name          String?
+  email         String       @unique
+  emailVerified DateTime?
+  image         String?
+  points        Int          @default(0)
+  predictions   Prediction[]
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime     @default(now())
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 2. Modelo de Partidas da Copa
+model Match {
+  id          String       @id @default(uuid())
+  homeTeam    String
+  awayTeam    String
+  homeFlag    String?      // Código de emoji ou URL de bandeira
+  awayFlag    String?
+  kickOff     DateTime     // Horário de início do jogo
+  homeScore   Int?         // Placar real do time de casa (null até a partida iniciar/terminar)
+  awayScore   Int?         // Placar real do time visitante
+  status      String       @default("scheduled") // scheduled | live | finished
+  result      String?      // "1" (Casa), "X" (Empate), "2" (Fora)
+  stage       String       @default("group")     // group | round_16 | quarter | semi | final
+  predictions Prediction[]
+}
+
+// 3. Modelo de Palpites (Predictions)
+model Prediction {
+  id        String   @id @default(uuid())
+  userId    String
+  matchId   String
+  homeGuess Int      // Placar chutado para o time de casa (ex: 2)
+  awayGuess Int      // Placar chutado para o time visitante (ex: 1)
+  guess     String   // Vencedor/Empate derivado: "1" (Casa), "X" (Empate), "2" (Fora)
+  createdAt DateTime @default(now())
+  processed Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId]) // Um único palpite por usuário por jogo
+}

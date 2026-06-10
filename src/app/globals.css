@@ -1,0 +1,283 @@
+/* src/app/globals.css */
+
+:root {
+  --background: #090d16;
+  --foreground: #f8f9fa;
+  --card-bg: rgba(19, 27, 46, 0.7);
+  --card-border: rgba(29, 42, 69, 0.5);
+  
+  --neon-green: #00ff87;
+  --neon-cyan: #60efff;
+  --neon-red: #ff4a5a;
+  --gold: #ffd700;
+  --silver: #c0c0c0;
+  --bronze: #cd7f32;
+  
+  --font-sans: var(--font-outfit), Arial, sans-serif;
+}
+
+body {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  font-family: var(--font-sans) !important;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Webkit Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: #1d2a45;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-cyan);
+}
+
+/* Design System - Glassmorphism Cards */
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(96, 239, 255, 0.3);
+  box-shadow: 0 12px 40px 0 rgba(96, 239, 255, 0.08);
+}
+
+/* Placar Input Cards (Estilo GE) */
+.score-input {
+  width: 50px;
+  height: 50px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 10px;
+  border: 2px solid #1d2a45;
+  background-color: #0c1220;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.score-input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 10px rgba(96, 239, 255, 0.4);
+  outline: none;
+}
+
+.score-input:disabled {
+  background-color: #171f30;
+  border-color: #2b3954;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Botões Neon */
+.btn-neon-green {
+  background: linear-gradient(135deg, #00ff87 0%, #00d169 100%);
+  color: #090d16 !important;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0, 255, 135, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-neon-green:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(0, 255, 135, 0.5);
+}
+.btn-neon-green:active {
+  transform: translateY(0);
+}
+
+.btn-neon-outline {
+  background: transparent;
+  color: var(--neon-cyan) !important;
+  border: 1px solid var(--neon-cyan);
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+.btn-neon-outline:hover {
+  background: rgba(96, 239, 255, 0.1);
+  box-shadow: 0 0 15px rgba(96, 239, 255, 0.2);
+}
+
+/* Live Badge Indicator */
+.badge-live {
+  background-color: var(--neon-red);
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background-color: white;
+  border-radius: 50%;
+  animation: pulse-red 1.2s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+/* Animações e Destaque do Líder (Gold Crown) */
+.leader-card-1 {
+  border: 1px solid rgba(255, 215, 0, 0.3) !important;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, rgba(19, 27, 46, 0.8) 100%) !important;
+  box-shadow: 0 8px 32px 0 rgba(255, 215, 0, 0.08) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.leader-card-1::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 215, 0, 0.1), transparent);
+  transform: rotate(45deg);
+  animation: shine 4s infinite linear;
+}
+
+@keyframes shine {
+  0% {
+    transform: translate(-30%, -30%) rotate(45deg);
+  }
+  100% {
+    transform: translate(30%, 30%) rotate(45deg);
+  }
+}
+
+.crown-bounce {
+  font-size: 1.8rem;
+  animation: crown-float 2s infinite ease-in-out;
+  display: inline-block;
+}
+
+@keyframes crown-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-5px) rotate(5deg);
+  }
+}
+
+/* Termômetro da Galera (Barra de Progresso) */
+.thermostat-bar {
+  height: 8px;
+  background-color: #1a233a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.thermostat-segment-home {
+  background-color: var(--neon-green);
+}
+.thermostat-segment-draw {
+  background-color: #6c757d;
+}
+.thermostat-segment-away {
+  background-color: var(--neon-cyan);
+}
+
+/* Navegação inferior (Estilo App Nativo) */
+.mobile-nav-bar {
+  background: rgba(11, 15, 25, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(29, 42, 69, 0.6);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 65px;
+  z-index: 1030;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-nav-item {
+  color: #6c757d;
+  font-size: 0.75rem;
+  text-decoration: none !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-item i {
+  font-size: 1.3rem;
+  margin-bottom: 2px;
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-item.active {
+  color: var(--neon-cyan) !important;
+  font-weight: 600;
+}
+
+.mobile-nav-item.active i {
+  transform: translateY(-2px);
+  color: var(--neon-cyan);
+}
+
+/* Card Social Highlights (Foguinho e Dedinho) */
+.highlight-up {
+  border-left: 4px solid var(--neon-green) !important;
+}
+
+.highlight-down {
+  border-left: 4px solid var(--neon-red) !important;
+}
+
+.pulse-fire {
+  animation: pulse-fire-anim 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-fire-anim {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(255, 69, 0, 0.5));
+  }
+  100% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px rgba(255, 69, 0, 0.8));
+  }
+}
