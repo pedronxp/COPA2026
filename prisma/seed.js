@@ -3,20 +3,76 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Iniciando o seed de partidas da Copa do Mundo de 2026...');
+  console.log('Iniciando o seed de dados do Bolão...');
 
-  // Limpar dados anteriores (opcional, útil para resetar no desenvolvimento)
+  // Limpar dados anteriores para o reset
   await prisma.prediction.deleteMany({});
+  await prisma.leagueMember.deleteMany({});
+  await prisma.league.deleteMany({});
+  await prisma.passwordResetRequest.deleteMany({});
+  await prisma.user.deleteMany({});
   await prisma.match.deleteMany({});
-  
-  // Como hoje é 10 de junho de 2026 e o torneio começa amanhã, 11 de junho de 2026:
+
+  // 1. Criar Usuários Fundamentais
+  console.log('Criando usuários do sistema...');
+  const systemUser = await prisma.user.create({
+    data: {
+      id: 'system',
+      name: 'Sistema',
+      email: 'sistema@copa.com',
+      image: '🤖',
+      points: 0,
+    }
+  });
+
+  const currentUser = await prisma.user.create({
+    data: {
+      id: 'currentUser',
+      name: 'Você (Torcedor)',
+      email: 'usuario@copa.com',
+      image: '👑',
+      points: 0,
+    }
+  });
+
+  // 2. Criar Bolão Global Oficial
+  console.log('Criando Bolão Global...');
+  const globalLeague = await prisma.league.create({
+    data: {
+      id: 'global',
+      name: 'Bolão Global da Copa',
+      description: 'O bolão oficial da plataforma para todos os torcedores.',
+      inviteCode: 'COPA-GLOBAL',
+      ownerId: systemUser.id,
+      expiresAt: new Date('2026-08-01T00:00:00Z'),
+      windowHours: 48,
+      maxEdits: 3,
+      pointsExact: 5,
+      pointsDiff: 3,
+      pointsWinner: 2,
+      pointsDraw: 2,
+    }
+  });
+
+  // 3. Adicionar currentUser como membro do bolão global
+  await prisma.leagueMember.create({
+    data: {
+      leagueId: globalLeague.id,
+      userId: currentUser.id,
+      role: 'member',
+      points: 0,
+    }
+  });
+
+  // 4. Inserir Partidas Iniciais
+  console.log('Cadastrando partidas iniciais da Copa...');
   const matches = [
     {
       homeTeam: 'México',
       awayTeam: 'Nova Zelândia',
       homeFlag: '🇲🇽',
       awayFlag: '🇳🇿',
-      kickOff: new Date('2026-06-11T19:00:00-06:00'), // Jogo de abertura na Cidade do México (GMT-6)
+      kickOff: new Date('2026-06-11T19:00:00-06:00'),
       stage: 'group',
       status: 'scheduled'
     },
@@ -25,7 +81,7 @@ async function main() {
       awayTeam: 'Marrocos',
       homeFlag: '🇺🇸',
       awayFlag: '🇲🇦',
-      kickOff: new Date('2026-06-11T18:00:00-07:00'), // Jogo de abertura nos EUA (Los Angeles, GMT-7)
+      kickOff: new Date('2026-06-11T18:00:00-07:00'),
       stage: 'group',
       status: 'scheduled'
     },
@@ -34,7 +90,7 @@ async function main() {
       awayTeam: 'Argélia',
       homeFlag: '🇨🇦',
       awayFlag: '🇩🇿',
-      kickOff: new Date('2026-06-12T20:00:00-04:00'), // Jogo de abertura no Canadá (Toronto, GMT-4)
+      kickOff: new Date('2026-06-12T20:00:00-04:00'),
       stage: 'group',
       status: 'scheduled'
     },
@@ -43,7 +99,7 @@ async function main() {
       awayTeam: 'Croácia',
       homeFlag: '🇧🇷',
       awayFlag: '🇭🇷',
-      kickOff: new Date('2026-06-12T16:00:00-04:00'), // Jogo no MetLife Stadium (Nova York, GMT-4)
+      kickOff: new Date('2026-06-12T16:00:00-04:00'),
       stage: 'group',
       status: 'scheduled'
     },
@@ -52,7 +108,7 @@ async function main() {
       awayTeam: 'Arábia Saudita',
       homeFlag: '🇦🇷',
       awayFlag: '🇸🇦',
-      kickOff: new Date('2026-06-13T13:00:00-04:00'), // Jogo em Atlanta (GMT-4)
+      kickOff: new Date('2026-06-13T13:00:00-04:00'),
       stage: 'group',
       status: 'scheduled'
     },
@@ -61,7 +117,7 @@ async function main() {
       awayTeam: 'Austrália',
       homeFlag: '🇫🇷',
       awayFlag: '🇦🇺',
-      kickOff: new Date('2026-06-13T18:00:00-04:00'), // Jogo em Miami (GMT-4)
+      kickOff: new Date('2026-06-13T18:00:00-04:00'),
       stage: 'group',
       status: 'scheduled'
     }
@@ -74,7 +130,7 @@ async function main() {
     console.log(`Partida cadastrada: ${createdMatch.homeTeam} vs ${createdMatch.awayTeam}`);
   }
 
-  console.log('Seed de partidas concluído com sucesso!');
+  console.log('Seed completo de dados do bolão finalizado com sucesso!');
 }
 
 main()

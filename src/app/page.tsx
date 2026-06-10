@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { getSquadForTeam } from '@/lib/squads-data';
 
 interface Match {
   id: string;
@@ -32,15 +33,18 @@ interface UserProfile {
   points: number;
   streak: number;
   misses: number;
+  role?: string;
 }
 
 interface Prediction {
   id: string;
   userId: string;
   matchId: string;
+  leagueId?: string;
   homeGuess: number;
   awayGuess: number;
   processed: boolean;
+  editCount?: number;
 }
 
 interface MatchStatsEntry {
@@ -65,11 +69,37 @@ interface TeamStats {
 
 export default function Home() {
   // Estados da Aplicação (admin removido, calendar adicionado)
-  const [activeTab, setActiveTab] = useState<'home' | 'matches' | 'results' | 'leaderboard' | 'calendar' | 'history'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'matches' | 'results' | 'leaderboard' | 'calendar' | 'history' | 'leagues' | 'auth'>('home');
   const [matches, setMatches] = useState<Match[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   
+  // Estados de Autenticação Local
+  const [loggedInUser, setLoggedInUser] = useState<any>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authName, setAuthName] = useState<string>('');
+  const [authImage, setAuthImage] = useState<string>('⚽');
+
+  // Estados de Bolões Customizados (Leagues)
+  const [leagues, setLeagues] = useState<any[]>([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string>('global');
+  const [joinCode, setJoinCode] = useState<string>('');
+  const [activeLeagueTab, setActiveLeagueTab] = useState<'ranking' | 'matches' | 'results' | 'rules' | 'admin'>('ranking');
+  const [resetRequests, setResetRequests] = useState<any[]>([]);
+  const [leagueForm, setLeagueForm] = useState({
+    name: '',
+    description: '',
+    expiresAt: '',
+    windowHours: '48',
+    maxEdits: '3',
+    pointsExact: '5',
+    pointsDiff: '3',
+    pointsWinner: '2',
+    pointsDraw: '2'
+  });
+
   // Usuário Selecionado para simulação de Sandbox/Contas
   const [selectedUserId, setSelectedUserId] = useState<string>('currentUser');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -95,9 +125,27 @@ export default function Home() {
   const [syncing, setSyncing] = useState<boolean>(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
-  // Tempo real de sincronização dos cronômetros
+  // Tempo real de sincronização dos cronômetros e janela de liberação
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
   const [predictionWindow, setPredictionWindow] = useState<number>(48);
+
+  // Estados adicionais da Fase 5 (Escalações, Sanfona e Melhorias)
+  const [expandedLeagueProgressId, setExpandedLeagueProgressId] = useState<string | null>(null);
+  
+  const [showLineupModal, setShowLineupModal] = useState<boolean>(false);
+  const [selectedLineupMatchId, setSelectedLineupMatchId] = useState<string | null>(null);
+  const [lineupData, setLineupData] = useState<any>(null);
+  const [loadingLineup, setLoadingLineup] = useState<boolean>(false);
+  const [lineupTeamTab, setLineupTeamTab] = useState<'home' | 'away'>('home');
+
+  // Estados para simulação de escalações no Sandbox
+  const [sandboxLineupMatchId, setSandboxLineupMatchId] = useState<string>('');
+  const [sandboxLineupHomeFormation, setSandboxLineupHomeFormation] = useState<string>('4-3-3');
+  const [sandboxLineupAwayFormation, setSandboxLineupAwayFormation] = useState<string>('4-3-3');
+  const [sandboxLineupHomeStarting, setSandboxLineupHomeStarting] = useState<string>('');
+  const [sandboxLineupAwayStarting, setSandboxLineupAwayStarting] = useState<string>('');
+  const [sandboxLineupHomeSubs, setSandboxLineupHomeSubs] = useState<string>('');
+  const [sandboxLineupAwaySubs, setSandboxLineupAwaySubs] = useState<string>('');
 
   useEffect(() => {
     const saved = localStorage.getItem('predictionWindow');
@@ -228,6 +276,32 @@ export default function Home() {
     return text + `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
   };
 
+  // Buscar bolões do usuário
+  const fetchLeagues = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/leagues?userId=${selectedUserId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLeagues(data);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar bolões:', e);
+    }
+  }, [selectedUserId]);
+
+  // Buscar pedidos de redefinição de senha
+  const fetchResetRequests = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/reset-requests');
+      if (res.ok) {
+        const data = await res.json();
+        setResetRequests(data);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar solicitações de senha:', e);
+    }
+  }, []);
+
   // Buscar dados da API
   const fetchData = useCallback(async (showLoader = false) => {
     try {
@@ -243,8 +317,8 @@ export default function Home() {
         }
       }
 
-      // Usuários (Ranking)
-      const usersRes = await fetch('/api/leaderboard');
+      // Usuários (Ranking do Bolão Ativo)
+      const usersRes = await fetch(`/api/leagues/members?leagueId=${selectedLeagueId}`);
       let usersData: UserProfile[] = [];
       if (usersRes.ok) {
         const data = await usersRes.json();
@@ -261,7 +335,7 @@ export default function Home() {
       }
 
       // Palpites do usuário
-      const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}`);
+      const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}&leagueId=${selectedLeagueId}`);
       let predsData: Prediction[] = [];
       if (predsRes.ok) {
         const data = await predsRes.json();
@@ -287,7 +361,7 @@ export default function Home() {
       await Promise.all(
         visibleMatches.map(async (m: Match) => {
           try {
-            const statsRes = await fetch(`/api/matches/stats?matchId=${m.id}`);
+            const statsRes = await fetch(`/api/matches/stats?matchId=${m.id}&leagueId=${selectedLeagueId}`);
             if (statsRes.ok) {
               const statsData = await statsRes.json();
               statsMap[m.id] = statsData;
@@ -305,9 +379,23 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [selectedUserId]);
+  }, [selectedUserId, selectedLeagueId]);
 
-  // Sync automático ao carregar + fetch de dados
+  // Carregar usuário logado do localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem('authenticatedUser');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setLoggedInUser(parsed);
+        setSelectedUserId(parsed.id);
+      } catch (e) {
+        console.error('Erro ao parsear usuário logado:', e);
+      }
+    }
+  }, []);
+
+  // Sync automático ao carregar + fetch de dados e bolões
   useEffect(() => {
     const syncData = async () => {
       try {
@@ -319,7 +407,63 @@ export default function Home() {
     };
     syncData();
     fetchData(true);
-  }, [fetchData]);
+    fetchLeagues();
+    fetchResetRequests();
+  }, [fetchData, fetchLeagues, fetchResetRequests]);
+
+  const handleViewLineup = async (matchId: string) => {
+    setSelectedLineupMatchId(matchId);
+    setLineupData(null);
+    setLoadingLineup(true);
+    setLineupTeamTab('home');
+    setShowLineupModal(true);
+    try {
+      const res = await fetch(`/api/matches/lineup?matchId=${matchId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setLineupData(data);
+      } else {
+        showToast(data.error || 'Erro ao carregar escalação.', 'danger');
+      }
+    } catch {
+      showToast('Erro ao carregar escalação.', 'danger');
+    } finally {
+      setLoadingLineup(false);
+    }
+  };
+
+  const handleSaveSandboxLineup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sandboxLineupMatchId) {
+      showToast('Selecione uma partida.', 'danger');
+      return;
+    }
+    try {
+      const res = await fetch('/api/matches/lineup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId: sandboxLineupMatchId,
+          homeFormation: sandboxLineupHomeFormation,
+          awayFormation: sandboxLineupAwayFormation,
+          homeStarting: sandboxLineupHomeStarting ? JSON.parse(sandboxLineupHomeStarting) : [],
+          awayStarting: sandboxLineupAwayStarting ? JSON.parse(sandboxLineupAwayStarting) : [],
+          homeSubstitutes: sandboxLineupHomeSubs ? JSON.parse(sandboxLineupHomeSubs) : [],
+          awaySubstitutes: sandboxLineupAwaySubs ? JSON.parse(sandboxLineupAwaySubs) : []
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar escalação.');
+      showToast('Escalação oficial salva com sucesso na Sandbox!', 'success');
+      setSandboxLineupMatchId('');
+      setSandboxLineupHomeStarting('');
+      setSandboxLineupAwayStarting('');
+      setSandboxLineupHomeSubs('');
+      setSandboxLineupAwaySubs('');
+    } catch (error: any) {
+      showToast(error.message || 'Erro ao salvar escalação. Verifique se o JSON é válido.', 'danger');
+    }
+  };
 
   const fetchLastSync = async () => {
     try {
@@ -357,7 +501,7 @@ export default function Home() {
     });
   };
 
-  // Salvar palpite na API (com validação do Time Gate)
+  // Salvar palpite na API (com validação do Time Gate e limite de edições)
   const saveUserPrediction = async (matchId: string) => {
     const guessData = localGuesses[matchId];
     if (!guessData || guessData.home === '' || guessData.away === '') {
@@ -377,7 +521,7 @@ export default function Home() {
           matchId,
           homeGuess: parseInt(guessData.home),
           awayGuess: parseInt(guessData.away),
-          windowHours: predictionWindow
+          leagueId: selectedLeagueId
         })
       });
 
@@ -387,7 +531,7 @@ export default function Home() {
       showToast('Palpite registrado!', 'success');
       
       // Atualizar lista de palpites
-      const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}`);
+      const predsRes = await fetch(`/api/predictions?userId=${selectedUserId}&leagueId=${selectedLeagueId}`);
       const predsData = await predsRes.json();
       setPredictions(predsData);
       
@@ -412,6 +556,225 @@ export default function Home() {
       }
     } finally {
       setSavingPredictionId(null);
+    }
+  };
+
+  // ========================================================
+  // FUNÇÕES DE AUTENTICAÇÃO E SESSÃO
+  // ========================================================
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authEmail || !authPassword) {
+      showToast('Preencha todos os campos.', 'danger');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao realizar login.');
+
+      showToast(`Bem-vindo de volta, ${data.user.name}!`, 'success');
+      localStorage.setItem('authenticatedUser', JSON.stringify(data.user));
+      setLoggedInUser(data.user);
+      setSelectedUserId(data.user.id);
+      
+      // Limpar campos
+      setAuthEmail('');
+      setAuthPassword('');
+      setActiveTab('home');
+      fetchLeagues();
+    } catch (error: any) {
+      showToast(error.message, 'danger');
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authEmail || !authPassword || !authName) {
+      showToast('Nome, e-mail e senha são obrigatórios.', 'danger');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: authName,
+          email: authEmail,
+          password: authPassword,
+          image: authImage,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro no cadastro.');
+
+      showToast('Conta criada com sucesso! Faça login.', 'success');
+      setAuthMode('login');
+      setAuthPassword('');
+    } catch (error: any) {
+      showToast(error.message, 'danger');
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authEmail || !authPassword) {
+      showToast('E-mail e a nova senha proposta são obrigatórios.', 'danger');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, newPassword: authPassword }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao solicitar troca.');
+
+      showToast('Pedido enviado! Aguarde aprovação do admin.', 'success');
+      setAuthMode('login');
+      setAuthPassword('');
+      fetchResetRequests();
+    } catch (error: any) {
+      showToast(error.message, 'danger');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authenticatedUser');
+    setLoggedInUser(null);
+    setSelectedUserId('currentUser'); // reverte para sandbox/currentUser
+    setSelectedLeagueId('global');
+    showToast('Sessão encerrada.', 'success');
+    setActiveTab('home');
+  };
+
+  const handleResetRequestAction = async (requestId: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch('/api/auth/reset-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao processar pedido.');
+
+      showToast(data.message, 'success');
+      fetchResetRequests();
+      fetchData(false);
+    } catch (error: any) {
+      showToast(error.message, 'danger');
+    }
+  };
+
+  // ========================================================
+  // FUNÇÕES DE GERENCIAMENTO DE BOLÕES
+  // ========================================================
+
+  const handleCreateLeague = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leagueForm.name) {
+      showToast('O nome do bolão é obrigatório.', 'danger');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/leagues', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': selectedUserId,
+        },
+        body: JSON.stringify(leagueForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao criar bolão.');
+
+      showToast(`Bolão "${data.name}" criado com sucesso!`, 'success');
+      fetchLeagues();
+      setSelectedLeagueId(data.id);
+      
+      // Reset form
+      setLeagueForm({
+        name: '',
+        description: '',
+        expiresAt: '',
+        windowHours: '48',
+        maxEdits: '3',
+        pointsExact: '5',
+        pointsDiff: '3',
+        pointsWinner: '2',
+        pointsDraw: '2'
+      });
+    } catch (error: any) {
+      showToast(error.message, 'danger');
+    }
+  };
+
+  const handleJoinLeague = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCode) {
+      showToast('O código de convite é obrigatório.', 'danger');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/leagues/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': selectedUserId,
+        },
+        body: JSON.stringify({ inviteCode: joinCode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao entrar no bolão.');
+
+      showToast(data.message, 'success');
+      setJoinCode('');
+      fetchLeagues();
+      setSelectedLeagueId(data.league.id);
+    } catch (error: any) {
+      showToast(error.message, 'danger');
+    }
+  };
+
+  const handleLeagueMemberAction = async (targetMemberId: string, action: 'promote' | 'demote' | 'remove') => {
+    try {
+      const res = await fetch('/api/leagues', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': selectedUserId,
+        },
+        body: JSON.stringify({
+          leagueId: selectedLeagueId,
+          targetMemberId,
+          action,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao gerenciar membro.');
+
+      showToast(data.message, 'success');
+      fetchData(false);
+    } catch (error: any) {
+      showToast(error.message, 'danger');
     }
   };
 
@@ -526,15 +889,28 @@ export default function Home() {
     return sortedGroups;
   };
 
-  // Estatísticas para o Dashboard
-  const nextMatch = Array.isArray(matches) ? matches.find(m => m.status === 'scheduled') : undefined;
-  const countdownText = getNextMatchCountdownText();
-  const trendingMatches = Array.isArray(matches)
-    ? [...matches]
-        .filter(m => m.status !== 'finished')
-        .sort((a, b) => (b.predictionCount || 0) - (a.predictionCount || 0))
-        .slice(0, 3)
+  // Remoção robusta de partidas duplicadas (evita bugs como dois jogos do México)
+  const uniqueMatches = Array.isArray(matches)
+    ? matches.filter((match, index, self) => 
+        self.findIndex(m => m.id === match.id) === index &&
+        self.findIndex(m => m.homeTeam === match.homeTeam && m.awayTeam === match.awayTeam && new Date(m.kickOff).toDateString() === new Date(match.kickOff).toDateString()) === index
+      )
     : [];
+
+  // Estatísticas para o Dashboard
+  // Jogo Principal da Home: O primeiro jogo cronológico agendado que o usuário ainda não palpitou.
+  // Se ele já palpitou, mostra o próximo jogo agendado do dia/copa no qual ele ainda não palpitou.
+  const nextMatch = uniqueMatches.filter(m => m.status === 'scheduled').find(m => 
+    !predictions.some(p => p.matchId === m.id && p.leagueId === selectedLeagueId)
+  ) || uniqueMatches.find(m => m.status === 'scheduled');
+
+  const countdownText = getNextMatchCountdownText();
+  
+  // Jogos em alta: Mais palpitados no bolão, sem jogos duplicados
+  const trendingMatches = [...uniqueMatches]
+    .filter(m => m.status === 'scheduled')
+    .sort((a, b) => (b.predictionCount || 0) - (a.predictionCount || 0))
+    .slice(0, 3);
   const finishedMatches = Array.isArray(matches) ? matches.filter(m => m.status === 'finished') : [];
   const groupClassification = calculateGroupsClassification(matches);
 
@@ -856,12 +1232,49 @@ export default function Home() {
               <span>Seus Palpites</span>
             </button>
 
+            <button 
+              className={`desktop-sidebar-item ${activeTab === 'leagues' ? 'active' : ''}`}
+              onClick={() => setActiveTab('leagues')}
+              title="Bolões Customizados"
+            >
+              <i className="bi bi-people-fill"></i>
+              <span>Bolões</span>
+            </button>
+
           </div>
 
           {/* Rodapé da Sidebar */}
-          <div className="pt-3 border-top border-secondary border-opacity-25 text-start desktop-sidebar-footer">
-            <div className="text-secondary mb-1" style={{ fontSize: '0.7rem' }}>Copa de 2026</div>
-            <div className="text-info fw-bold" style={{ fontSize: '0.75rem' }}>Timing Perfeito! 🌎</div>
+          <div className="pt-3 border-top border-secondary border-opacity-25 text-start desktop-sidebar-footer d-flex flex-column gap-2">
+            {loggedInUser ? (
+              <>
+                <div className="d-flex align-items-center gap-2">
+                  <span style={{ fontSize: '1.25rem' }}>{loggedInUser.image || '⚽'}</span>
+                  <div className="min-w-0" style={{ maxWidth: '140px' }}>
+                    <div className="text-white fw-bold text-truncate" style={{ fontSize: '0.8rem' }}>{loggedInUser.name}</div>
+                    <div className="text-secondary text-truncate" style={{ fontSize: '0.65rem' }}>{loggedInUser.email}</div>
+                  </div>
+                </div>
+                <button 
+                  className="btn btn-outline-danger btn-sm w-100 py-1"
+                  style={{ borderRadius: '6px', fontSize: '0.75rem' }}
+                  onClick={handleLogout}
+                >
+                  <i className="bi bi-box-arrow-right me-1"></i> Sair
+                </button>
+              </>
+            ) : (
+              <button 
+                className="btn btn-neon-green btn-sm w-100 py-1"
+                style={{ borderRadius: '6px', fontSize: '0.75rem' }}
+                onClick={() => {
+                  setAuthMode('login');
+                  setActiveTab('auth');
+                }}
+              >
+                <i className="bi bi-person-lock me-1"></i> Entrar / Cadastrar
+              </button>
+            )}
+            <div className="text-secondary mt-1" style={{ fontSize: '0.65rem' }}>Copa de 2026 🌎</div>
           </div>
         </aside>
 
@@ -898,7 +1311,7 @@ export default function Home() {
                       
                       {/* Banner de Boas-vindas */}
                       <div className="glass-card p-4 mb-4 text-start border-info border-opacity-25" style={{ background: 'linear-gradient(135deg, rgba(0, 255, 135, 0.05) 0%, rgba(96, 239, 255, 0.1) 100%)' }}>
-                        <h4 className="text-white fw-bold mb-2">🏆 Rumo ao Hexa - Bolão Copa do Mundo 2026!</h4>
+                        <h4 className="text-white fw-bold mb-2">🏆 Copa do Mundo 2026 - Bolão Oficial!</h4>
                         <p className="text-secondary mb-3" style={{ fontSize: '0.9rem' }}>
                           Faça seus palpites nos maiores confrontos do planeta, suba no ranking em tempo real e dispute a liderança do bolão definitivo da Copa de 2026!
                         </p>
@@ -1089,37 +1502,138 @@ export default function Home() {
                         </div>
                       )}
 
-                      {/* Card Próximo Jogo Regressivo */}
+                      {/* Card Próximo Jogo Regressivo (Interativo) */}
                       {nextMatch ? (
-                        <div className="glass-card p-4 mb-4 text-center border-secondary">
-                          <span className="text-secondary fw-semibold text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>PRÓXIMO JOGO DA COPA</span>
-                          
-                          <div className="d-flex align-items-center justify-content-around my-3">
-                            <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
-                              <TeamFlag logo={nextMatch.homeTeamLogo} flag={nextMatch.homeFlag} teamName={nextMatch.homeTeam} />
-                              <span className="fw-bold text-white mt-2 fs-5">{nextMatch.homeTeam}</span>
-                            </div>
-                            <span className="text-secondary fw-extrabold fs-4">VS</span>
-                            <div className="d-flex flex-column align-items-center" style={{ width: '40%' }}>
-                              <TeamFlag logo={nextMatch.awayTeamLogo} flag={nextMatch.awayFlag} teamName={nextMatch.awayTeam} />
-                              <span className="fw-bold text-white mt-2 fs-5">{nextMatch.awayTeam}</span>
-                            </div>
-                          </div>
+                        (() => {
+                          const windowStatus = getPredictionWindowStatus(nextMatch, predictionWindow);
+                          const userPred = predictions.find(p => p.matchId === nextMatch.id && p.leagueId === selectedLeagueId);
+                          const localGuess = localGuesses[nextMatch.id] || { home: '', away: '' };
+                          const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
 
-                          {countdownText && (
-                            <div className="mb-2">
-                              <span className="text-secondary" style={{ fontSize: '0.8rem' }}>FECHAMENTO DO MERCADO EM:</span>
-                              <div className="fs-4 fw-bold text-warning font-monospace mt-1">{countdownText}</div>
-                            </div>
-                          )}
+                          const activeLeague = leagues.find(l => l.id === selectedLeagueId);
+                          const maxEdits = activeLeague ? activeLeague.maxEdits : 3;
+                          const editCount = userPred ? (userPred.editCount ?? 0) : 0;
+                          const reachedLimit = userPred && (userPred.editCount ?? 0) >= maxEdits;
+                          const isEditable = windowStatus.isEditable && !reachedLimit;
 
-                          <div className="pt-2 border-top border-secondary text-secondary" style={{ fontSize: '0.85rem' }}>
-                            <i className="bi bi-clock-fill text-warning me-1"></i>
-                            Início: {new Date(nextMatch.kickOff).toLocaleDateString('pt-BR', {
-                              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                            })}h (Horário de Brasília)
-                          </div>
-                        </div>
+                          return (
+                            <div className="glass-card p-4 mb-4 text-center border-info border-opacity-25" style={{ background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)' }}>
+                              <span className="text-secondary fw-semibold text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>🎯 PALPITE NO PRÓXIMO JOGO</span>
+                              
+                              <div className="d-flex align-items-center justify-content-around my-3 flex-wrap gap-2">
+                                {/* Time Casa */}
+                                <div className="d-flex flex-column align-items-center" style={{ width: '30%', minWidth: '80px' }}>
+                                  <TeamFlag logo={nextMatch.homeTeamLogo} flag={nextMatch.homeFlag} teamName={nextMatch.homeTeam} />
+                                  <span className="fw-bold text-white mt-2" style={{ fontSize: '0.95rem' }}>{nextMatch.homeTeam}</span>
+                                </div>
+
+                                {/* Inputs Centrais */}
+                                <div className="d-flex flex-column align-items-center" style={{ width: '36%', minWidth: '120px' }}>
+                                  <div className="d-flex align-items-center gap-2">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      className="score-input fs-4 text-center fw-bold"
+                                      style={{ width: '48px', height: '48px', borderRadius: '10px', ...(isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : {}) }}
+                                      value={localGuess.home}
+                                      onChange={(e) => handleLocalGuessChange(nextMatch.id, 'home', e.target.value)}
+                                      disabled={!isEditable}
+                                      placeholder="-"
+                                    />
+                                    <span className="text-secondary fs-4 fw-bold">x</span>
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      className="score-input fs-4 text-center fw-bold"
+                                      style={{ width: '48px', height: '48px', borderRadius: '10px', ...(isPredictionSaved ? { borderColor: 'rgba(0, 255, 135, 0.45)' } : {}) }}
+                                      value={localGuess.away}
+                                      onChange={(e) => handleLocalGuessChange(nextMatch.id, 'away', e.target.value)}
+                                      disabled={!isEditable}
+                                      placeholder="-"
+                                    />
+                                  </div>
+                                  
+                                  {/* Badges de Edição / Status */}
+                                  {userPred && (
+                                    <div className="mt-2">
+                                      {reachedLimit ? (
+                                        <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20" style={{ fontSize: '0.65rem' }}>
+                                          🚫 Limite de Edições Atingido ({editCount}/{maxEdits})
+                                        </span>
+                                      ) : (
+                                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20" style={{ fontSize: '0.65rem' }}>
+                                          ✓ Palpite Salvo ({editCount}/{maxEdits} edições)
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Time Visitante */}
+                                <div className="d-flex flex-column align-items-center" style={{ width: '30%', minWidth: '80px' }}>
+                                  <TeamFlag logo={nextMatch.awayTeamLogo} flag={nextMatch.awayFlag} teamName={nextMatch.awayTeam} />
+                                  <span className="fw-bold text-white mt-2" style={{ fontSize: '0.95rem' }}>{nextMatch.awayTeam}</span>
+                                </div>
+                              </div>
+
+                              {/* Cronômetro */}
+                              {countdownText && (
+                                <div className="mb-3">
+                                  <span className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>TEMPO RESTANTE PARA PALPITAR:</span>
+                                  <div className="fs-4 fw-bold text-warning font-monospace mt-1">{countdownText}</div>
+                                </div>
+                              )}
+
+                              {/* Explicação de Limite de Edição */}
+                              <div className="text-secondary mb-3 px-2 py-1 rounded bg-dark bg-opacity-25" style={{ fontSize: '0.75rem', border: '1px dashed rgba(255,255,255,0.05)' }}>
+                                <i className="bi bi-info-circle me-1 text-info"></i>
+                                Cada alteração confirmada conta como 1 edição. Limite por jogo: <strong>{maxEdits} vezes</strong>.
+                              </div>
+
+                              {/* Ações do Card Principal */}
+                              <div className="d-flex justify-content-center gap-2 flex-wrap mb-2">
+                                <button 
+                                  className="btn btn-outline-info rounded-pill px-3" 
+                                  style={{ fontSize: '0.8rem', fontWeight: '500' }}
+                                  onClick={() => handleViewLineup(nextMatch.id)}
+                                >
+                                  📋 Ver Escalações
+                                </button>
+
+                                {isEditable && (
+                                  userPred ? (
+                                    !isPredictionSaved && (
+                                      <button
+                                        className="btn btn-warning rounded-pill px-4 fw-bold text-dark"
+                                        style={{ fontSize: '0.8rem', boxShadow: '0 0 10px rgba(255, 193, 7, 0.2)' }}
+                                        onClick={() => saveUserPrediction(nextMatch.id)}
+                                        disabled={savingPredictionId === nextMatch.id || localGuess.home === '' || localGuess.away === ''}
+                                      >
+                                        {savingPredictionId === nextMatch.id ? 'Salvando...' : `Salvar Alteração (${maxEdits - editCount} rest.)`}
+                                      </button>
+                                    )
+                                  ) : (
+                                    <button
+                                      className="btn btn-neon-green rounded-pill px-4 fw-bold"
+                                      style={{ fontSize: '0.8rem' }}
+                                      onClick={() => saveUserPrediction(nextMatch.id)}
+                                      disabled={savingPredictionId === nextMatch.id || localGuess.home === '' || localGuess.away === ''}
+                                    >
+                                      {savingPredictionId === nextMatch.id ? 'Salvando...' : 'Confirmar Palpite'}
+                                    </button>
+                                  )
+                                )}
+                              </div>
+
+                              <div className="pt-2 border-top border-secondary border-opacity-20 text-secondary" style={{ fontSize: '0.8rem' }}>
+                                <i className="bi bi-clock-fill text-warning me-1"></i>
+                                Início: {new Date(nextMatch.kickOff).toLocaleDateString('pt-BR', {
+                                  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                                })}h (Horário de Brasília)
+                              </div>
+                            </div>
+                          );
+                        })()
                       ) : (
                         <div className="glass-card p-4 mb-4 text-center text-secondary">
                           <i className="bi bi-check2-circle fs-1 text-success mb-2"></i>
@@ -1234,29 +1748,109 @@ export default function Home() {
                         </div>
                       )}
 
-                      {/* Progresso do Bolão */}
+                      {/* Progresso e Lista de Bolões Retrátil (Sanfona) */}
                       <div className="glass-card p-3 mb-4 text-start">
-                        <h6 className="text-white fw-bold mb-3">📊 Progresso do Bolão</h6>
-                        <div className="row g-2 text-center mb-1">
-                          <div className="col-6 col-md-3 col-lg-6 mb-2">
-                            <div className="fs-4 fw-extrabold text-info">{matches.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>PARTIDAS</div>
+                        <h6 className="text-white fw-bold mb-3 d-flex align-items-center justify-content-between">
+                          <span>📊 Meus Bolões & Progresso</span>
+                          <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>{leagues.length + 1} bolões</span>
+                        </h6>
+
+                        {/* Bolão Global (Sempre visível como item 1) */}
+                        <div className="mb-2 border border-secondary border-opacity-25 rounded p-2 bg-dark bg-opacity-20 hover-scale">
+                          <div 
+                            className="d-flex justify-content-between align-items-center cursor-pointer" 
+                            onClick={() => setExpandedLeagueProgressId(expandedLeagueProgressId === 'global' ? null : 'global')}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <span className="text-white fw-bold" style={{ fontSize: '0.8rem' }}>
+                              🌎 Bolão Global (Site) {expandedLeagueProgressId === 'global' ? '▼' : '▶'}
+                            </span>
+                            <span className="badge bg-info bg-opacity-10 text-info" style={{ fontSize: '0.7rem' }}>{currentUser?.points || 0} pts</span>
                           </div>
-                          <div className="col-6 col-md-3 col-lg-6 mb-2">
-                            <div className="fs-4 fw-extrabold text-info">{finishedMatches.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>FINALIZADAS</div>
-                          </div>
-                          <div className="col-6 col-md-3 col-lg-6 mb-2">
-                            <div className="fs-4 fw-extrabold text-info">{users.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>JOGADORES</div>
-                          </div>
-                          <div className="col-6 col-md-3 col-lg-6 mb-2">
-                            <div className="fs-4 fw-extrabold text-info">
-                              {matches.reduce((acc, m) => acc + (m.predictionCount || 0), 0)}
+
+                          {expandedLeagueProgressId === 'global' && (
+                            <div className="mt-2 pt-2 border-top border-secondary border-opacity-10 animate__animated animate__fadeIn" style={{ fontSize: '0.75rem' }}>
+                              <div className="row g-2 text-center text-secondary mb-2">
+                                <div className="col-4">
+                                  <div className="fw-bold text-white fs-6">{matches.length}</div>
+                                  <div>Partidas</div>
+                                </div>
+                                <div className="col-4">
+                                  <div className="fw-bold text-white fs-6">{finishedMatches.length}</div>
+                                  <div>Finalizadas</div>
+                                </div>
+                                <div className="col-4">
+                                  <div className="fw-bold text-white fs-6">{users.length}</div>
+                                  <div>Jogadores</div>
+                                </div>
+                              </div>
+                              <div className="pt-2 border-top border-secondary border-opacity-10 d-flex justify-content-between text-secondary">
+                                <span>Sua Posição Geral:</span>
+                                <span className="text-warning-yellow fw-bold">
+                                  #{users.findIndex(u => u.id === selectedUserId) + 1}º lugar
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-secondary" style={{ fontSize: '0.65rem', fontWeight: '500' }}>PALPITES TOTAL</div>
-                          </div>
+                          )}
                         </div>
+
+                        {/* Bolões Privados do Usuário */}
+                        {leagues.map(l => (
+                          <div key={l.id} className="mb-2 border border-secondary border-opacity-25 rounded p-2 bg-dark bg-opacity-20 hover-scale">
+                            <div 
+                              className="d-flex justify-content-between align-items-center cursor-pointer" 
+                              onClick={() => setExpandedLeagueProgressId(expandedLeagueProgressId === l.id ? null : l.id)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <span className="text-white fw-bold text-truncate" style={{ fontSize: '0.8rem', maxWidth: '75%' }}>
+                                👥 {l.name} {expandedLeagueProgressId === l.id ? '▼' : '▶'}
+                              </span>
+                              <span className="badge bg-info bg-opacity-10 text-info" style={{ fontSize: '0.7rem' }}>{l.userPoints || 0} pts</span>
+                            </div>
+
+                            {expandedLeagueProgressId === l.id && (
+                              <div className="mt-2 pt-2 border-top border-secondary border-opacity-10 animate__animated animate__fadeIn" style={{ fontSize: '0.75rem' }}>
+                                <div className="row g-2 text-center text-secondary mb-2">
+                                  <div className="col-4">
+                                    <div className="fw-bold text-white fs-6">{matches.length}</div>
+                                    <div>Partidas</div>
+                                  </div>
+                                  <div className="col-4">
+                                    <div className="fw-bold text-white fs-6">{finishedMatches.length}</div>
+                                    <div>Finalizadas</div>
+                                  </div>
+                                  <div className="col-4">
+                                    <div className="fw-bold text-white fs-6">{l.memberCount}</div>
+                                    <div>Membros</div>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-top border-secondary border-opacity-10 d-flex justify-content-between text-secondary mb-1">
+                                  <span>Janela de Palpite:</span>
+                                  <span className="text-white fw-semibold">{l.windowHours}h antes</span>
+                                </div>
+                                <div className="d-flex justify-content-between text-secondary mb-2">
+                                  <span>Limite de Edições:</span>
+                                  <span className="text-white fw-semibold">Máx {l.maxEdits} vezes</span>
+                                </div>
+
+                                <div className="pt-2 border-top border-secondary border-opacity-10 d-flex justify-content-end gap-1">
+                                  <button 
+                                    className="btn btn-neon-green btn-xs py-1 px-2"
+                                    style={{ fontSize: '0.65rem', borderRadius: '4px' }}
+                                    onClick={() => {
+                                      setSelectedLeagueId(l.id);
+                                      setActiveTab('leagues');
+                                      setActiveLeagueTab('ranking');
+                                    }}
+                                  >
+                                    Ver Bolão
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
 
                       {/* Sequências (Em alta / Em baixa) */}
@@ -1304,6 +1898,169 @@ export default function Home() {
 
                       </div>
 
+                      {/* Painel do Administrador (Aprovação de Senhas) */}
+                      {resetRequests.length > 0 && (
+                        <div className="glass-card p-3 mb-4 text-start border-warning border-opacity-35" style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%)' }}>
+                          <div className="d-flex align-items-center gap-2 mb-3">
+                            <span className="fs-5 text-warning">🛡️</span>
+                            <h6 className="text-white fw-bold m-0" style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.5px' }}>
+                              Solicitações de Senha
+                            </h6>
+                            <span className="badge bg-danger ms-auto">{resetRequests.length}</span>
+                          </div>
+                          
+                          <div className="d-flex flex-column gap-2">
+                            {resetRequests.map((req) => (
+                              <div key={req.id} className="p-2 rounded bg-dark bg-opacity-35 border border-secondary border-opacity-20">
+                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                  <span className="text-white fw-bold" style={{ fontSize: '0.8rem' }}>{req.user?.name || 'Usuário'}</span>
+                                  <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                    {new Date(req.createdAt).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <div className="text-secondary mb-2" style={{ fontSize: '0.7rem' }}>
+                                  E-mail: <span className="text-light">{req.user?.email}</span>
+                                </div>
+                                <div className="d-flex gap-2">
+                                  <button 
+                                    className="btn btn-success btn-sm py-1 flex-grow-1" 
+                                    style={{ fontSize: '0.75rem' }} 
+                                    onClick={() => handleResetRequestAction(req.id, 'approve')}
+                                  >
+                                    Aprovar Nova Senha
+                                  </button>
+                                  <button 
+                                    className="btn btn-outline-danger btn-sm py-1" 
+                                    style={{ fontSize: '0.75rem' }} 
+                                    onClick={() => handleResetRequestAction(req.id, 'reject')}
+                                  >
+                                    Recusar
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Painel Sandbox de Escalações (Fase 5) */}
+                      <div className="glass-card p-3 mb-4 text-start border-info border-opacity-35" style={{ background: 'linear-gradient(135deg, rgba(96, 239, 255, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%)' }}>
+                        <div className="d-flex align-items-center gap-2 mb-3">
+                          <span className="fs-5 text-info">⚙️</span>
+                          <h6 className="text-white fw-bold m-0" style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.5px' }}>
+                            Sandbox: Escalação Oficial
+                          </h6>
+                        </div>
+
+                        <form onSubmit={handleSaveSandboxLineup}>
+                          <div className="mb-2">
+                            <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>PARTIDA</label>
+                            <select 
+                              className="form-select form-select-sm bg-dark text-white border-secondary"
+                              style={{ fontSize: '0.75rem', borderRadius: '6px' }}
+                              value={sandboxLineupMatchId}
+                              onChange={(e) => {
+                                const matchId = e.target.value;
+                                setSandboxLineupMatchId(matchId);
+                                const selectedMatch = matches.find(m => m.id === matchId);
+                                if (selectedMatch) {
+                                  const homeSq = getSquadForTeam(selectedMatch.homeTeam);
+                                  const awaySq = getSquadForTeam(selectedMatch.awayTeam);
+                                  setSandboxLineupHomeFormation(homeSq.formation);
+                                  setSandboxLineupAwayFormation(awaySq.formation);
+                                  setSandboxLineupHomeStarting(JSON.stringify(homeSq.starting));
+                                  setSandboxLineupAwayStarting(JSON.stringify(awaySq.starting));
+                                  setSandboxLineupHomeSubs(JSON.stringify(homeSq.substitutes));
+                                  setSandboxLineupAwaySubs(JSON.stringify(awaySq.substitutes));
+                                }
+                              }}
+                            >
+                              <option value="">Selecione um jogo...</option>
+                              {matches.map(m => (
+                                <option key={m.id} value={m.id} className="bg-dark text-white">
+                                  {m.homeTeam} x {m.awayTeam} ({new Date(m.kickOff).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {sandboxLineupMatchId && (
+                            <div className="animate__animated animate__fadeIn">
+                              <div className="row g-2 mb-2">
+                                <div className="col-6">
+                                  <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>FORM. CASA</label>
+                                  <input 
+                                    type="text" 
+                                    className="form-control form-control-sm bg-dark text-white border-secondary" 
+                                    value={sandboxLineupHomeFormation} 
+                                    onChange={(e) => setSandboxLineupHomeFormation(e.target.value)} 
+                                    style={{ fontSize: '0.75rem' }} 
+                                  />
+                                </div>
+                                <div className="col-6">
+                                  <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>FORM. VISITANTE</label>
+                                  <input 
+                                    type="text" 
+                                    className="form-control form-control-sm bg-dark text-white border-secondary" 
+                                    value={sandboxLineupAwayFormation} 
+                                    onChange={(e) => setSandboxLineupAwayFormation(e.target.value)} 
+                                    style={{ fontSize: '0.75rem' }} 
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mb-2">
+                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>TITULARES CASA (JSON)</label>
+                                <textarea 
+                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
+                                  rows={3} 
+                                  value={sandboxLineupHomeStarting} 
+                                  onChange={(e) => setSandboxLineupHomeStarting(e.target.value)} 
+                                  style={{ fontSize: '0.65rem' }}
+                                ></textarea>
+                              </div>
+
+                              <div className="mb-2">
+                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>TITULARES VISITANTE (JSON)</label>
+                                <textarea 
+                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
+                                  rows={3} 
+                                  value={sandboxLineupAwayStarting} 
+                                  onChange={(e) => setSandboxLineupAwayStarting(e.target.value)} 
+                                  style={{ fontSize: '0.65rem' }}
+                                ></textarea>
+                              </div>
+
+                              <div className="mb-2">
+                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>RESERVAS CASA (JSON)</label>
+                                <textarea 
+                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
+                                  rows={2} 
+                                  value={sandboxLineupHomeSubs} 
+                                  onChange={(e) => setSandboxLineupHomeSubs(e.target.value)} 
+                                  style={{ fontSize: '0.65rem' }}
+                                ></textarea>
+                              </div>
+
+                              <div className="mb-2">
+                                <label className="form-label text-secondary mb-1" style={{ fontSize: '0.7rem' }}>RESERVAS VISITANTE (JSON)</label>
+                                <textarea 
+                                  className="form-control form-control-sm bg-dark text-white border-secondary font-monospace" 
+                                  rows={2} 
+                                  value={sandboxLineupAwaySubs} 
+                                  onChange={(e) => setSandboxLineupAwaySubs(e.target.value)} 
+                                  style={{ fontSize: '0.65rem' }}
+                                ></textarea>
+                              </div>
+
+                              <button type="submit" className="btn btn-info btn-sm w-100 py-1.5 fw-bold text-dark mt-2" style={{ borderRadius: '6px' }}>
+                                Confirmar Escalação Oficial
+                              </button>
+                            </div>
+                          )}
+                        </form>
+                      </div>
+
                     </div>
 
                   </div>
@@ -1318,6 +2075,33 @@ export default function Home() {
                 <div className="fade-in animate__animated animate__fadeIn">
                   
                   <h4 className="text-white fw-bold mb-3 text-start">⚽ Partidas Agendadas</h4>
+
+                  {/* Seletor de Bolão Ativo */}
+                  <div className="d-flex align-items-center gap-3 mb-4 flex-wrap">
+                    <div className="d-flex align-items-center bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
+                      <span className="text-secondary ps-3 pe-2" style={{ fontSize: '0.75rem', fontWeight: '500' }}>
+                        <i className="bi bi-trophy-fill text-warning me-1"></i> Bolão Ativo:
+                      </span>
+                      <select 
+                        className="premium-select bg-transparent text-white border-0 py-1 pe-4"
+                        style={{ fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                        value={selectedLeagueId}
+                        onChange={(e) => setSelectedLeagueId(e.target.value)}
+                      >
+                        <option value="global" className="bg-dark text-white">🌎 Bolão Global (Site)</option>
+                        {leagues.map(l => (
+                          <option key={l.id} value={l.id} className="bg-dark text-white">
+                            👥 {l.name} {l.userRole === 'owner' ? '👑' : l.userRole === 'subadmin' ? '🛡️' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedLeagueId !== 'global' && (
+                      <span className="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-2 px-3 rounded-pill" style={{ fontSize: '0.75rem' }}>
+                        Janela: {leagues.find(l => l.id === selectedLeagueId)?.windowHours}h antes | Máximo de {leagues.find(l => l.id === selectedLeagueId)?.maxEdits} edições
+                      </span>
+                    )}
+                  </div>
 
                   {/* Barra de filtros por grupo/rodada */}
                   <div className="filter-bar mb-3">
@@ -1353,13 +2137,18 @@ export default function Home() {
                         <div className="row g-3">
                           {grouped[day].map(match => {
                             const windowStatus = getPredictionWindowStatus(match, predictionWindow);
-                            const isEditable = windowStatus.isEditable;
                             const stats = matchStats[match.id];
                             const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
                             const localGuess = localGuesses[match.id] || { home: '', away: '' };
                             const userPred = predictions.find(p => p.matchId === match.id);
                             const hasPrediction = !!userPred;
                             const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
+
+                            const activeLeague = leagues.find(l => l.id === selectedLeagueId);
+                            const maxEdits = activeLeague ? activeLeague.maxEdits : 3;
+                            const editCount = userPred ? (userPred.editCount ?? 0) : 0;
+                            const reachedLimit = userPred && (userPred.editCount ?? 0) >= maxEdits;
+                            const isEditable = windowStatus.isEditable && !reachedLimit;
 
                             return (
                               <div key={match.id} className="col-12 col-lg-6">
@@ -1384,9 +2173,15 @@ export default function Home() {
                                     </span>
                                     <div className="d-flex align-items-center gap-1">
                                       {hasPrediction && (
-                                        <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
-                                          ✓ Palpitado
-                                        </span>
+                                        reachedLimit ? (
+                                          <span className="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                            🚫 Sem Edições ({editCount}/{maxEdits})
+                                          </span>
+                                        ) : (
+                                          <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                            ✓ Palpitado ({editCount}/{maxEdits})
+                                          </span>
+                                        )
                                       )}
                                       {renderMatchTimer(match)}
                                     </div>
@@ -1431,10 +2226,35 @@ export default function Home() {
                                     </div>
                                   )}
 
+                                  {/* Botão de Visualizar Escalação */}
+                                  <div className="d-flex justify-content-center mt-2">
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-info btn-sm rounded-pill w-100 py-1"
+                                      style={{ fontSize: '0.75rem', fontWeight: '500', letterSpacing: '0.3px', background: 'rgba(96, 239, 255, 0.03)', borderColor: 'rgba(96, 239, 255, 0.25)' }}
+                                      onClick={() => handleViewLineup(match.id)}
+                                    >
+                                      📋 Escalações & Campo Tático
+                                    </button>
+                                  </div>
+
                                   {/* Botão de Enviar */}
-                                  {isEditable && (
+                                  {windowStatus.isEditable && (
                                     <div className="mt-3">
-                                      {userPred ? (
+                                      {reachedLimit ? (
+                                        <button
+                                          className="btn btn-outline-danger w-100 py-1"
+                                          style={{
+                                            borderColor: 'rgba(239, 68, 68, 0.4)',
+                                            color: 'rgba(239, 68, 68, 0.8)',
+                                            fontWeight: '600',
+                                            borderRadius: '10px'
+                                          }}
+                                          disabled
+                                        >
+                                          Edições Excedidas ({editCount}/{maxEdits})
+                                        </button>
+                                      ) : userPred ? (
                                         isPredictionSaved ? (
                                           <button
                                             className="btn btn-outline-success w-100 py-1"
@@ -1459,7 +2279,7 @@ export default function Home() {
                                             onClick={() => saveUserPrediction(match.id)}
                                             disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
                                           >
-                                            {savingPredictionId === match.id ? 'Salvando...' : 'Atualizar Palpite'}
+                                            {savingPredictionId === match.id ? 'Salvando...' : `Atualizar Palpite (${maxEdits - editCount} rest.)`}
                                           </button>
                                         )
                                       ) : (
@@ -1815,6 +2635,28 @@ export default function Home() {
                   
                   <h4 className="text-white fw-bold mb-3 text-start">🏆 Tabela de Líderes</h4>
 
+                  {/* Seletor de Bolão Ativo no Ranking */}
+                  <div className="d-flex align-items-center gap-3 mb-4 flex-wrap">
+                    <div className="d-flex align-items-center bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
+                      <span className="text-secondary ps-3 pe-2" style={{ fontSize: '0.75rem', fontWeight: '500' }}>
+                        <i className="bi bi-trophy-fill text-warning me-1"></i> Bolão Ativo:
+                      </span>
+                      <select 
+                        className="premium-select bg-transparent text-white border-0 py-1 pe-4"
+                        style={{ fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                        value={selectedLeagueId}
+                        onChange={(e) => setSelectedLeagueId(e.target.value)}
+                      >
+                        <option value="global" className="bg-dark text-white">🌎 Bolão Global (Site)</option>
+                        {leagues.map(l => (
+                          <option key={l.id} value={l.id} className="bg-dark text-white">
+                            👥 {l.name} {l.userRole === 'owner' ? '👑' : l.userRole === 'subadmin' ? '🛡️' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   {/* Pódio visual */}
                   <div className="row g-2 mb-4 align-items-end justify-content-center text-center">
                     {users[1] && (
@@ -1890,6 +2732,28 @@ export default function Home() {
                 <div className="fade-in animate__animated animate__fadeIn">
                   
                   <h4 className="text-white fw-bold mb-4 text-start">📜 Seus Palpites (Próximos & Histórico)</h4>
+
+                  {/* Seletor de Bolão Ativo no Histórico */}
+                  <div className="d-flex align-items-center gap-3 mb-4 flex-wrap">
+                    <div className="d-flex align-items-center bg-dark bg-opacity-40 border border-secondary border-opacity-30 rounded-pill p-1 shadow-sm">
+                      <span className="text-secondary ps-3 pe-2" style={{ fontSize: '0.75rem', fontWeight: '500' }}>
+                        <i className="bi bi-trophy-fill text-warning me-1"></i> Bolão Ativo:
+                      </span>
+                      <select 
+                        className="premium-select bg-transparent text-white border-0 py-1 pe-4"
+                        style={{ fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                        value={selectedLeagueId}
+                        onChange={(e) => setSelectedLeagueId(e.target.value)}
+                      >
+                        <option value="global" className="bg-dark text-white">🌎 Bolão Global (Site)</option>
+                        {leagues.map(l => (
+                          <option key={l.id} value={l.id} className="bg-dark text-white">
+                            👥 {l.name} {l.userRole === 'owner' ? '👑' : l.userRole === 'subadmin' ? '🛡️' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
                   {predictions.length === 0 ? (
                     <div className="text-center py-5 text-secondary glass-card p-5">
@@ -2134,6 +2998,691 @@ export default function Home() {
 
                 </div>
               )}
+
+              {/* ======================================================== */}
+              {/* ABA: BOLÕES CUSTOMIZADOS (Leagues)                       */}
+              {/* ======================================================== */}
+              {activeTab === 'leagues' && (
+                <div className="fade-in animate__animated animate__fadeIn">
+                  {!loggedInUser ? (
+                    <div className="text-center py-5 text-secondary glass-card p-5">
+                      <i className="bi bi-people-fill fs-1 text-info mb-3 d-block"></i>
+                      <h5>Participe ou Crie Bolões Privados!</h5>
+                      <p className="mb-4 text-secondary" style={{ fontSize: '0.85rem' }}>
+                        Para competir em bolões customizados com amigos, definir suas próprias regras e acompanhar rankings exclusivos, faça login na sua conta.
+                      </p>
+                      <button 
+                        className="btn btn-neon-green px-4 py-2" 
+                        onClick={() => { setAuthMode('login'); setActiveTab('auth'); }}
+                      >
+                        <i className="bi bi-person-lock me-1"></i> Entrar / Cadastrar
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {selectedLeagueId === 'global' ? (
+                        <div className="row g-4">
+                          
+                          {/* Coluna da Esquerda: Seus Bolões */}
+                          <div className="col-12 col-lg-7 text-start">
+                            <h4 className="text-white fw-bold mb-3">👥 Seus Bolões Customizados</h4>
+                            
+                            {leagues.length === 0 ? (
+                              <div className="glass-card p-5 text-center text-secondary mb-4">
+                                <i className="bi bi-people-fill fs-1 text-secondary mb-3 d-block"></i>
+                                <h5>Você não está em nenhum bolão customizado!</h5>
+                                <p className="mb-0" style={{ fontSize: '0.85rem' }}>
+                                  Use os formulários ao lado para criar o seu próprio bolão ou participar de um existente usando o código de convite de seus amigos.
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="d-flex flex-column gap-3 mb-4">
+                                {leagues.map((league) => (
+                                  <div 
+                                    key={league.id} 
+                                    className="glass-card p-3 d-flex flex-column justify-content-between hover-scale border-secondary border-opacity-30"
+                                  >
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                      <div>
+                                        <h5 className="text-white fw-bold m-0">{league.name}</h5>
+                                        {league.description && (
+                                          <p className="text-secondary m-0 mt-1" style={{ fontSize: '0.8rem' }}>{league.description}</p>
+                                        )}
+                                      </div>
+                                      <span className="badge bg-dark border border-secondary text-secondary" style={{ fontSize: '0.65rem' }}>
+                                        {league.userRole === 'owner' ? '👑 Criador' : league.userRole === 'subadmin' ? '🛡️ Subadmin' : '👤 Membro'}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="row g-2 py-2 my-1 border-top border-bottom border-secondary border-opacity-20 text-center" style={{ fontSize: '0.8rem' }}>
+                                      <div className="col-4">
+                                        <span className="text-secondary d-block" style={{ fontSize: '0.65rem' }}>SEUS PONTOS</span>
+                                        <strong className="text-info">{league.userPoints} pts</strong>
+                                      </div>
+                                      <div className="col-4 border-start border-end border-secondary border-opacity-20">
+                                        <span className="text-secondary d-block" style={{ fontSize: '0.65rem' }}>MEMBROS</span>
+                                        <strong className="text-white">{league.memberCount} jog.</strong>
+                                      </div>
+                                      <div className="col-4">
+                                        <span className="text-secondary d-block" style={{ fontSize: '0.65rem' }}>CÓDIGO</span>
+                                        <strong 
+                                          className="text-warning-yellow cursor-pointer"
+                                          title="Clique para copiar código de convite"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(league.inviteCode);
+                                            showToast('Código de convite copiado!', 'success');
+                                          }}
+                                        >
+                                          {league.inviteCode} <i className="bi bi-clipboard" style={{ fontSize: '0.7rem' }}></i>
+                                        </strong>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="d-flex justify-content-between align-items-center mt-2">
+                                      <span className="text-secondary" style={{ fontSize: '0.7rem' }}>
+                                        Dono: {league.ownerImage} {league.ownerName}
+                                      </span>
+                                      <button 
+                                        className="btn btn-neon-green btn-sm px-3 fw-bold text-dark"
+                                        onClick={() => {
+                                          setSelectedLeagueId(league.id);
+                                          fetchData(false);
+                                        }}
+                                      >
+                                        Acessar Painel <i className="bi bi-chevron-right ms-1"></i>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                          </div>
+
+                          {/* Coluna da Direita: Criar e Participar */}
+                          <div className="col-12 col-lg-5 text-start">
+                            
+                            {/* Participar de Bolão */}
+                            <div className="glass-card p-4 mb-4">
+                              <h5 className="text-white fw-bold mb-3">🔑 Entrar em um Bolão</h5>
+                              <form onSubmit={handleJoinLeague}>
+                                <div className="mb-3">
+                                  <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>CÓDIGO DE CONVITE</label>
+                                  <input 
+                                    type="text" 
+                                    className="form-control bg-dark bg-opacity-40 border-secondary text-white font-monospace text-uppercase" 
+                                    style={{ borderRadius: '10px', letterSpacing: '1px' }} 
+                                    placeholder="COPA-XXXXX"
+                                    value={joinCode}
+                                    onChange={(e) => setJoinCode(e.target.value)}
+                                    required
+                                  />
+                                </div>
+                                <button type="submit" className="btn btn-neon-outline w-100 py-2 fw-bold" style={{ borderRadius: '10px' }}>
+                                  <i className="bi bi-person-plus-fill me-1"></i> Participar do Bolão
+                                </button>
+                              </form>
+                            </div>
+
+                            {/* Criar Novo Bolão */}
+                            <div className="glass-card p-4">
+                              <h5 className="text-white fw-bold mb-3">➕ Criar Novo Bolão</h5>
+                              <form onSubmit={handleCreateLeague}>
+                                <div className="mb-3">
+                                  <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>NOME DO BOLÃO</label>
+                                  <input 
+                                    type="text" 
+                                    className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                                    style={{ borderRadius: '10px' }} 
+                                    placeholder="Ex: Bolão da Família"
+                                    value={leagueForm.name}
+                                    onChange={(e) => setLeagueForm({ ...leagueForm, name: e.target.value })}
+                                    required
+                                  />
+                                </div>
+
+                                <div className="mb-3">
+                                  <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>DESCRIÇÃO (OPCIONAL)</label>
+                                  <textarea 
+                                    className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                                    style={{ borderRadius: '10px' }} 
+                                    placeholder="Explique as regras do grupo..."
+                                    rows={2}
+                                    value={leagueForm.description}
+                                    onChange={(e) => setLeagueForm({ ...leagueForm, description: e.target.value })}
+                                  />
+                                </div>
+
+                                <div className="row g-2 mb-3">
+                                  <div className="col-6">
+                                    <label className="form-label text-secondary" style={{ fontSize: '0.75rem', fontWeight: '600' }}>LIBERAÇÃO</label>
+                                    <select 
+                                      className="form-select bg-dark border-secondary text-white" 
+                                      style={{ borderRadius: '10px', fontSize: '0.85rem' }}
+                                      value={leagueForm.windowHours}
+                                      onChange={(e) => setLeagueForm({ ...leagueForm, windowHours: e.target.value })}
+                                    >
+                                      <option value="24">24 Horas Antes</option>
+                                      <option value="48">48 Horas Antes</option>
+                                    </select>
+                                  </div>
+                                  <div className="col-6">
+                                    <label className="form-label text-secondary" style={{ fontSize: '0.75rem', fontWeight: '600' }}>MÁX. EDIÇÕES</label>
+                                    <select 
+                                      className="form-select bg-dark border-secondary text-white" 
+                                      style={{ borderRadius: '10px', fontSize: '0.85rem' }}
+                                      value={leagueForm.maxEdits}
+                                      onChange={(e) => setLeagueForm({ ...leagueForm, maxEdits: e.target.value })}
+                                    >
+                                      <option value="1">1 Edição</option>
+                                      <option value="3">3 Edições</option>
+                                      <option value="5">5 Edições</option>
+                                      <option value="999">Ilimitado</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="p-3 mb-3 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-20">
+                                  <span className="text-info fw-bold d-block mb-2" style={{ fontSize: '0.8rem' }}>🔧 Regras de Pontuação:</span>
+                                  <div className="row g-2">
+                                    <div className="col-6">
+                                      <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Placar Exato (+)</label>
+                                      <input 
+                                        type="number" 
+                                        className="form-control form-control-sm bg-dark text-white border-secondary"
+                                        value={leagueForm.pointsExact}
+                                        onChange={(e) => setLeagueForm({ ...leagueForm, pointsExact: e.target.value })}
+                                        required 
+                                      />
+                                    </div>
+                                    <div className="col-6">
+                                      <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Vencedor e Saldo (+)</label>
+                                      <input 
+                                        type="number" 
+                                        className="form-control form-control-sm bg-dark text-white border-secondary"
+                                        value={leagueForm.pointsDiff}
+                                        onChange={(e) => setLeagueForm({ ...leagueForm, pointsDiff: e.target.value })}
+                                        required 
+                                      />
+                                    </div>
+                                    <div className="col-6">
+                                      <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Vencedor Simples (+)</label>
+                                      <input 
+                                        type="number" 
+                                        className="form-control form-control-sm bg-dark text-white border-secondary"
+                                        value={leagueForm.pointsWinner}
+                                        onChange={(e) => setLeagueForm({ ...leagueForm, pointsWinner: e.target.value })}
+                                        required 
+                                      />
+                                    </div>
+                                    <div className="col-6">
+                                      <label className="form-label text-secondary" style={{ fontSize: '0.7rem' }}>Empate (+)</label>
+                                      <input 
+                                        type="number" 
+                                        className="form-control form-control-sm bg-dark text-white border-secondary"
+                                        value={leagueForm.pointsDraw}
+                                        onChange={(e) => setLeagueForm({ ...leagueForm, pointsDraw: e.target.value })}
+                                        required 
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <button type="submit" className="btn btn-neon-green w-100 py-2 fw-bold text-dark" style={{ borderRadius: '10px' }}>
+                                  <i className="bi bi-plus-circle-fill me-1"></i> Criar Bolão Oficial
+                                </button>
+                              </form>
+                            </div>
+
+                          </div>
+
+                        </div>
+                      ) : (
+                        // ========================================================
+                        // VISUALIZAÇÃO INTERNA DE UM BOLÃO SELECIONADO
+                        // ========================================================
+                        (() => {
+                          const currentLeague = leagues.find(l => l.id === selectedLeagueId);
+                          if (!currentLeague) return <div className="text-secondary">Carregando bolão...</div>;
+                          const isOwner = currentLeague.ownerId === selectedUserId;
+                          const isSubadmin = currentLeague.userRole === 'subadmin';
+                          const hasAdminRights = isOwner || isSubadmin;
+
+                          return (
+                            <div className="text-start">
+                              
+                              {/* Header do Bolão Selecionado */}
+                              <div className="glass-card p-4 mb-4 border-info border-opacity-25 bg-dark bg-opacity-40">
+                                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                                  <div>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <button 
+                                        className="btn btn-outline-secondary btn-sm p-1 rounded-circle d-flex align-items-center justify-content-center"
+                                        style={{ width: '28px', height: '28px' }}
+                                        onClick={() => setSelectedLeagueId('global')}
+                                      >
+                                        <i className="bi bi-chevron-left" style={{ fontSize: '0.85rem' }}></i>
+                                      </button>
+                                      <h3 className="text-white fw-bold m-0">{currentLeague.name}</h3>
+                                    </div>
+                                    {currentLeague.description && (
+                                      <p className="text-secondary m-0 mt-2 ms-4" style={{ fontSize: '0.85rem' }}>{currentLeague.description}</p>
+                                    )}
+                                  </div>
+
+                                  <div className="d-flex align-items-center gap-2 flex-wrap ms-4 ms-md-0">
+                                    <span 
+                                      className="badge bg-dark border border-secondary text-warning-yellow py-2 px-3 rounded-pill cursor-pointer d-flex align-items-center gap-1"
+                                      title="Clique para copiar código de convite"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(currentLeague.inviteCode);
+                                        showToast('Código de convite copiado!', 'success');
+                                      }}
+                                    >
+                                      <i className="bi bi-share-fill"></i> {currentLeague.inviteCode}
+                                    </span>
+                                    <button 
+                                      className="btn btn-neon-green btn-sm rounded-pill px-3"
+                                      onClick={() => {
+                                        setActiveTab('matches');
+                                        fetchData(false);
+                                      }}
+                                    >
+                                      <i className="bi bi-lightning-charge-fill text-dark"></i> Dar Palpites Neste Bolão
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Navegação interna do bolão */}
+                              <div className="d-flex gap-2 border-bottom border-secondary border-opacity-25 mb-4">
+                                <button 
+                                  className={`btn py-2 px-3 border-0 rounded-0 text-white font-weight-bold transition-all ${activeLeagueTab === 'ranking' ? 'border-bottom border-3 border-info text-info' : 'bg-transparent text-secondary'}`}
+                                  onClick={() => setActiveLeagueTab('ranking')}
+                                  style={{ fontSize: '0.85rem' }}
+                                >
+                                  🏆 Ranking Interno
+                                </button>
+                                <button 
+                                  className={`btn py-2 px-3 border-0 rounded-0 text-white font-weight-bold transition-all ${activeLeagueTab === 'rules' ? 'border-bottom border-3 border-info text-info' : 'bg-transparent text-secondary'}`}
+                                  onClick={() => setActiveLeagueTab('rules')}
+                                  style={{ fontSize: '0.85rem' }}
+                                >
+                                  📜 Regras e Janelas
+                                </button>
+                                {hasAdminRights && (
+                                  <button 
+                                    className={`btn py-2 px-3 border-0 rounded-0 text-white font-weight-bold transition-all ${activeLeagueTab === 'admin' ? 'border-bottom border-3 border-info text-info' : 'bg-transparent text-secondary'}`}
+                                    onClick={() => setActiveLeagueTab('admin')}
+                                    style={{ fontSize: '0.85rem' }}
+                                  >
+                                    🛡️ Gerenciar Membros
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* SUB-ABA: RANKING INTERNO */}
+                              {activeLeagueTab === 'ranking' && (
+                                <div className="glass-card p-3">
+                                  <h5 className="text-white fw-bold mb-3"><i className="bi bi-list-ol text-info me-2"></i>Classificação Geral do Grupo</h5>
+                                  <div className="list-group list-group-flush bg-transparent">
+                                    {users.map((user, idx) => {
+                                      const isCurrentUser = user.id === selectedUserId;
+                                      return (
+                                        <div 
+                                          key={user.id} 
+                                          className={`list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 px-3 border-secondary border-opacity-20 ${
+                                            isCurrentUser ? 'bg-info bg-opacity-10 border-info border-opacity-30' : ''
+                                          }`}
+                                        >
+                                          <div className="d-flex align-items-center gap-3">
+                                            <span className="text-secondary fw-bold" style={{ width: '25px' }}>#{idx + 1}</span>
+                                            <span className="fs-4">{user.image}</span>
+                                            <div className="d-flex flex-column">
+                                              <span className="fw-bold text-white" style={{ fontSize: '0.9rem' }}>
+                                                {user.name} 
+                                                {user.id === currentLeague.ownerId && <span className="badge bg-warning text-dark ms-1" style={{ fontSize: '0.55rem' }}>DONO</span>}
+                                                {user.role === 'subadmin' && <span className="badge bg-info text-dark ms-1" style={{ fontSize: '0.55rem' }}>SUBADMIN</span>}
+                                                {isCurrentUser && <span className="badge bg-info text-dark ms-1" style={{ fontSize: '0.55rem' }}>VOCÊ</span>}
+                                              </span>
+                                              <span className="text-secondary" style={{ fontSize: '0.7rem' }}>{user.email}</span>
+                                            </div>
+                                          </div>
+                                          <span className="text-info fw-bold fs-5">{user.points} pts</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* SUB-ABA: REGRAS E JANELAS */}
+                              {activeLeagueTab === 'rules' && (
+                                <div className="row g-3">
+                                  <div className="col-12 col-md-6">
+                                    <div className="glass-card p-4 h-100">
+                                      <h5 className="text-white fw-bold mb-3">📐 Parâmetros do Bolão</h5>
+                                      <div className="d-flex flex-column gap-1" style={{ fontSize: '0.85rem' }}>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Janela de Liberação:</span>
+                                          <strong className="text-white">{currentLeague.windowHours} Horas antes do kickoff</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Fechamento do Palpite:</span>
+                                          <strong className="text-white">30 Minutos antes do kickoff</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Limite de Edições por Palpite:</span>
+                                          <strong className="text-white">{currentLeague.maxEdits === 999 ? 'Sem Limite' : `${currentLeague.maxEdits} Vezes`}</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Validade / Encerramento:</span>
+                                          <strong className="text-white">{new Date(currentLeague.expiresAt).toLocaleDateString('pt-BR')}</strong>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="col-12 col-md-6">
+                                    <div className="glass-card p-4 h-100">
+                                      <h5 className="text-white fw-bold mb-3">🎯 Sistema de Pontos</h5>
+                                      <div className="d-flex flex-column gap-1" style={{ fontSize: '0.85rem' }}>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Placar Exato:</span>
+                                          <strong className="text-success">+{currentLeague.pointsExact} Pontos</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Vencedor e Saldo de Gols:</span>
+                                          <strong className="text-info">+{currentLeague.pointsDiff} Pontos</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Vencedor Simples (Sem saldo):</span>
+                                          <strong className="text-info">+{currentLeague.pointsWinner} Pontos</strong>
+                                        </div>
+                                        <div className="d-flex justify-content-between text-start py-2 border-bottom border-secondary border-opacity-20 text-secondary">
+                                          <span>Empate Garantido:</span>
+                                          <strong className="text-info">+{currentLeague.pointsDraw} Pontos</strong>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* SUB-ABA: GERENCIAMENTO DE MEMBROS */}
+                              {activeLeagueTab === 'admin' && hasAdminRights && (
+                                <div className="glass-card p-3">
+                                  <h5 className="text-white fw-bold mb-3"><i className="bi bi-shield-lock text-info me-2"></i>Gerenciamento de Membros (Dono / Subadmin)</h5>
+                                  <div className="list-group list-group-flush bg-transparent">
+                                    {users.map((member) => {
+                                      const isSelf = member.id === selectedUserId;
+                                      const targetIsOwner = member.id === currentLeague.ownerId;
+                                      
+                                      // Valida se usuário logado pode alterar o cargo desse membro
+                                      const canManage = !isSelf && !targetIsOwner && (isOwner || (isSubadmin && member.role === 'member'));
+
+                                      return (
+                                        <div 
+                                          key={`admin-mem-${member.id}`} 
+                                          className="list-group-item bg-transparent d-flex flex-column flex-sm-row justify-content-between align-items-sm-center py-3 border-secondary border-opacity-20 gap-2"
+                                        >
+                                          <div className="d-flex align-items-center gap-3">
+                                            <span className="fs-4">{member.image}</span>
+                                            <div className="d-flex flex-column">
+                                              <span className="fw-bold text-white">
+                                                {member.name}
+                                                {targetIsOwner && <span className="badge bg-warning text-dark ms-1" style={{ fontSize: '0.55rem' }}>DONO</span>}
+                                                {member.role === 'subadmin' && <span className="badge bg-info text-dark ms-1" style={{ fontSize: '0.55rem' }}>SUBADMIN</span>}
+                                              </span>
+                                              <span className="text-secondary" style={{ fontSize: '0.7rem' }}>{member.email}</span>
+                                            </div>
+                                          </div>
+                                          
+                                          {canManage && (
+                                            <div className="d-flex gap-2">
+                                              {member.role === 'member' ? (
+                                                <button 
+                                                  className="btn btn-outline-info btn-sm py-0 px-2"
+                                                  style={{ fontSize: '0.7rem' }}
+                                                  onClick={() => handleLeagueMemberAction(member.id, 'promote')}
+                                                >
+                                                  🛡️ Promover
+                                                </button>
+                                              ) : (
+                                                member.role === 'subadmin' && isOwner && (
+                                                  <button 
+                                                    className="btn btn-outline-warning btn-sm py-0 px-2"
+                                                    style={{ fontSize: '0.7rem' }}
+                                                    onClick={() => handleLeagueMemberAction(member.id, 'demote')}
+                                                  >
+                                                    👤 Rebaixar
+                                                  </button>
+                                                )
+                                              )}
+                                              <button 
+                                                className="btn btn-outline-danger btn-sm py-0 px-2"
+                                                style={{ fontSize: '0.7rem' }}
+                                                onClick={() => handleLeagueMemberAction(member.id, 'remove')}
+                                              >
+                                                🚫 Banir
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                            </div>
+                          );
+                        })()
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* ABA: AUTENTICAÇÃO (Login / Registro / Esqueci Senha)       */}
+              {/* ======================================================== */}
+              {activeTab === 'auth' && (
+                <div className="fade-in animate__animated animate__fadeIn d-flex justify-content-center align-items-center py-4">
+                  <div className="glass-card p-4 text-start border-info border-opacity-35 shadow-lg" style={{ maxWidth: '450px', width: '100%' }}>
+                    
+                    {authMode === 'login' && (
+                      <form onSubmit={handleLogin}>
+                        <h4 className="text-white fw-bold mb-1">👋 Bem-vindo de volta!</h4>
+                        <p className="text-secondary mb-4" style={{ fontSize: '0.85rem' }}>Faça login para dar palpites e criar bolões com amigos.</p>
+                        
+                        <div className="mb-3">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>E-MAIL</label>
+                          <input 
+                            type="email" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="seuemail@exemplo.com"
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="mb-3">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>SENHA</label>
+                          <input 
+                            type="password" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="Sua senha secreta"
+                            value={authPassword}
+                            onChange={(e) => setAuthPassword(e.target.value)}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="mb-4 text-end">
+                          <button 
+                            type="button" 
+                            className="btn btn-link p-0 text-info text-decoration-none" 
+                            style={{ fontSize: '0.75rem' }} 
+                            onClick={() => { setAuthMode('forgot'); setAuthPassword(''); }}
+                          >
+                            Esqueceu a senha?
+                          </button>
+                        </div>
+                        
+                        <button type="submit" className="btn btn-neon-green w-100 py-2 fw-bold text-dark" style={{ borderRadius: '10px' }}>
+                          <i className="bi bi-box-arrow-in-right me-1"></i> Entrar
+                        </button>
+                        
+                        <div className="mt-4 text-center">
+                          <span className="text-secondary" style={{ fontSize: '0.8rem' }}>Não tem conta?</span>{' '}
+                          <button 
+                            type="button" 
+                            className="btn btn-link p-0 text-info text-decoration-none fw-bold" 
+                            style={{ fontSize: '0.8rem' }} 
+                            onClick={() => setAuthMode('register')}
+                          >
+                            Cadastre-se aqui
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {authMode === 'register' && (
+                      <form onSubmit={handleRegister}>
+                        <h4 className="text-white fw-bold mb-1">📝 Criar Nova Conta</h4>
+                        <p className="text-secondary mb-4" style={{ fontSize: '0.85rem' }}>Cadastre-se para competir e acumular pontos.</p>
+                        
+                        <div className="mb-3">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>NOME COMPLETO</label>
+                          <input 
+                            type="text" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="Seu nome"
+                            value={authName}
+                            onChange={(e) => setAuthName(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div className="mb-3">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>E-MAIL</label>
+                          <input 
+                            type="email" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="seuemail@exemplo.com"
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="mb-3">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>SENHA</label>
+                          <input 
+                            type="password" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="Crie uma senha forte"
+                            value={authPassword}
+                            onChange={(e) => setAuthPassword(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        {/* Seletor de Avatar (Emojis) */}
+                        <div className="mb-4">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>ESCOLHA SEU AVATAR (EMOJI)</label>
+                          <div className="d-flex flex-wrap gap-2 p-2 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-30 justify-content-center">
+                            {['⚽', '🏆', '🥇', '🇧🇷', '🏟️', '🏃', '🤖', '🦁', '🐯', '🦅', '🧤', '🔥'].map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className={`btn btn-sm rounded-circle d-flex align-items-center justify-content-center transition-all ${authImage === emoji ? 'btn-neon-green text-dark shadow-lgScale font-weight-bold' : 'bg-transparent text-white border-0'}`}
+                                style={{ width: '36px', height: '36px', fontSize: '1.25rem' }}
+                                onClick={() => setAuthImage(emoji)}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <button type="submit" className="btn btn-neon-green w-100 py-2 fw-bold text-dark" style={{ borderRadius: '10px' }}>
+                          <i className="bi bi-person-plus-fill me-1"></i> Criar Conta
+                        </button>
+                        
+                        <div className="mt-4 text-center">
+                          <span className="text-secondary" style={{ fontSize: '0.8rem' }}>Já tem conta?</span>{' '}
+                          <button 
+                            type="button" 
+                            className="btn btn-link p-0 text-info text-decoration-none fw-bold" 
+                            style={{ fontSize: '0.8rem' }} 
+                            onClick={() => setAuthMode('login')}
+                          >
+                            Faça Login
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {authMode === 'forgot' && (
+                      <form onSubmit={handleForgotPassword}>
+                        <h4 className="text-white fw-bold mb-1">🔑 Recuperação de Senha</h4>
+                        <p className="text-secondary mb-4" style={{ fontSize: '0.85rem' }}>
+                          Insira seu e-mail e a nova senha que deseja. O administrador precisará aprovar para que ela passe a valer.
+                        </p>
+                        
+                        <div className="mb-3">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>E-MAIL DA SUA CONTA</label>
+                          <input 
+                            type="email" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="seuemail@exemplo.com"
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="mb-4">
+                          <label className="form-label text-secondary" style={{ fontSize: '0.8rem', fontWeight: '600' }}>PROPOSTA DE NOVA SENHA</label>
+                          <input 
+                            type="password" 
+                            className="form-control bg-dark bg-opacity-40 border-secondary text-white" 
+                            style={{ borderRadius: '10px' }} 
+                            placeholder="Digite a nova senha desejada"
+                            value={authPassword}
+                            onChange={(e) => setAuthPassword(e.target.value)}
+                            required
+                          />
+                        </div>
+                        
+                        <button type="submit" className="btn btn-warning w-100 py-2 fw-bold text-dark shadow-sm" style={{ borderRadius: '10px' }}>
+                          <i className="bi bi-send-fill me-1"></i> Solicitar Troca de Senha
+                        </button>
+                        
+                        <div className="mt-4 text-center">
+                          <button 
+                            type="button" 
+                            className="btn btn-link p-0 text-info text-decoration-none fw-bold" 
+                            style={{ fontSize: '0.8rem' }} 
+                            onClick={() => setAuthMode('login')}
+                          >
+                            Voltar para o Login
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -2183,6 +3732,14 @@ export default function Home() {
           <i className="bi bi-trophy-fill"></i>
           <span>Ranking</span>
         </button>
+
+        <button 
+          className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'leagues' ? 'active' : ''}`}
+          onClick={() => setActiveTab('leagues')}
+        >
+          <i className="bi bi-people-fill"></i>
+          <span>Bolões</span>
+        </button>
  
         <button 
           className={`mobile-nav-item border-0 bg-transparent ${activeTab === 'history' ? 'active' : ''}`}
@@ -2193,6 +3750,174 @@ export default function Home() {
         </button>
 
       </nav>
+
+      {/* ======================================================== */}
+      {/* MODAL TÁTICO DE ESCALAÇÕES (Fase 5)                      */}
+      {/* ======================================================== */}
+      {showLineupModal && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style={{ zIndex: 1100, background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)' }}>
+          <div className="glass-card p-4 text-start border-info border-opacity-35 animate__animated animate__zoomIn" style={{ maxWidth: '550px', width: '92%', maxHeight: '90vh', overflowY: 'auto', background: '#0e1726' }}>
+            
+            {/* Cabeçalho */}
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="text-white fw-bold m-0 d-flex align-items-center gap-2">
+                📋 Escalação Tática
+              </h5>
+              <button 
+                type="button" 
+                className="btn-close btn-close-white" 
+                onClick={() => { setShowLineupModal(false); setLineupData(null); }}
+              ></button>
+            </div>
+
+            {loadingLineup ? (
+              <div className="d-flex flex-column align-items-center justify-content-center py-5 text-secondary">
+                <div className="spinner-border text-info mb-2" role="status"></div>
+                <span>Carregando elencos reais...</span>
+              </div>
+            ) : lineupData ? (
+              <>
+                {/* Badge de Status da Escalação */}
+                <div className="d-flex justify-content-between align-items-center mb-3 p-2 rounded bg-dark bg-opacity-30">
+                  <span className="text-secondary" style={{ fontSize: '0.8rem' }}>TIPO DE ESCALAÇÃO:</span>
+                  {lineupData.status === 'oficial' ? (
+                    <span className="badge bg-success text-white px-2 py-1 border border-success border-opacity-30" style={{ fontSize: '0.75rem' }}>
+                      ✓ Oficial (Confirmada)
+                    </span>
+                  ) : (
+                    <span className="badge bg-warning text-dark px-2 py-1 border border-warning border-opacity-30" style={{ fontSize: '0.75rem' }}>
+                      ⏳ Provável (Pré-Jogo)
+                    </span>
+                  )}
+                </div>
+
+                {/* Seletores de Time */}
+                <div className="d-flex mb-3 rounded p-1 bg-dark bg-opacity-40 border border-secondary border-opacity-20">
+                  <button
+                    className={`btn flex-grow-1 text-center py-1 fw-bold ${lineupTeamTab === 'home' ? 'btn-neon-green text-dark' : 'text-white bg-transparent border-0'}`}
+                    style={{ fontSize: '0.8rem', borderRadius: '6px', border: 'none' }}
+                    onClick={() => setLineupTeamTab('home')}
+                  >
+                    {lineupData.starting.home[0]?.name ? `${lineupData.starting.home[0]?.name.split(' ').pop()} (Casa)` : 'Time Casa'}
+                  </button>
+                  <button
+                    className={`btn flex-grow-1 text-center py-1 fw-bold ${lineupTeamTab === 'away' ? 'btn-neon-green text-dark' : 'text-white bg-transparent border-0'}`}
+                    style={{ fontSize: '0.8rem', borderRadius: '6px', border: 'none' }}
+                    onClick={() => setLineupTeamTab('away')}
+                  >
+                    {lineupData.starting.away[0]?.name ? `${lineupData.starting.away[0]?.name.split(' ').pop()} (Visitante)` : 'Time Visitante'}
+                  </button>
+                </div>
+
+                {/* Campo Tático */}
+                <div className="soccer-field mb-4 position-relative overflow-hidden" style={{
+                  height: '420px',
+                  background: 'linear-gradient(180deg, #1b3d22 0%, #0d2112 100%)',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(255, 255, 255, 0.15)',
+                  boxShadow: 'inset 0 0 40px rgba(0,0,0,0.6)'
+                }}>
+                  {/* Linhas de Marcação do Campo */}
+                  {/* Linha do Meio Campo */}
+                  <div className="position-absolute w-100" style={{ top: '50%', height: '1px', background: 'rgba(255, 255, 255, 0.15)' }}></div>
+                  <div className="position-absolute rounded-circle border border-white border-opacity-15" style={{ top: '50%', left: '50%', width: '80px', height: '80px', transform: 'translate(-50%, -50%)' }}></div>
+                  <div className="position-absolute rounded-circle bg-white bg-opacity-30" style={{ top: '50%', left: '50%', width: '6px', height: '6px', transform: 'translate(-50%, -50%)' }}></div>
+                  
+                  {/* Grande Área de Defesa */}
+                  <div className="position-absolute border border-white border-opacity-15 border-top-0" style={{ bottom: 0, left: '50%', width: '56%', height: '60px', transform: 'translateX(-50%)' }}></div>
+                  <div className="position-absolute border border-white border-opacity-15 border-top-0" style={{ bottom: 0, left: '50%', width: '26%', height: '22px', transform: 'translateX(-50%)' }}></div>
+                  
+                  {/* Grande Área de Ataque */}
+                  <div className="position-absolute border border-white border-opacity-15 border-bottom-0" style={{ top: 0, left: '50%', width: '56%', height: '60px', transform: 'translateX(-50%)' }}></div>
+                  <div className="position-absolute border border-white border-opacity-15 border-bottom-0" style={{ top: 0, left: '50%', width: '26%', height: '22px', transform: 'translateX(-50%)' }}></div>
+
+                  {/* Renderização de Jogadores Titulares no Campo */}
+                  {(lineupTeamTab === 'home' ? lineupData.starting.home : lineupData.starting.away).map((player: any, idx: number) => {
+                    return (
+                      <div 
+                        key={`${player.name}-${idx}`}
+                        className="position-absolute d-flex flex-column align-items-center"
+                        style={{
+                          left: `${player.x}%`,
+                          bottom: `${player.y}%`,
+                          transform: 'translate(-50%, 50%)',
+                          zIndex: 10
+                        }}
+                      >
+                        {/* Círculo do Jogador com Glow */}
+                        <div 
+                          className="rounded-circle d-flex align-items-center justify-content-center border fw-bold text-white transition-all hover-scale"
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            fontSize: '0.75rem',
+                            background: '#090d16',
+                            borderColor: 'var(--neon-green)',
+                            boxShadow: '0 0 10px rgba(0, 255, 135, 0.6)',
+                            cursor: 'pointer'
+                          }}
+                          title={player.label}
+                        >
+                          {player.number}
+                        </div>
+                        {/* Nome do Jogador */}
+                        <span 
+                          className="px-1 py-0.5 rounded text-white text-center mt-1 text-nowrap fw-semibold border border-secondary border-opacity-20"
+                          style={{
+                            fontSize: '0.65rem',
+                            background: 'rgba(9, 13, 22, 0.8)',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                            maxWidth: '78px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {player.name.split(' ').pop()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Lista de Reservas (Suplentes) */}
+                <div>
+                  <h6 className="text-white fw-bold mb-2">📋 Jogadores Suplentes (Reservas)</h6>
+                  <div className="row g-2" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                    {(lineupTeamTab === 'home' ? lineupData.substitutes.home : lineupData.substitutes.away).map((sub: any, idx: number) => (
+                      <div key={`${sub.name}-${idx}`} className="col-6 col-sm-4">
+                        <div className="p-2 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-10 d-flex align-items-center gap-2">
+                          <span className="badge bg-secondary font-monospace" style={{ fontSize: '0.7rem', minWidth: '22px' }}>
+                            {sub.number}
+                          </span>
+                          <span className="text-light text-truncate" style={{ fontSize: '0.75rem' }} title={sub.name}>
+                            {sub.name}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4 text-secondary">
+                <span>Não foi possível carregar as escalações.</span>
+              </div>
+            )}
+
+            <div className="mt-4 pt-3 border-top border-secondary border-opacity-20 text-end">
+              <button 
+                type="button" 
+                className="btn btn-neon-green px-4 text-dark fw-bold" 
+                onClick={() => { setShowLineupModal(false); setLineupData(null); }}
+                style={{ borderRadius: '6px' }}
+              >
+                Fechar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

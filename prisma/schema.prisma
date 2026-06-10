@@ -12,18 +12,22 @@ generator client {
 
 // 1. Modelos de Autenticação e Perfis (NextAuth)
 model User {
-  id            String       @id @default(uuid())
+  id            String                 @id @default(uuid())
   name          String?
-  email         String       @unique
+  email         String                 @unique
   emailVerified DateTime?
   image         String?
-  points        Int          @default(0)
-  streak        Int          @default(0)
-  misses        Int          @default(0)
+  points        Int                    @default(0)
+  streak        Int                    @default(0)
+  misses        Int                    @default(0)
+  passwordHash  String?
   predictions   Prediction[]
   accounts      Account[]
   sessions      Session[]
-  createdAt     DateTime     @default(now())
+  leaguesOwned  League[]               @relation("LeagueOwner")
+  leaguesJoined LeagueMember[]
+  resetRequests PasswordResetRequest[]
+  createdAt     DateTime               @default(now())
 }
 
 model Account {
@@ -74,6 +78,7 @@ model Match {
   elapsed      String?      @default("notstarted") // minuto do jogo: 'notstarted', '45', 'halftime', 'finished'
   lastSyncAt   DateTime?    // Última sincronização com API externa
   predictions  Prediction[]
+  lineup       MatchLineup?
 }
 
 // 3. Modelo de Palpites (Predictions)
@@ -81,14 +86,17 @@ model Prediction {
   id        String   @id @default(uuid())
   userId    String
   matchId   String
+  leagueId  String   @default("global")
   homeGuess Int      // Placar chutado para o time de casa (ex: 2)
   awayGuess Int      // Placar chutado para o time visitante (ex: 1)
+  editCount Int      @default(0)
   createdAt DateTime @default(now())
   processed Boolean  @default(false)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  league    League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, matchId]) // Um único palpite por usuário por jogo
+  @@unique([userId, matchId, leagueId]) // Um único palpite por usuário por jogo por bolão
 }
 
 // 4. Log de Sincronização com API Externa
@@ -98,4 +106,59 @@ model SyncLog {
   matchesCreated Int      @default(0)
   matchesUpdated Int      @default(0)
   source         String   @default("worldcup26")
+}
+
+// 5. Modelos para Bolões Customizados
+model League {
+  id           String         @id @default(uuid())
+  name         String
+  description  String?
+  inviteCode   String         @unique
+  ownerId      String
+  expiresAt    DateTime
+  windowHours  Int            @default(48)
+  maxEdits     Int            @default(3)
+  pointsExact  Int            @default(5)
+  pointsDiff   Int            @default(3)
+  pointsWinner Int            @default(2)
+  pointsDraw   Int            @default(2)
+  createdAt    DateTime       @default(now())
+  owner        User           @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members      LeagueMember[]
+  predictions  Prediction[]
+}
+
+model LeagueMember {
+  id       String   @id @default(uuid())
+  leagueId String
+  userId   String
+  role     String   @default("member") // owner | subadmin | member
+  points   Int      @default(0)
+  joinedAt DateTime @default(now())
+  league   League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId])
+}
+
+model PasswordResetRequest {
+  id                   String   @id @default(uuid())
+  userId               String
+  proposedPasswordHash String
+  status               String   @default("pending") // pending | approved | rejected
+  createdAt            DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MatchLineup {
+  id              String   @id @default(uuid())
+  matchId         String   @unique
+  homeFormation   String   @default("4-3-3")
+  awayFormation   String   @default("4-3-3")
+  homeStarting    String   @db.Text // JSON contendo array de jogadores titulares
+  awayStarting    String   @db.Text // JSON contendo array de jogadores titulares
+  homeSubstitutes String   @db.Text // JSON contendo array de jogadores reservas
+  awaySubstitutes String   @db.Text // JSON contendo array de jogadores reservas
+  createdAt       DateTime @default(now())
+  match           Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
 }
