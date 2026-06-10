@@ -1329,7 +1329,7 @@ export default function Home() {
           {loading ? (
             <div className="d-flex flex-column align-items-center justify-content-center py-5">
               <div className="spinner-border text-info mb-3" role="status"></div>
-              <span className="text-secondary">Conectando ao banco Neon SQL & API Oficial...</span>
+              <span className="text-secondary">Carregando dados da Copa 2026...</span>
             </div>
           ) : (
             <>
