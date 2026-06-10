@@ -1688,11 +1688,27 @@ export default function Home() {
                                   {userPred && (
                                     <div className="mt-2">
                                       {reachedLimit ? (
-                                        <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20" style={{ fontSize: '0.65rem' }}>
+                                        <span className="badge me-1" style={{
+                                          fontSize: '0.65rem',
+                                          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                          color: '#f87171',
+                                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                                          padding: '3px 8px',
+                                          borderRadius: '6px',
+                                          fontWeight: '600'
+                                        }}>
                                           🚫 Limite de Edições Atingido ({editCount}/{maxEdits})
                                         </span>
                                       ) : (
-                                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20" style={{ fontSize: '0.65rem' }}>
+                                        <span className="badge" style={{
+                                          fontSize: '0.65rem',
+                                          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                          color: '#34d399',
+                                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                                          padding: '3px 8px',
+                                          borderRadius: '6px',
+                                          fontWeight: '600'
+                                        }}>
                                           ✓ Palpite Salvo ({editCount}/{maxEdits} edições)
                                         </span>
                                       )}
@@ -2276,11 +2292,27 @@ export default function Home() {
                                     <div className="d-flex align-items-center gap-1">
                                       {hasPrediction && (
                                         reachedLimit ? (
-                                          <span className="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                          <span className="badge me-1" style={{
+                                            fontSize: '0.65rem',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                            color: '#f87171',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            padding: '3px 8px',
+                                            borderRadius: '6px',
+                                            fontWeight: '600'
+                                          }}>
                                             🚫 Sem Edições ({editCount}/{maxEdits})
                                           </span>
                                         ) : (
-                                          <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                          <span className="badge me-1" style={{
+                                            fontSize: '0.65rem',
+                                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                            color: '#34d399',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            padding: '3px 8px',
+                                            borderRadius: '6px',
+                                            fontWeight: '600'
+                                          }}>
                                             ✓ Palpite Salvo ({editCount}/{maxEdits})
                                           </span>
                                         )
@@ -2909,7 +2941,15 @@ export default function Home() {
                                           )}
                                         </span>
                                         <div className="d-flex align-items-center gap-1">
-                                          <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
+                                          <span className="badge me-1" style={{
+                                            fontSize: '0.65rem',
+                                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                            color: '#34d399',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            padding: '3px 8px',
+                                            borderRadius: '6px',
+                                            fontWeight: '600'
+                                          }}>
                                             ✓ Palpite Salvo
                                           </span>
                                           {renderMatchTimer(match)}
