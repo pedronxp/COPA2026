@@ -1397,7 +1397,7 @@ export default function Home() {
                                 onChange={(e) => setDesempenhoLeagueId(e.target.value)}
                               >
                                 <option value="global">🌎 Bolão Global (Site)</option>
-                                {leagues.map(l => (
+                                {leagues.filter(l => l.id !== 'global').map(l => (
                                   <option key={l.id} value={l.id}>👥 {l.name}</option>
                                 ))}
                               </select>
@@ -1886,7 +1886,7 @@ export default function Home() {
                       <div className="glass-card p-3 mb-4 text-start">
                         <h6 className="text-white fw-bold mb-3 d-flex align-items-center justify-content-between">
                           <span>📊 Meus Bolões & Progresso</span>
-                          <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>{leagues.length + 1} bolões</span>
+                          <span className="badge bg-secondary" style={{ fontSize: '0.65rem' }}>{leagues.filter(l => l.id !== 'global').length + 1} bolões</span>
                         </h6>
 
                         {/* Bolão Global (Sempre visível como item 1) */}
@@ -1932,7 +1932,7 @@ export default function Home() {
                         </div>
 
                         {/* Bolões Privados do Usuário */}
-                        {leagues.map(l => (
+                        {leagues.filter(l => l.id !== 'global').map(l => (
                           <div 
                             key={l.id} 
                             className={`mb-2 border rounded p-2 bg-dark bg-opacity-20 hover-scale ${l.isUserLeader ? 'border-warning' : 'border-secondary border-opacity-25'}`}
@@ -2191,7 +2191,7 @@ export default function Home() {
                         onChange={(e) => setSelectedLeagueId(e.target.value)}
                       >
                         <option value="global" className="bg-dark text-white">🌎 Bolão Global (Site)</option>
-                        {leagues.map(l => (
+                        {leagues.filter(l => l.id !== 'global').map(l => (
                           <option key={l.id} value={l.id} className="bg-dark text-white">
                             👥 {l.name} {l.userRole === 'owner' ? '👑' : l.userRole === 'subadmin' ? '🛡️' : ''}
                           </option>
@@ -2750,7 +2750,7 @@ export default function Home() {
                         onChange={(e) => setSelectedLeagueId(e.target.value)}
                       >
                         <option value="global" className="bg-dark text-white">🌎 Bolão Global (Site)</option>
-                        {leagues.map(l => (
+                        {leagues.filter(l => l.id !== 'global').map(l => (
                           <option key={l.id} value={l.id} className="bg-dark text-white">
                             👥 {l.name} {l.userRole === 'owner' ? '👑' : l.userRole === 'subadmin' ? '🛡️' : ''}
                           </option>
@@ -2848,7 +2848,7 @@ export default function Home() {
                         onChange={(e) => setSelectedLeagueId(e.target.value)}
                       >
                         <option value="global" className="bg-dark text-white">🌎 Bolão Global (Site)</option>
-                        {leagues.map(l => (
+                        {leagues.filter(l => l.id !== 'global').map(l => (
                           <option key={l.id} value={l.id} className="bg-dark text-white">
                             👥 {l.name} {l.userRole === 'owner' ? '👑' : l.userRole === 'subadmin' ? '🛡️' : ''}
                           </option>
@@ -3129,7 +3129,7 @@ export default function Home() {
                           <div className="col-12 col-lg-7 text-start">
                             <h4 className="text-white fw-bold mb-3">👥 Seus Bolões Customizados</h4>
                             
-                            {leagues.length === 0 ? (
+                            {leagues.filter(l => l.id !== 'global').length === 0 ? (
                               <div className="glass-card p-5 text-center text-secondary mb-4">
                                 <i className="bi bi-people-fill fs-1 text-secondary mb-3 d-block"></i>
                                 <h5>Você não está em nenhum bolão customizado!</h5>
@@ -3139,7 +3139,7 @@ export default function Home() {
                               </div>
                             ) : (
                               <div className="d-flex flex-column gap-3 mb-4">
-                                {leagues.map((league) => (
+                                {leagues.filter(l => l.id !== 'global').map((league) => (
                                   <div 
                                     key={league.id} 
                                     className="glass-card p-3 d-flex flex-column justify-content-between hover-scale border-secondary border-opacity-30"
