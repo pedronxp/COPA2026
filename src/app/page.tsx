@@ -2281,7 +2281,7 @@ export default function Home() {
                                           </span>
                                         ) : (
                                           <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
-                                            ✓ Palpitado ({editCount}/{maxEdits})
+                                            ✓ Palpite Salvo ({editCount}/{maxEdits})
                                           </span>
                                         )
                                       )}
@@ -2869,10 +2869,10 @@ export default function Home() {
                   ) : (
                     <div className="d-flex flex-column gap-4">
                       
-                      {/* Seção 1: Próximos Jogos Palpitados */}
+                      {/* Seção 1: Próximos Jogos com Palpite */}
                       <div>
                         <h5 className="text-info fw-bold mb-3 text-start">
-                          <i className="bi bi-calendar-event me-2"></i> Próximos Jogos Palpitados
+                          <i className="bi bi-calendar-event me-2"></i> Próximos Jogos com Palpite
                         </h5>
                         
                         {matches.filter(m => m.status !== 'finished' && predictions.some(p => p.matchId === m.id)).length === 0 ? (
@@ -2910,7 +2910,7 @@ export default function Home() {
                                         </span>
                                         <div className="d-flex align-items-center gap-1">
                                           <span className="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 me-1" style={{ fontSize: '0.65rem' }}>
-                                            ✓ Palpitado
+                                            ✓ Palpite Salvo
                                           </span>
                                           {renderMatchTimer(match)}
                                         </div>
