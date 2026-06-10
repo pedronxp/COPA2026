@@ -14,8 +14,12 @@ let memoryMatches = [...initialMockMatches];
 let memoryUsers = [...initialMockUsers];
 let memoryPredictions = [...initialMockPredictions];
 
-// Função auxiliar para verificar se o banco de dados Neon está disponível
+// Flag de Circuit Breaker para evitar timeouts repetidos no Prisma se o banco cair
+let dbFailed = false;
+
+// Função auxiliar para verificar se o banco de dados Neon está disponível e ativo
 function isDbAvailable(): boolean {
+  if (dbFailed) return false;
   const dbUrl = process.env.DATABASE_URL;
   return !!dbUrl && !dbUrl.includes('seu-host-neon') && !dbUrl.includes('usuario:senha');
 }
@@ -60,9 +64,32 @@ export function calculatePredictionPoints(
 export async function getMatches(): Promise<Match[]> {
   if (isDbAvailable()) {
     try {
-      const dbMatches = await prisma.match.findMany({
+      let dbMatches = await prisma.match.findMany({
         orderBy: { kickOff: 'asc' }
       });
+
+      // Auto-seed dinâmico se a tabela estiver vazia no banco real
+      if (dbMatches.length === 0) {
+        console.log('Tabela de partidas no Neon SQL vazia. Executando seed de partidas oficial...');
+        for (const m of initialMockMatches) {
+          await prisma.match.create({
+            data: {
+              homeTeam: m.homeTeam,
+              awayTeam: m.awayTeam,
+              homeFlag: m.homeFlag,
+              awayFlag: m.awayFlag,
+              kickOff: new Date(m.kickOff),
+              stage: m.stage,
+              status: m.status
+            }
+          });
+        }
+        // Buscar novamente
+        dbMatches = await prisma.match.findMany({
+          orderBy: { kickOff: 'asc' }
+        });
+      }
+
       return dbMatches.map(m => ({
         id: m.id,
         homeTeam: m.homeTeam,
@@ -77,7 +104,8 @@ export async function getMatches(): Promise<Match[]> {
         stage: m.stage
       }));
     } catch (e) {
-      console.warn('Falha ao conectar no Neon. Usando dados mocados na memória.', e);
+      console.warn('Falha de conexão com o banco Neon SQL. Ativando circuito de fallback em memória para evitar timeouts.', e);
+      dbFailed = true; // Circuit breaker ativo
     }
   }
   return memoryMatches;
@@ -86,24 +114,41 @@ export async function getMatches(): Promise<Match[]> {
 export async function getUsers(): Promise<UserProfile[]> {
   if (isDbAvailable()) {
     try {
-      const dbUsers = await prisma.user.findMany({
+      let dbUsers = await prisma.user.findMany({
         orderBy: { points: 'desc' }
       });
-      // Mapear usuários e calcular heurística de streak
-      return dbUsers.map((u, index) => ({
+
+      // Auto-seed dinâmico para usuário padrão se a tabela estiver vazia
+      if (dbUsers.length === 0) {
+        console.log('Tabela de usuários vazia no Neon SQL. Criando usuário inicial...');
+        await prisma.user.create({
+          data: {
+            id: 'currentUser',
+            name: 'Você (Torcedor)',
+            email: 'usuario@copa.com',
+            image: '👑',
+            points: 0
+          }
+        });
+        dbUsers = await prisma.user.findMany({
+          orderBy: { points: 'desc' }
+        });
+      }
+
+      return dbUsers.map(u => ({
         id: u.id,
         name: u.name ?? 'Usuário',
         email: u.email,
         image: u.image ?? '👤',
         points: u.points,
-        streak: u.id === 'user-1' ? 4 : u.id === 'user-2' ? 2 : 0, // Mocked streaks
-        misses: u.id === 'user-3' ? 3 : u.id === 'user-4' ? 5 : 0
+        streak: 0,
+        misses: 0
       }));
     } catch (e) {
-      // ignore, fallback below
+      console.warn('Falha de conexão com o banco Neon SQL ao buscar usuários. Ativando circuito de fallback.', e);
+      dbFailed = true; // Circuit breaker ativo
     }
   }
-  // Retorna usuários ordenados por pontos
   return [...memoryUsers].sort((a, b) => b.points - a.points);
 }
 
@@ -123,7 +168,8 @@ export async function getPredictions(userId: string): Promise<Prediction[]> {
         processed: p.processed
       }));
     } catch (e) {
-      // ignore
+      console.warn('Falha de conexão com o banco Neon SQL ao buscar palpites. Ativando circuito de fallback.', e);
+      dbFailed = true; // Circuit breaker ativo
     }
   }
   return memoryPredictions.filter(p => p.userId === userId);
@@ -168,7 +214,8 @@ export async function savePrediction(
         processed: prediction.processed
       };
     } catch (e) {
-      console.warn('Erro ao salvar palpite no banco. Salvando em memória local...', e);
+      console.warn('Falha de conexão com o banco Neon SQL ao salvar palpite. Ativando circuito de fallback.', e);
+      dbFailed = true; // Circuit breaker ativo
     }
   }
 
@@ -228,7 +275,8 @@ export async function updateMatchScore(
         stage: updated.stage
       };
     } catch (e) {
-      console.warn('Erro ao atualizar partida no banco Neon. Atualizando em memória.', e);
+      console.warn('Falha de conexão com o banco Neon SQL ao atualizar placar. Ativando circuito de fallback.', e);
+      dbFailed = true; // Circuit breaker ativo
     }
   }
 
@@ -315,6 +363,7 @@ export async function resetSimulation(): Promise<void> {
   memoryMatches = [...initialMockMatches];
   memoryUsers = [...initialMockUsers];
   memoryPredictions = [...initialMockPredictions];
+  dbFailed = false; // Resetar o circuit breaker para testes
 }
 
 // Criar competidor dinâmico na sandbox
@@ -351,6 +400,7 @@ export async function createSandboxUser(name: string, image: string): Promise<Us
       };
     } catch (e) {
       console.warn('Falha ao inserir usuário no Neon SQL. Criando na memória...', e);
+      dbFailed = true; // Circuit breaker ativo
     }
   }
 
