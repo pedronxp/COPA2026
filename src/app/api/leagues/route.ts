@@ -29,25 +29,49 @@ export async function GET(request: Request) {
       orderBy: { league: { createdAt: 'desc' } }
     });
 
-    const leagues = memberships.map(m => ({
-      id: m.league.id,
-      name: m.league.name,
-      description: m.league.description,
-      inviteCode: m.league.inviteCode,
-      ownerId: m.league.ownerId,
-      ownerName: m.league.owner.name,
-      ownerImage: m.league.owner.image,
-      expiresAt: m.league.expiresAt,
-      windowHours: m.league.windowHours,
-      maxEdits: m.league.maxEdits,
-      pointsExact: m.league.pointsExact,
-      pointsDiff: m.league.pointsDiff,
-      pointsWinner: m.league.pointsWinner,
-      pointsDraw: m.league.pointsDraw,
-      createdAt: m.league.createdAt,
-      memberCount: m.league._count.members,
-      userRole: m.role,
-      userPoints: m.points, // pontos do usuário específico neste bolão
+    const leagues = await Promise.all(memberships.map(async m => {
+      // Buscar o maior pontuador do bolão para saber quem é o líder
+      const leader = await prisma.leagueMember.findFirst({
+        where: { leagueId: m.league.id },
+        orderBy: { points: 'desc' },
+        select: { userId: true, points: true }
+      });
+
+      const isUserLeader = leader ? (leader.userId === userId && leader.points > 0) : false;
+
+      // Calcular a posição (ranking) do competidor neste bolão específico
+      const userRank = await prisma.leagueMember.count({
+        where: {
+          leagueId: m.league.id,
+          points: {
+            gt: m.points
+          }
+        }
+      }) + 1;
+
+      return {
+        id: m.league.id,
+        name: m.league.name,
+        description: m.league.description,
+        inviteCode: m.league.inviteCode,
+        ownerId: m.league.ownerId,
+        ownerName: m.league.owner.name,
+        ownerImage: m.league.owner.image,
+        expiresAt: m.league.expiresAt,
+        windowHours: m.league.windowHours,
+        maxEdits: m.league.maxEdits,
+        pointsExact: m.league.pointsExact,
+        pointsDiff: m.league.pointsDiff,
+        pointsWinner: m.league.pointsWinner,
+        pointsDraw: m.league.pointsDraw,
+        createdAt: m.league.createdAt,
+        memberCount: m.league._count.members,
+        userRole: m.role,
+        userPoints: m.points, // pontos do usuário específico neste bolão
+        userRank,             // posição/ranking do usuário no bolão
+        isUserLeader,
+        leaderPoints: leader ? leader.points : 0
+      };
     }));
 
     return NextResponse.json(leagues);

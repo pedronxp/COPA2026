@@ -138,6 +138,16 @@ export default function Home() {
   const [loadingLineup, setLoadingLineup] = useState<boolean>(false);
   const [lineupTeamTab, setLineupTeamTab] = useState<'home' | 'away'>('home');
 
+  // Estados adicionais da Fase 5.2 (Filtro de Desempenho, Liderança de Bolões e Expansão)
+  const [desempenhoLeagueId, setDesempenhoLeagueId] = useState<string>('global');
+  const [globalUserPoints, setGlobalUserPoints] = useState<number>(0);
+  const [globalUserRank, setGlobalUserRank] = useState<number>(0);
+  const [globalTotalUsers, setGlobalTotalUsers] = useState<number>(0);
+  const [globalStreak, setGlobalStreak] = useState<number>(0);
+  const [globalMisses, setGlobalMisses] = useState<number>(0);
+  const [isUserGlobalLeader, setIsUserGlobalLeader] = useState<boolean>(false);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+
   // Estados para simulação de escalações no Sandbox
   const [sandboxLineupMatchId, setSandboxLineupMatchId] = useState<string>('');
   const [sandboxLineupHomeFormation, setSandboxLineupHomeFormation] = useState<string>('4-3-3');
@@ -325,6 +335,23 @@ export default function Home() {
         if (Array.isArray(data)) {
           usersData = data;
           setUsers(usersData);
+
+          // Se for o bolão global, salvar no cache para o card de desempenho na Home
+          if (selectedLeagueId === 'global') {
+            const idx = usersData.findIndex((u: UserProfile) => u.id === selectedUserId);
+            const userRankVal = idx !== -1 ? idx + 1 : 0;
+            setGlobalUserRank(userRankVal);
+            setGlobalTotalUsers(usersData.length);
+            const cur = idx !== -1 ? usersData[idx] : null;
+            if (cur) {
+              setGlobalUserPoints(cur.points);
+              setGlobalStreak(cur.streak);
+              setGlobalMisses(cur.misses);
+            }
+            // Verificar liderança global do usuário logado
+            const isLeader = usersData.length > 0 && usersData[0].id === selectedUserId && usersData[0].points > 0;
+            setIsUserGlobalLeader(isLeader);
+          }
         }
       }
 
@@ -1335,35 +1362,74 @@ export default function Home() {
 
                       {/* Card de Desempenho no Bolão */}
                       {(() => {
-                        const userRank = users.findIndex(u => u.id === selectedUserId) + 1;
+                        let points = 0;
+                        let rankStr = '-';
+                        let totalMembers = 0;
+                        let streakVal = 0;
+                        let missesVal = 0;
+
+                        if (desempenhoLeagueId === 'global') {
+                          points = globalUserPoints;
+                          rankStr = globalUserRank > 0 ? `#${globalUserRank}º` : '-';
+                          totalMembers = globalTotalUsers;
+                          streakVal = globalStreak;
+                          missesVal = globalMisses;
+                        } else {
+                          const leg = leagues.find(l => l.id === desempenhoLeagueId);
+                          if (leg) {
+                            points = leg.userPoints || 0;
+                            rankStr = leg.userRank > 0 ? `#${leg.userRank}º` : '-';
+                            totalMembers = leg.memberCount || 0;
+                          }
+                          // Manter a sequência global do site como referência geral
+                          streakVal = globalStreak;
+                          missesVal = globalMisses;
+                        }
+
                         return (
                           <div className="glass-card p-4 mb-4 text-start border-info border-opacity-35" style={{ background: 'linear-gradient(135deg, rgba(96, 239, 255, 0.05) 0%, rgba(19, 27, 46, 0.7) 100%)' }}>
-                            <h5 className="text-white fw-bold mb-3">👑 Seu Desempenho no Bolão</h5>
+                            <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                              <h5 className="text-white fw-bold m-0">👑 Seu Desempenho no Bolão</h5>
+                              <select 
+                                className="form-select form-select-sm text-white border-secondary border-opacity-35 cursor-pointer" 
+                                style={{ width: 'auto', minWidth: '180px', borderRadius: '6px', fontSize: '0.75rem', backgroundColor: 'rgba(15, 23, 42, 0.85)' }}
+                                value={desempenhoLeagueId}
+                                onChange={(e) => setDesempenhoLeagueId(e.target.value)}
+                              >
+                                <option value="global">🌎 Bolão Global (Site)</option>
+                                {leagues.map(l => (
+                                  <option key={l.id} value={l.id}>👥 {l.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            
                             <div className="row g-3">
                               <div className="col-4 text-center border-end border-secondary border-opacity-20">
                                 <div className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>RANKING</div>
                                 <div className="fs-3 fw-extrabold text-warning mt-1">
-                                  {userRank > 0 ? `#${userRank}º` : '-'}
+                                  {rankStr}
                                 </div>
-                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>de {users.length} jogadores</div>
+                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>de {totalMembers} jogadores</div>
                               </div>
                               <div className="col-4 text-center border-end border-secondary border-opacity-20">
                                 <div className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>PONTOS</div>
-                                <div className="fs-3 fw-extrabold text-info mt-1">{currentUser?.points || 0}</div>
+                                <div className="fs-3 fw-extrabold text-info mt-1">{points}</div>
                                 <div className="text-secondary" style={{ fontSize: '0.65rem' }}>pontos acumulados</div>
                               </div>
                               <div className="col-4 text-center">
                                 <div className="text-secondary" style={{ fontSize: '0.75rem', fontWeight: '500' }}>SEQUÊNCIA</div>
                                 <div className="fs-4 fw-bold mt-1 text-white">
-                                  {currentUser && currentUser.streak > 0 ? (
-                                    <span className="text-success"><i className="bi bi-fire text-danger"></i> {currentUser.streak} 🔥</span>
-                                  ) : currentUser && currentUser.misses > 0 ? (
-                                    <span className="text-danger"><i className="bi bi-snow text-primary"></i> {currentUser.misses} ❄️</span>
+                                  {streakVal > 0 ? (
+                                    <span className="text-success"><i className="bi bi-fire text-danger"></i> {streakVal} 🔥</span>
+                                  ) : missesVal > 0 ? (
+                                    <span className="text-danger"><i className="bi bi-snow text-primary"></i> {missesVal} ❄️</span>
                                   ) : (
                                     <span className="text-secondary" style={{ fontSize: '0.85rem' }}>Nenhuma</span>
                                   )}
                                 </div>
-                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>streak ativa</div>
+                                <div className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                  {desempenhoLeagueId === 'global' ? 'streak ativa' : 'streak geral (site)'}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1383,17 +1449,26 @@ export default function Home() {
                           <div className="row g-3">
                             {trendingMatches.map(match => {
                               const windowStatus = getPredictionWindowStatus(match, predictionWindow);
-                              const isEditable = windowStatus.isEditable;
                               const stats = matchStats[match.id];
                               const hasStats = stats && (stats.home > 0 || stats.draw > 0 || stats.away > 0);
                               const localGuess = localGuesses[match.id] || { home: '', away: '' };
-                              const userPred = predictions.find(p => p.matchId === match.id);
-                              const hasPrediction = !!userPred;
+                              const userPred = predictions.find(p => p.matchId === match.id && p.leagueId === selectedLeagueId);
                               const isPredictionSaved = userPred && localGuess.home === userPred.homeGuess.toString() && localGuess.away === userPred.awayGuess.toString();
+
+                              const currentLeague = leagues.find(l => l.id === selectedLeagueId);
+                              const maxEdits = currentLeague ? currentLeague.maxEdits : 3;
+                              const editCount = userPred ? (userPred.editCount ?? 0) : 0;
+                              const reachedLimit = userPred && editCount >= maxEdits;
+                              const isEditable = windowStatus.isEditable && !reachedLimit;
+                              const isExpanded = expandedMatchId === match.id;
 
                               return (
                                 <div key={`trending-${match.id}`} className="col-12 col-md-4">
-                                  <div className={`glass-card p-3 h-100 d-flex flex-column justify-content-between border-secondary border-opacity-20 bg-dark bg-opacity-30 hover-scale`} style={{ minHeight: '260px' }}>
+                                  <div 
+                                    className={`glass-card p-3 h-100 d-flex flex-column justify-content-between border-secondary ${isExpanded ? 'border-info border-opacity-45' : 'border-opacity-20'} bg-dark bg-opacity-30 hover-scale`} 
+                                    style={{ minHeight: isExpanded ? '380px' : '260px', transition: 'all 0.3s ease', cursor: 'pointer' }}
+                                    onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
+                                  >
                                     
                                     {/* Cabeçalho do Card */}
                                     <div className="d-flex justify-content-between align-items-center mb-2">
@@ -1406,7 +1481,7 @@ export default function Home() {
                                     </div>
 
                                     {/* Times e Placar de Palpite */}
-                                    <div className="d-flex align-items-center justify-content-between my-2">
+                                    <div className="d-flex align-items-center justify-content-between my-2" onClick={(e) => e.stopPropagation()}>
                                       {/* Casa */}
                                       <div className="d-flex flex-column align-items-center" style={{ width: '30%' }}>
                                         <TeamFlag logo={match.homeTeamLogo} flag={match.homeFlag} teamName={match.homeTeam} />
@@ -1468,37 +1543,85 @@ export default function Home() {
                                     </div>
 
                                     {/* Botão de Enviar */}
-                                    {isEditable && (
-                                      <div className="mt-1">
-                                        {userPred ? (
-                                          isPredictionSaved ? (
-                                            <button
-                                              className="btn btn-outline-success w-100 py-1"
-                                              style={{ fontSize: '0.7rem', borderColor: 'rgba(0, 255, 135, 0.4)', color: 'var(--neon-green)', background: 'rgba(0, 255, 135, 0.05)', borderRadius: '6px' }}
-                                              disabled
-                                            >
-                                              Confirmado ✓
-                                            </button>
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      {windowStatus.isEditable && (
+                                        <div className="mt-1">
+                                          {reachedLimit ? (
+                                            <div className="text-danger text-center fw-bold" style={{ fontSize: '0.7rem' }}>
+                                              🚫 Limite de edições atingido
+                                            </div>
+                                          ) : userPred ? (
+                                            isPredictionSaved ? (
+                                              <button
+                                                className="btn btn-outline-success w-100 py-1"
+                                                style={{ fontSize: '0.7rem', borderColor: 'rgba(0, 255, 135, 0.4)', color: 'var(--neon-green)', background: 'rgba(0, 255, 135, 0.05)', borderRadius: '6px' }}
+                                                disabled
+                                              >
+                                                Confirmado ✓
+                                              </button>
+                                            ) : (
+                                              <button
+                                                className="btn btn-warning w-100 py-1 fw-bold text-dark"
+                                                style={{ fontSize: '0.7rem', borderRadius: '6px', boxShadow: '0 0 10px rgba(255, 193, 7, 0.2)' }}
+                                                onClick={() => saveUserPrediction(match.id)}
+                                                disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
+                                              >
+                                                {savingPredictionId === match.id ? '...' : `Atualizar (${maxEdits - editCount} rest.)`}
+                                              </button>
+                                            )
                                           ) : (
                                             <button
-                                              className="btn btn-warning w-100 py-1 fw-bold text-dark"
-                                              style={{ fontSize: '0.7rem', borderRadius: '6px', boxShadow: '0 0 10px rgba(255, 193, 7, 0.2)' }}
+                                              className="btn btn-neon-green btn-sm w-100 py-1"
+                                              style={{ fontSize: '0.7rem', borderRadius: '6px' }}
                                               onClick={() => saveUserPrediction(match.id)}
                                               disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
                                             >
-                                              {savingPredictionId === match.id ? '...' : 'Atualizar'}
+                                              {savingPredictionId === match.id ? '...' : 'Palpitar'}
                                             </button>
-                                          )
-                                        ) : (
-                                          <button
-                                            className="btn btn-neon-green btn-sm w-100 py-1"
-                                            style={{ fontSize: '0.7rem', borderRadius: '6px' }}
-                                            onClick={() => saveUserPrediction(match.id)}
-                                            disabled={savingPredictionId === match.id || localGuess.home === '' || localGuess.away === ''}
-                                          >
-                                            {savingPredictionId === match.id ? '...' : 'Palpitar'}
-                                          </button>
-                                        )}
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Detalhes Expandidos (Inline) */}
+                                    {isExpanded && (
+                                      <div 
+                                        className="mt-3 pt-3 border-top border-secondary border-opacity-20 animate__animated animate__fadeIn"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <button 
+                                          className="btn btn-xs btn-neon-outline w-100 py-2 mb-3 d-flex align-items-center justify-content-center gap-2"
+                                          style={{ fontSize: '0.75rem', borderRadius: '6px' }}
+                                          onClick={() => handleViewLineup(match.id)}
+                                        >
+                                          📋 Ver Escalação
+                                        </button>
+
+                                        <div className="bg-dark bg-opacity-40 p-2 rounded text-center" style={{ fontSize: '0.75rem' }}>
+                                          {userPred ? (
+                                            <div>
+                                              <div className="text-secondary mb-1">Seu palpite salvo:</div>
+                                              <div className="text-white fw-bold fs-6 mb-2">
+                                                {userPred.homeGuess} x {userPred.awayGuess}
+                                              </div>
+                                              <div className="text-info" style={{ fontSize: '0.7rem' }}>
+                                                <i className="bi bi-info-circle"></i> Alterações: <span className="text-white fw-bold">{editCount}</span> de <span className="text-white fw-bold">{maxEdits}</span>.
+                                              </div>
+                                              {isEditable && (
+                                                <div className="text-success mt-1" style={{ fontSize: '0.65rem' }}>
+                                                  Você pode refazer este palpite <span className="fw-bold">{maxEdits - editCount}</span> {maxEdits - editCount === 1 ? 'vez' : 'vezes'}.
+                                                </div>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div>
+                                              <div className="text-secondary mb-1">Sem palpite registrado.</div>
+                                              <div className="text-info" style={{ fontSize: '0.7rem' }}>
+                                                <i className="bi bi-info-circle"></i> Limite de edições: <span className="text-white fw-bold">{maxEdits}</span> vezes.
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     )}
 
@@ -1746,6 +1869,9 @@ export default function Home() {
                               <div className="text-warning-yellow fw-semibold" style={{ fontSize: '0.8rem' }}>
                                 {users[0].points} pontos acumulados
                               </div>
+                              <div className="text-secondary mt-1 text-truncate" style={{ fontSize: '0.72rem' }}>
+                                Líder no bolão <span className="text-info fw-semibold">"{selectedLeagueId === 'global' ? 'Bolão Global (Site)' : (leagues.find(l => l.id === selectedLeagueId)?.name || 'Bolão')}"</span>
+                              </div>
                               {users[0].streak > 0 && (
                                 <div className="text-success mt-1" style={{ fontSize: '0.7rem' }}>
                                   <i className="bi bi-fire text-danger"></i> Sequência de {users[0].streak} acertos! 🔥
@@ -1764,14 +1890,17 @@ export default function Home() {
                         </h6>
 
                         {/* Bolão Global (Sempre visível como item 1) */}
-                        <div className="mb-2 border border-secondary border-opacity-25 rounded p-2 bg-dark bg-opacity-20 hover-scale">
+                        <div 
+                          className={`mb-2 border rounded p-2 bg-dark bg-opacity-20 hover-scale ${isUserGlobalLeader ? 'border-warning' : 'border-secondary border-opacity-25'}`}
+                          style={isUserGlobalLeader ? { boxShadow: '0 0 10px rgba(251, 191, 36, 0.22)', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.06) 0%, rgba(30, 41, 59, 0.2) 100%)' } : {}}
+                        >
                           <div 
                             className="d-flex justify-content-between align-items-center cursor-pointer" 
                             onClick={() => setExpandedLeagueProgressId(expandedLeagueProgressId === 'global' ? null : 'global')}
                             style={{ cursor: 'pointer' }}
                           >
-                            <span className="text-white fw-bold" style={{ fontSize: '0.8rem' }}>
-                              🌎 Bolão Global (Site) {expandedLeagueProgressId === 'global' ? '▼' : '▶'}
+                            <span className="text-white fw-bold d-flex align-items-center gap-1" style={{ fontSize: '0.8rem' }}>
+                              {isUserGlobalLeader ? '👑' : '🌎'} Bolão Global (Site) {expandedLeagueProgressId === 'global' ? '▼' : '▶'}
                             </span>
                             <span className="badge bg-info bg-opacity-10 text-info" style={{ fontSize: '0.7rem' }}>{currentUser?.points || 0} pts</span>
                           </div>
@@ -1804,14 +1933,18 @@ export default function Home() {
 
                         {/* Bolões Privados do Usuário */}
                         {leagues.map(l => (
-                          <div key={l.id} className="mb-2 border border-secondary border-opacity-25 rounded p-2 bg-dark bg-opacity-20 hover-scale">
+                          <div 
+                            key={l.id} 
+                            className={`mb-2 border rounded p-2 bg-dark bg-opacity-20 hover-scale ${l.isUserLeader ? 'border-warning' : 'border-secondary border-opacity-25'}`}
+                            style={l.isUserLeader ? { boxShadow: '0 0 10px rgba(251, 191, 36, 0.22)', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.06) 0%, rgba(30, 41, 59, 0.2) 100%)' } : {}}
+                          >
                             <div 
                               className="d-flex justify-content-between align-items-center cursor-pointer" 
                               onClick={() => setExpandedLeagueProgressId(expandedLeagueProgressId === l.id ? null : l.id)}
                               style={{ cursor: 'pointer' }}
                             >
-                              <span className="text-white fw-bold text-truncate" style={{ fontSize: '0.8rem', maxWidth: '75%' }}>
-                                👥 {l.name} {expandedLeagueProgressId === l.id ? '▼' : '▶'}
+                              <span className="text-white fw-bold text-truncate d-flex align-items-center gap-1" style={{ fontSize: '0.8rem', maxWidth: '75%' }}>
+                                {l.isUserLeader ? '👑' : '👥'} {l.name} {expandedLeagueProgressId === l.id ? '▼' : '▶'}
                               </span>
                               <span className="badge bg-info bg-opacity-10 text-info" style={{ fontSize: '0.7rem' }}>{l.userPoints || 0} pts</span>
                             </div>

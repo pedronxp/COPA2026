@@ -574,27 +574,69 @@ export function getSquadFallback(teamName: string): TeamSquad {
   };
 }
 
+function normalizeText(str: string): string {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 export function getSquadForTeam(teamName: string): TeamSquad {
   const cleanName = teamName.trim();
+  const lowerName = cleanName.toLowerCase();
   
   // Normalizar nomes comuns para bater com SQUADS_DATA
   let mappedName = cleanName;
-  if (cleanName.toLowerCase() === 'estados unidos' || cleanName.toLowerCase() === 'usa' || cleanName.toLowerCase() === 'united states') {
+  if (lowerName === 'estados unidos' || lowerName === 'usa' || lowerName === 'united states') {
     mappedName = 'EUA';
+  } else if (lowerName === 'mexico') {
+    mappedName = 'México';
+  } else if (lowerName === 'brazil') {
+    mappedName = 'Brasil';
+  } else if (lowerName === 'croatia') {
+    mappedName = 'Croácia';
+  } else if (lowerName === 'morocco') {
+    mappedName = 'Marrocos';
+  } else if (lowerName === 'new zealand') {
+    mappedName = 'Nova Zelândia';
+  } else if (lowerName === 'saudi arabia') {
+    mappedName = 'Arábia Saudita';
+  } else if (lowerName === 'south korea') {
+    mappedName = 'Coreia do Sul';
+  } else if (lowerName === 'czech republic' || lowerName === 'czechia') {
+    mappedName = 'República Tcheca';
+  } else if (lowerName === 'belgium') {
+    mappedName = 'Bélgica';
+  } else if (lowerName === 'spain') {
+    mappedName = 'Espanha';
+  } else if (lowerName === 'germany') {
+    mappedName = 'Alemanha';
+  } else if (lowerName === 'france') {
+    mappedName = 'França';
+  } else if (lowerName === 'england') {
+    mappedName = 'Inglaterra';
+  } else if (lowerName === 'uruguay') {
+    mappedName = 'Uruguai';
+  } else if (lowerName === 'canada') {
+    mappedName = 'Canadá';
+  } else if (lowerName === 'algeria') {
+    mappedName = 'Argélia';
+  } else if (lowerName === 'australia') {
+    mappedName = 'Austrália';
   }
   
   if (SQUADS_DATA[mappedName]) {
     return SQUADS_DATA[mappedName];
   }
   
-  // Tentar encontrar por substring
-  const key = Object.keys(SQUADS_DATA).find(k => 
-    mappedName.toLowerCase().includes(k.toLowerCase()) || 
-    k.toLowerCase().includes(mappedName.toLowerCase())
-  );
+  // Tentar encontrar por substring normalizada (sem acentos)
+  const normMapped = normalizeText(mappedName);
+  const key = Object.keys(SQUADS_DATA).find(k => {
+    const normKey = normalizeText(k);
+    return normMapped.includes(normKey) || normKey.includes(normMapped);
+  });
+  
   if (key) {
     return SQUADS_DATA[key];
   }
   
   return getSquadFallback(teamName);
 }
+
