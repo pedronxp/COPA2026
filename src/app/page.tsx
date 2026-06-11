@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
+import { translateTeamName } from '@/lib/team-translation';
 
 const highlights = [
   { icon: 'bi-lightning-charge-fill', title: 'Palpites vivos', text: 'Janelas de aposta por partida, placar salvo e acompanhamento em tempo real.' },
@@ -155,7 +156,7 @@ export default async function LandingPage() {
               return (
                 <div className="scoreboard-match animate__animated animate__fadeIn" key={match.id}>
                   <div>
-                    <strong>{match.homeTeam}</strong>
+                    <strong>{translateTeamName(match.homeTeam)}</strong>
                     {isLiveOrFinished ? (
                       <span className={match.status === 'live' ? 'text-neon-green animate__animated animate__pulse animate__infinite mx-2' : 'text-secondary mx-2'}>
                         {match.homeScore} x {match.awayScore}
@@ -163,7 +164,7 @@ export default async function LandingPage() {
                     ) : (
                       <span>x</span>
                     )}
-                    <strong>{match.awayTeam}</strong>
+                    <strong>{translateTeamName(match.awayTeam)}</strong>
                   </div>
                   <div>
                     {match.status === 'live' ? (
