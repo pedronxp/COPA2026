@@ -57,7 +57,7 @@ export function PlayerAppShell({
           </div>
         </Link>
 
-        <nav className="player-nav" aria-label="Navegacao principal">
+        <nav className="player-nav" aria-label="Navegação principal">
           {playerNavigationItems.map((item) => (
             <Link
               key={item.route}
@@ -97,8 +97,12 @@ export function PlayerAppShell({
       <div className="player-main">
         <header className="player-topbar">
           <div>
-            <span className="player-kicker">Copa do Mundo 2026</span>
-            <h1>{activeLeague.name}</h1>
+            {activeRoute !== 'leagues' && (
+              <>
+                <span className="player-kicker">Copa do Mundo 2026</span>
+                <h1>{activeLeague.name}</h1>
+              </>
+            )}
           </div>
           <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} />
         </header>
@@ -106,14 +110,14 @@ export function PlayerAppShell({
         {fallbackReason && (
           <div className="player-alert" role="status">
             <i className="bi bi-info-circle" aria-hidden="true" />
-            {fallbackReason} Usando o Bolao Global.
+            {fallbackReason} Usando o Bolão Global.
           </div>
         )}
 
         <main>{children}</main>
       </div>
 
-      <nav className="player-mobile-nav" aria-label="Navegacao mobile">
+      <nav className="player-mobile-nav" aria-label="Navegação mobile">
         {primaryMobileItems.map((item) => (
           <Link
             key={item.route}
@@ -126,7 +130,7 @@ export function PlayerAppShell({
           </Link>
         ))}
         <details className={`player-mobile-more ${hasActiveSecondaryItem ? 'active' : ''}`}>
-          <summary aria-label="Mais opcoes">
+          <summary aria-label="Mais opções">
             <i className="bi bi-three-dots" aria-hidden="true" />
             <span>Mais</span>
           </summary>

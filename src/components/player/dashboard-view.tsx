@@ -36,6 +36,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
   const finishedCount = matches.filter((match) => match.status === 'finished').length;
   const scheduledCount = matches.filter((match) => match.status === 'scheduled').length;
   const liveCount = matches.filter((match) => match.status === 'live').length;
+  const liveMatches = matches.filter((match) => match.status === 'live');
   const predictionCount = predictions.length;
   const scheduledMatchIds = new Set(
     matches.filter((match) => match.status === 'scheduled').map((match) => match.id),
@@ -409,6 +410,57 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-main">
         <div className="player-panel-heading">
           <div>
+            <span className="player-kicker">Tempo real</span>
+            <h3 className="d-flex align-items-center gap-2">
+              <span className="live-pulse" /> Partidas em andamento
+            </h3>
+          </div>
+          {liveMatches.length > 0 && (
+            <span className="badge bg-danger animate__animated animate__pulse animate__infinite" style={{ fontSize: '0.7rem' }}>
+              Ao vivo
+            </span>
+          )}
+        </div>
+        {liveMatches.length > 0 ? (
+          <div className="player-compact-list flex-list">
+            {liveMatches.map((match) => {
+              const userPred = predictions.find((p) => p.matchId === match.id);
+              return (
+                <div key={match.id} className="player-compact-result-row live-match-row">
+                  <div className="result-main-info">
+                    <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20 d-flex align-items-center gap-1.5" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}>
+                      <span className="live-pulse" />
+                      {match.elapsed && match.elapsed !== 'live' ? match.elapsed : 'Ao vivo'}
+                    </span>
+                    <div className="teams-result">
+                      <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
+                      <span className="score-pill border-danger text-danger bg-danger bg-opacity-5" style={{ fontWeight: 800 }}>
+                        {match.homeScore} x {match.awayScore}
+                      </span>
+                      <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
+                    </div>
+                  </div>
+                  {userPred ? (
+                    <small className="guess-label text-success">
+                      Seu palpite: {userPred.homeGuess} x {userPred.awayGuess}
+                    </small>
+                  ) : (
+                    <small className="guess-label text-warning">
+                      Você não palpitou nesta partida
+                    </small>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="player-empty-text">Nenhuma partida em andamento no momento.</p>
+        )}
+      </section>
+
+      <section className="player-panel player-dashboard-main">
+        <div className="player-panel-heading">
+          <div>
             <span className="player-kicker">Agenda pessoal</span>
             <h3>Seus próximos palpites</h3>
           </div>
@@ -491,6 +543,16 @@ export function DashboardView({ user, data }: DashboardViewProps) {
             <span className="rule-icon"><i className="bi bi-airplane" aria-hidden="true" /></span>
             <span className="rule-label">Fora</span>
             <strong>{activeLeague.pointsWinnerAway}</strong>
+          </div>
+          <div>
+            <span className="rule-icon"><i className="bi bi-check2-circle" aria-hidden="true" /></span>
+            <span className="rule-label">Ambas sim</span>
+            <strong>{activeLeague.pointsBothScoreYes}</strong>
+          </div>
+          <div>
+            <span className="rule-icon"><i className="bi bi-x-circle" aria-hidden="true" /></span>
+            <span className="rule-label">Ambas nao</span>
+            <strong>{activeLeague.pointsBothScoreNo}</strong>
           </div>
         </div>
         <div className="player-dashboard-note">
