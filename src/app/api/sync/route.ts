@@ -2,11 +2,14 @@
 import { NextResponse } from 'next/server';
 import { syncFromApi } from '@/lib/matches-service';
 import { prisma } from '@/lib/prisma';
+import { requireApiUser } from '@/lib/api-session';
+import { requireOperationalRequest } from '@/lib/operational-auth';
 
 // POST: Dispara sincronização com a API WorldCup26.ir
 export async function POST(request: Request) {
   try {
-    // Sincronização pública para permitir sync automático a partir do frontend sem expor segredos.
+    const forbidden = await requireOperationalRequest(request, 'matches:operate');
+    if (forbidden) return forbidden;
 
     const report = await syncFromApi();
     return NextResponse.json(report);
@@ -19,6 +22,9 @@ export async function POST(request: Request) {
 // GET: Retorna o último log de sincronização
 export async function GET() {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const lastSync = await prisma.syncLog.findFirst({
       orderBy: { syncedAt: 'desc' },
     });

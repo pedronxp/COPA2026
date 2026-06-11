@@ -1,10 +1,14 @@
 // src/app/api/leaderboard/route.ts
 import { NextResponse } from 'next/server';
 import { getUsers, createSandboxUser } from '@/lib/matches-service';
+import { requireApiUser } from '@/lib/api-session';
 
 // Obter ranking de usuários
 export async function GET() {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const users = await getUsers();
     return NextResponse.json(users);
   } catch (error: unknown) {
@@ -16,6 +20,9 @@ export async function GET() {
 // Criar competidor dinâmico (Sandbox)
 export async function POST(request: Request) {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { name, image } = body;
 

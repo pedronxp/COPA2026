@@ -1,77 +1,57 @@
-// src/app/api/auth/reset-requests/route.ts
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { requireAdminApi } from '@/lib/admin-auth';
+import { decidePasswordResetRequest, listPasswordResetRequests } from '@/lib/admin-service';
 
-// Listar todas as solicitações
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export async function GET(request: Request) {
   try {
-    const requests = await prisma.passwordResetRequest.findMany({
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            image: true,
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const auth = await requireAdminApi('resets:manage');
+    if (auth.response) return auth.response;
+
+    const { searchParams } = new URL(request.url);
+    const requests = await listPasswordResetRequests(searchParams.get('status'));
 
     return NextResponse.json(requests);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro ao listar solicitações.' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: getErrorMessage(error, 'Erro ao listar solicitacoes.') },
+      { status: 500 },
+    );
   }
 }
 
-// Aprovar ou rejeitar uma solicitação
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { requestId, action } = body; // action: 'approve' | 'reject'
+    const auth = await requireAdminApi('resets:manage');
+    if (auth.response) return auth.response;
 
-    if (!requestId || !action || !['approve', 'reject'].includes(action)) {
-      return NextResponse.json({ error: 'Parâmetros inválidos.' }, { status: 400 });
+    const body = await request.json();
+    const requestId = typeof body?.requestId === 'string' ? body.requestId : '';
+    const action = typeof body?.action === 'string' ? body.action : '';
+    const reason = typeof body?.reason === 'string' ? body.reason : '';
+
+    if (!requestId || !['approve', 'reject'].includes(action)) {
+      return NextResponse.json({ error: 'Parametros invalidos.' }, { status: 400 });
     }
 
-    const resetReq = await prisma.passwordResetRequest.findUnique({
-      where: { id: requestId },
+    await decidePasswordResetRequest({
+      actor: auth.user,
+      requestId,
+      action: action as 'approve' | 'reject',
+      reason,
     });
 
-    if (!resetReq) {
-      return NextResponse.json({ error: 'Solicitação não encontrada.' }, { status: 404 });
-    }
-
-    if (resetReq.status !== 'pending') {
-      return NextResponse.json({ error: 'Esta solicitação já foi processada.' }, { status: 400 });
-    }
-
-    if (action === 'approve') {
-      // Atualizar a senha do usuário
-      await prisma.user.update({
-        where: { id: resetReq.userId },
-        data: {
-          passwordHash: resetReq.proposedPasswordHash,
-        },
-      });
-
-      // Atualizar status do pedido
-      await prisma.passwordResetRequest.update({
-        where: { id: requestId },
-        data: { status: 'approved' },
-      });
-
-      return NextResponse.json({ success: true, message: 'Solicitação aprovada e senha atualizada com sucesso!' });
-    } else {
-      // Rejeitar
-      await prisma.passwordResetRequest.update({
-        where: { id: requestId },
-        data: { status: 'rejected' },
-      });
-
-      return NextResponse.json({ success: true, message: 'Solicitação rejeitada com sucesso.' });
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro ao processar solicitação.' }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      message: action === 'approve' ? 'Solicitacao aprovada.' : 'Solicitacao rejeitada.',
+    });
+  } catch (error: unknown) {
+    return NextResponse.json(
+      { error: getErrorMessage(error, 'Erro ao processar solicitacao.') },
+      { status: 500 },
+    );
   }
 }

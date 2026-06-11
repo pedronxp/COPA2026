@@ -2,9 +2,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSquadForTeam } from '@/lib/squads-data';
+import { requireApiUser } from '@/lib/api-session';
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const matchId = searchParams.get('matchId');
 
@@ -65,13 +73,16 @@ export async function GET(request: Request) {
       }
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro ao carregar escalação.' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, 'Erro ao carregar escalação.') }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const {
       matchId,
@@ -110,7 +121,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, lineup });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro ao salvar escalação.' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error, 'Erro ao salvar escalação.') }, { status: 500 });
   }
 }

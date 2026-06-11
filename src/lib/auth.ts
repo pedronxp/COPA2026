@@ -24,7 +24,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     
     // Comparação de tempo constante para evitar side-channel attacks
     return timingSafeEqual(hash, keyBuffer);
-  } catch (error) {
+  } catch {
     return false;
   }
 }

@@ -1,15 +1,19 @@
 // src/app/api/predictions/route.ts
 import { NextResponse } from 'next/server';
-import { getPredictions, savePrediction } from '@/lib/matches-service';
+import { getPredictions } from '@/lib/matches-service';
+import { saveLeaguePrediction } from '@/lib/prediction-service';
+import { requireApiUser } from '@/lib/api-session';
 
 // Obter palpites de um usuário específico em um bolão
 export async function GET(request: Request) {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || request.headers.get('x-user-id') || 'currentUser';
     const leagueId = searchParams.get('leagueId') || undefined;
 
-    const predictions = await getPredictions(userId, leagueId);
+    const predictions = await getPredictions(auth.user.id, leagueId);
     return NextResponse.json(predictions);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -20,15 +24,23 @@ export async function GET(request: Request) {
 // Salvar um palpite (com validação do Time Gate e limites de edição no matches-service)
 export async function POST(request: Request) {
   try {
+    const auth = await requireApiUser();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { matchId, homeGuess, awayGuess, leagueId = 'global' } = body;
-    const userId = request.headers.get('x-user-id') || 'currentUser';
 
     if (!matchId || homeGuess === undefined || awayGuess === undefined) {
       return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
     }
 
-    const prediction = await savePrediction(userId, matchId, homeGuess, awayGuess, leagueId);
+    const prediction = await saveLeaguePrediction({
+      userId: auth.user.id,
+      matchId,
+      homeGuess,
+      awayGuess,
+      leagueId,
+    });
     return NextResponse.json(prediction);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';

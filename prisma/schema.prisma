@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -10,24 +8,35 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// 1. Modelos de Autenticação e Perfis (NextAuth)
 model User {
-  id            String                 @id @default(uuid())
-  name          String?
-  email         String                 @unique
-  emailVerified DateTime?
-  image         String?
-  points        Int                    @default(0)
-  streak        Int                    @default(0)
-  misses        Int                    @default(0)
-  passwordHash  String?
-  predictions   Prediction[]
-  accounts      Account[]
-  sessions      Session[]
-  leaguesOwned  League[]               @relation("LeagueOwner")
-  leaguesJoined LeagueMember[]
-  resetRequests PasswordResetRequest[]
-  createdAt     DateTime               @default(now())
+  id                     String                  @id @default(uuid())
+  name                   String?
+  email                  String                  @unique
+  emailVerified          DateTime?
+  image                  String?
+  points                 Int                     @default(0)
+  streak                 Int                     @default(0)
+  misses                 Int                     @default(0)
+  passwordHash           String?
+  adminRole              String                  @default("none")
+  accountStatus          String                  @default("active")
+  suspendedUntil         DateTime?
+  moderationReason       String?
+  predictions            Prediction[]
+  accounts               Account[]
+  sessions               Session[]
+  leaguesOwned           League[]                @relation("LeagueOwner")
+  leaguesJoined          LeagueMember[]
+  leagueJoinRequests     LeagueJoinRequest[]
+  leaguePointEntries     LeaguePointEntry[]
+  leagueRankingSnapshots LeagueRankingSnapshot[]
+  resetRequests          PasswordResetRequest[]
+  resetReviews           PasswordResetRequest[]   @relation("PasswordResetReviewer")
+  adminAuditLogs         AdminAuditLog[]          @relation("AdminAuditActor")
+  createdAt              DateTime                @default(now())
+
+  @@index([adminRole])
+  @@index([accountStatus])
 }
 
 model Account {
@@ -41,7 +50,7 @@ model Account {
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -53,101 +62,220 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  revokedAt    DateTime?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
 }
 
-// 2. Modelo de Partidas da Copa
 model Match {
-  id           String       @id @default(uuid())
-  externalId   Int?         @unique // ID do jogo na API externa (worldcup26.ir)
-  homeTeam     String
-  awayTeam     String
-  homeFlag     String?      // Código de emoji ou URL de bandeira
-  awayFlag     String?
-  homeTeamLogo String?      // URL da bandeira do flagcdn (time da casa)
-  awayTeamLogo String?      // URL da bandeira do flagcdn (time visitante)
-  homeLabel    String?      // Para eliminatórias: ex "Winner Match 73"
-  awayLabel    String?      // Para eliminatórias: ex "Runner-up Group A"
-  kickOff      DateTime     // Horário de início do jogo
-  homeScore    Int?         // Placar real do time de casa (null até a partida iniciar)
-  awayScore    Int?         // Placar real do time visitante
-  status       String       @default("scheduled") // scheduled | live | finished
-  stage        String       @default("group")     // group | r32 | r16 | qf | sf | third | final
-  group        String?      // Grupo da Copa (A, B, C, etc.)
-  matchday     String?      // Rodada do jogo: '1', '2', '3'
-  elapsed      String?      @default("notstarted") // minuto do jogo: 'notstarted', '45', 'halftime', 'finished'
-  lastSyncAt   DateTime?    // Última sincronização com API externa
-  predictions  Prediction[]
-  lineup       MatchLineup?
+  id                 String             @id @default(uuid())
+  externalId         Int?               @unique
+  homeTeam           String
+  awayTeam           String
+  homeFlag           String?
+  awayFlag           String?
+  homeTeamLogo       String?
+  awayTeamLogo       String?
+  homeLabel          String?
+  awayLabel          String?
+  kickOff            DateTime
+  homeScore          Int?
+  awayScore          Int?
+  status             String             @default("scheduled")
+  stage              String             @default("group")
+  group              String?
+  matchday           String?
+  elapsed            String?            @default("notstarted")
+  lastSyncAt         DateTime?
+  predictions        Prediction[]
+  lineup             MatchLineup?
+  leaguePointEntries LeaguePointEntry[]
+
+  @@index([stage, kickOff])
+  @@index([group, kickOff])
+  @@index([matchday, kickOff])
 }
 
-// 3. Modelo de Palpites (Predictions)
 model Prediction {
-  id        String   @id @default(uuid())
-  userId    String
-  matchId   String
-  leagueId  String   @default("global")
-  homeGuess Int      // Placar chutado para o time de casa (ex: 2)
-  awayGuess Int      // Placar chutado para o time visitante (ex: 1)
-  editCount Int      @default(0)
-  createdAt DateTime @default(now())
-  processed Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  league    League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  id         String            @id @default(uuid())
+  userId     String
+  matchId    String
+  leagueId   String            @default("global")
+  homeGuess  Int
+  awayGuess  Int
+  editCount  Int               @default(0)
+  createdAt  DateTime          @default(now())
+  processed  Boolean           @default(false)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match      Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  league     League            @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  pointEntry LeaguePointEntry?
 
-  @@unique([userId, matchId, leagueId]) // Um único palpite por usuário por jogo por bolão
+  @@unique([userId, matchId, leagueId])
+  @@index([userId, leagueId])
+  @@index([matchId, leagueId])
+  @@index([matchId, processed])
 }
 
-// 4. Log de Sincronização com API Externa
 model SyncLog {
   id             String   @id @default(uuid())
   syncedAt       DateTime @default(now())
   matchesCreated Int      @default(0)
   matchesUpdated Int      @default(0)
   source         String   @default("worldcup26")
+
+  @@index([syncedAt])
 }
 
-// 5. Modelos para Bolões Customizados
 model League {
-  id           String         @id @default(uuid())
-  name         String
-  description  String?
-  inviteCode   String         @unique
-  ownerId      String
-  expiresAt    DateTime
-  windowHours  Int            @default(48)
-  maxEdits     Int            @default(3)
-  pointsExact  Int            @default(5)
-  pointsDiff   Int            @default(3)
-  pointsWinner Int            @default(2)
-  pointsDraw   Int            @default(2)
-  createdAt    DateTime       @default(now())
-  owner        User           @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members      LeagueMember[]
-  predictions  Prediction[]
+  id                      String                  @id @default(uuid())
+  slug                    String?                 @unique
+  name                    String
+  description             String?
+  inviteCode              String                  @unique
+  ownerId                 String
+  visibility              String                  @default("private")
+  joinPolicy              String                  @default("invite")
+  status                  String                  @default("active")
+  maxMembers              Int                     @default(50)
+  scoringPreset           String                  @default("standard")
+  scoringStartMatchday    Int                     @default(1)
+  groupPublicationMode    String                  @default("match")
+  knockoutPublicationMode String                  @default("match")
+  rulesLockedAt           DateTime?
+  lastPublishedAt         DateTime?
+  expiresAt               DateTime
+  windowHours             Int                     @default(48)
+  maxEdits                Int                     @default(3)
+  pointsExact             Int                     @default(5)
+  pointsDiff              Int                     @default(3)
+  pointsWinner            Int                     @default(2)
+  pointsWinnerHome        Int                     @default(2)
+  pointsWinnerAway        Int                     @default(2)
+  pointsDraw              Int                     @default(2)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @default(now()) @updatedAt
+  owner                   User                    @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members                 LeagueMember[]
+  predictions             Prediction[]
+  joinRequests            LeagueJoinRequest[]
+  pointEntries            LeaguePointEntry[]
+  rankingCycles           LeagueRankingCycle[]
+  rankingSnapshots        LeagueRankingSnapshot[]
+
+  @@index([visibility, status, createdAt])
+  @@index([ownerId, createdAt])
 }
 
 model LeagueMember {
-  id       String   @id @default(uuid())
-  leagueId String
-  userId   String
-  role     String   @default("member") // owner | subadmin | member
-  points   Int      @default(0)
-  joinedAt DateTime @default(now())
-  league   League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(uuid())
+  leagueId      String
+  userId        String
+  role          String   @default("member")
+  points        Int      @default(0)
+  pendingPoints Int      @default(0)
+  status        String   @default("active")
+  joinedAt      DateTime @default(now())
+  league        League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([leagueId, userId])
+  @@index([userId])
+  @@index([leagueId, status, points])
+}
+
+model LeagueJoinRequest {
+  id           String    @id @default(uuid())
+  leagueId     String
+  userId       String
+  status       String    @default("pending")
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  league       League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId])
+  @@index([leagueId, status, createdAt])
+}
+
+model LeaguePointEntry {
+  id           String      @id @default(uuid())
+  leagueId     String
+  userId       String
+  predictionId String?     @unique
+  matchId      String?
+  points       Int
+  status       String      @default("pending")
+  kind         String      @default("score")
+  stage        String?
+  matchday     String?
+  cycleKey     String
+  publishedAt  DateTime?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  league       League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prediction   Prediction? @relation(fields: [predictionId], references: [id], onDelete: SetNull)
+  match        Match?      @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([leagueId, status, cycleKey])
+  @@index([leagueId, userId, status])
+  @@index([matchId, leagueId])
+}
+
+model LeagueRankingCycle {
+  id          String                  @id @default(uuid())
+  leagueId    String
+  key         String
+  status      String                  @default("pending")
+  stage       String?
+  roundFrom   Int?
+  roundTo     Int?
+  publishedAt DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  league      League                  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  snapshots   LeagueRankingSnapshot[]
+
+  @@unique([leagueId, key])
+  @@index([leagueId, status, createdAt])
+}
+
+model LeagueRankingSnapshot {
+  id          String             @id @default(uuid())
+  leagueId    String
+  cycleId     String
+  userId      String
+  rank        Int
+  cyclePoints Int
+  totalPoints Int
+  createdAt   DateTime           @default(now())
+  league      League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  cycle       LeagueRankingCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, userId])
+  @@index([leagueId, createdAt])
 }
 
 model PasswordResetRequest {
   id                   String   @id @default(uuid())
   userId               String
   proposedPasswordHash String
-  status               String   @default("pending") // pending | approved | rejected
+  status               String   @default("pending")
+  reviewedById         String?
+  reviewedAt           DateTime?
+  reviewNote           String?
   createdAt            DateTime @default(now())
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy           User?    @relation("PasswordResetReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reviewedById])
 }
 
 model MatchLineup {
@@ -155,10 +283,27 @@ model MatchLineup {
   matchId         String   @unique
   homeFormation   String   @default("4-3-3")
   awayFormation   String   @default("4-3-3")
-  homeStarting    String   @db.Text // JSON contendo array de jogadores titulares
-  awayStarting    String   @db.Text // JSON contendo array de jogadores titulares
-  homeSubstitutes String   @db.Text // JSON contendo array de jogadores reservas
-  awaySubstitutes String   @db.Text // JSON contendo array de jogadores reservas
+  homeStarting    String   @db.Text
+  awayStarting    String   @db.Text
+  homeSubstitutes String   @db.Text
+  awaySubstitutes String   @db.Text
   createdAt       DateTime @default(now())
   match           Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, createdAt])
+  @@index([actorId, createdAt])
 }

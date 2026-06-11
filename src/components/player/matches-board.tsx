@@ -134,6 +134,24 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     }));
   }
 
+  function setQuickResult(matchId: string, result: 'home' | 'draw' | 'away') {
+    setGuesses((current) => {
+      let home = '1';
+      let away = '0';
+      if (result === 'draw') {
+        home = '1';
+        away = '1';
+      } else if (result === 'away') {
+        home = '0';
+        away = '1';
+      }
+      return {
+        ...current,
+        [matchId]: { home, away },
+      };
+    });
+  }
+
   async function savePrediction(item: MatchViewModel) {
     const guess = guesses[item.match.id];
     if (!guess || guess.home === '' || guess.away === '') {
@@ -196,8 +214,9 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
         <div className="matches-rules-grid" aria-label="Regras de pontuacao">
           <span>Exato <strong>{activeLeague.pointsExact}</strong></span>
           <span>Saldo <strong>{activeLeague.pointsDiff}</strong></span>
-          <span>Vencedor <strong>{activeLeague.pointsWinner}</strong></span>
+          <span>Casa <strong>{activeLeague.pointsWinnerHome}</strong></span>
           <span>Empate <strong>{activeLeague.pointsDraw}</strong></span>
+          <span>Visitante <strong>{activeLeague.pointsWinnerAway}</strong></span>
         </div>
       </section>
 
@@ -288,28 +307,71 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                             flag={item.match.homeFlag}
                             align="end"
                           />
-                          <div className="matches-score-editor">
-                            <input
-                              aria-label={`Palpite para ${item.match.homeTeam}`}
-                              inputMode="numeric"
-                              value={guess.home}
-                              onChange={(event) =>
-                                setGuess(item.match.id, 'home', event.target.value)
-                              }
-                              disabled={!item.canEdit}
-                              placeholder="-"
-                            />
-                            <span>x</span>
-                            <input
-                              aria-label={`Palpite para ${item.match.awayTeam}`}
-                              inputMode="numeric"
-                              value={guess.away}
-                              onChange={(event) =>
-                                setGuess(item.match.id, 'away', event.target.value)
-                              }
-                              disabled={!item.canEdit}
-                              placeholder="-"
-                            />
+                          <div className="matches-prediction-center">
+                            <div className="matches-score-editor">
+                              <input
+                                aria-label={`Palpite para ${item.match.homeTeam}`}
+                                inputMode="numeric"
+                                value={guess.home}
+                                onChange={(event) =>
+                                  setGuess(item.match.id, 'home', event.target.value)
+                                }
+                                disabled={!item.canEdit}
+                                placeholder="-"
+                              />
+                              <span>x</span>
+                              <input
+                                aria-label={`Palpite para ${item.match.awayTeam}`}
+                                inputMode="numeric"
+                                value={guess.away}
+                                onChange={(event) =>
+                                  setGuess(item.match.id, 'away', event.target.value)
+                                }
+                                disabled={!item.canEdit}
+                                placeholder="-"
+                              />
+                            </div>
+                            <div className="matches-quick-1x2">
+                              {(() => {
+                                const homeVal = guess.home !== '' ? parseInt(guess.home, 10) : NaN;
+                                const awayVal = guess.away !== '' ? parseInt(guess.away, 10) : NaN;
+                                const isHomeActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal > awayVal;
+                                const isDrawActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal === awayVal;
+                                const isAwayActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal < awayVal;
+
+                                return (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={`matches-quick-btn ${isHomeActive ? 'active' : ''}`}
+                                      onClick={() => setQuickResult(item.match.id, 'home')}
+                                      disabled={!item.canEdit}
+                                      title="Vitória do time da casa (Palpita 1x0)"
+                                    >
+                                      C
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`matches-quick-btn ${isDrawActive ? 'active' : ''}`}
+                                      onClick={() => setQuickResult(item.match.id, 'draw')}
+                                      disabled={!item.canEdit}
+                                      title="Empate (Palpita 1x1)"
+                                    >
+                                      X
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`matches-quick-btn ${isAwayActive ? 'active' : ''}`}
+                                      onClick={() => setQuickResult(item.match.id, 'away')}
+                                      disabled={!item.canEdit}
+                                      title="Vitória do time visitante (Palpita 0x1)"
+                                    >
+                                      V
+                                    </button>
+                                  </>
+                                );
+                              })()}
+                            </div>
                           </div>
                           <TeamMark
                             name={item.match.awayTeam}

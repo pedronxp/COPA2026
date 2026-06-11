@@ -6,7 +6,14 @@ async function main() {
   console.log('Iniciando o seed de dados do Bolão...');
 
   // Limpar dados anteriores para o reset
+  await prisma.adminAuditLog.deleteMany({});
+  await prisma.session.deleteMany({});
+  await prisma.account.deleteMany({});
   await prisma.prediction.deleteMany({});
+  await prisma.leagueRankingSnapshot.deleteMany({});
+  await prisma.leagueRankingCycle.deleteMany({});
+  await prisma.leaguePointEntry.deleteMany({});
+  await prisma.leagueJoinRequest.deleteMany({});
   await prisma.leagueMember.deleteMany({});
   await prisma.league.deleteMany({});
   await prisma.passwordResetRequest.deleteMany({});
@@ -29,9 +36,10 @@ async function main() {
     data: {
       id: 'currentUser',
       name: 'Você (Torcedor)',
-      email: 'usuario@copa.com',
+      email: process.env.ADMIN_EMAIL || 'usuario@copa.com',
       image: '👑',
       points: 0,
+      adminRole: 'super_admin',
     }
   });
 

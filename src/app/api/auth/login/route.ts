@@ -4,7 +4,7 @@ import { verifyPassword } from '@/lib/auth';
 import { createSession, getSessionCookieOptions, SESSION_COOKIE_NAME } from '@/lib/session';
 import { isValidEmail, normalizeEmail, readStringField } from '@/lib/auth-validation';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { getAccountRestriction } from '@/lib/admin-auth';
+import { getAccountRestriction } from '@/lib/admin-domain';
 
 export async function POST(request: Request) {
   try {

@@ -74,12 +74,16 @@ export function calculatePredictionPoints(
     pointsExact: number;
     pointsDiff: number;
     pointsWinner: number;
+    pointsWinnerHome?: number;
+    pointsWinnerAway?: number;
     pointsDraw: number;
   }
 ): number {
   const pointsExact = rules?.pointsExact ?? 5;
   const pointsDiff = rules?.pointsDiff ?? 3;
   const pointsWinner = rules?.pointsWinner ?? 2;
+  const pointsWinnerHome = rules?.pointsWinnerHome ?? pointsWinner;
+  const pointsWinnerAway = rules?.pointsWinnerAway ?? pointsWinner;
   const pointsDraw = rules?.pointsDraw ?? 2;
 
   const guessWinner = homeGuess > awayGuess ? '1' : homeGuess < awayGuess ? '2' : 'X';
@@ -105,7 +109,10 @@ export function calculatePredictionPoints(
     }
 
     // 4. Acerto de Apenas o Vencedor
-    return pointsWinner;
+    if (realWinner === '1') {
+      return pointsWinnerHome;
+    }
+    return pointsWinnerAway;
   }
 
   // 5. Erro Total
@@ -438,6 +445,8 @@ export async function processScoringForMatch(matchId: string): Promise<void> {
       pointsExact: pred.league.pointsExact,
       pointsDiff: pred.league.pointsDiff,
       pointsWinner: pred.league.pointsWinner,
+      pointsWinnerHome: pred.league.pointsWinnerHome,
+      pointsWinnerAway: pred.league.pointsWinnerAway,
       pointsDraw: pred.league.pointsDraw
     };
     

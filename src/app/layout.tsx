@@ -11,7 +11,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "COPA-ANT | Bolão Oficial da Copa do Mundo 2026",
+  title: "Copa dos Crias | Bolão Oficial da Copa do Mundo 2026",
   description: "Dê seus palpites, acumule pontos, suba no ranking da semana e prove que você entende de futebol na Copa de 2026!",
 };
 

@@ -55,6 +55,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
     .sort((a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime());
 
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   // Rotação automática a cada 5 segundos
   useEffect(() => {
@@ -64,6 +65,11 @@ export function DashboardView({ user, data }: DashboardViewProps) {
     }, 5000);
     return () => clearInterval(interval);
   }, [carouselMatches.length]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handlePrev = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -128,7 +134,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
           {currentMatch ? (
             (() => {
               const userPred = predictions.find((p) => p.matchId === currentMatch.id);
-              const timeLeft = new Date(currentMatch.kickOff).getTime() - 30 * 60_000 - Date.now();
+              const timeLeft = new Date(currentMatch.kickOff).getTime() - 30 * 60_000 - nowMs;
               const isExpiringSoon = timeLeft > 0 && timeLeft < 2 * 3600 * 1000;
 
               return (
@@ -304,7 +310,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
         {currentMatch ? (
           (() => {
             const userPred = predictions.find((p) => p.matchId === currentMatch.id);
-            const timeLeft = new Date(currentMatch.kickOff).getTime() - 30 * 60_000 - Date.now();
+            const timeLeft = new Date(currentMatch.kickOff).getTime() - 30 * 60_000 - nowMs;
             const isExpiringSoon = timeLeft > 0 && timeLeft < 2 * 3600 * 1000;
 
             return (
@@ -460,14 +466,19 @@ export function DashboardView({ user, data }: DashboardViewProps) {
             <strong>{activeLeague.pointsDiff}</strong>
           </div>
           <div>
-            <span className="rule-icon"><i className="bi bi-trophy" aria-hidden="true" /></span>
-            <span className="rule-label">Vitória</span>
-            <strong>{activeLeague.pointsWinner}</strong>
+            <span className="rule-icon"><i className="bi bi-house-door" aria-hidden="true" /></span>
+            <span className="rule-label">Casa</span>
+            <strong>{activeLeague.pointsWinnerHome}</strong>
           </div>
           <div>
             <span className="rule-icon"><i className="bi bi-shuffle" aria-hidden="true" /></span>
             <span className="rule-label">Empate</span>
             <strong>{activeLeague.pointsDraw}</strong>
+          </div>
+          <div>
+            <span className="rule-icon"><i className="bi bi-airplane" aria-hidden="true" /></span>
+            <span className="rule-label">Fora</span>
+            <strong>{activeLeague.pointsWinnerAway}</strong>
           </div>
         </div>
         <div className="player-dashboard-note">

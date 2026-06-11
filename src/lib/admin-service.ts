@@ -31,7 +31,7 @@ function requireReason(reason: string | null | undefined) {
   return value;
 }
 
-function safeJson(input: any): Prisma.InputJsonObject {
+function safeJson(input: unknown): Prisma.InputJsonObject {
   return input as Prisma.InputJsonObject;
 }
 

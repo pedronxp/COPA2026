@@ -37,7 +37,7 @@ export function LeagueShell({
         <div className="container-fluid d-flex justify-content-between align-items-center">
           <div className="d-flex align-items-center gap-1">
             <span className="fs-4 fw-extrabold text-white tracking-wide d-flex align-items-center gap-2 logo-glow" style={{ letterSpacing: '0.5px' }}>
-              Copa 2026
+              Copa dos Crias
             </span>
           </div>
 
@@ -132,4 +132,3 @@ export function LeagueShell({
     </div>
   );
 }
-
