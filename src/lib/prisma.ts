@@ -1,5 +1,6 @@
 // src/lib/prisma.ts
 import { PrismaClient, Prisma } from '@prisma/client';
+import { withPrismaPoolLimits } from '@/lib/database-url';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -11,7 +12,7 @@ export const prisma =
     log: process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: withPrismaPoolLimits(process.env.DATABASE_URL),
       },
     },
   });

@@ -18,7 +18,7 @@ The admin panel must sit above league-level permissions. League owners manage th
 
 - Replacing league owner/subadmin permissions.
 - Adding a third-party admin framework or auth provider.
-- Deleting users or leagues permanently from the admin UI.
+- Deleting leagues permanently from the admin UI.
 - Building external notification delivery for support workflows.
 - Creating a full custom rules engine beyond the existing league scoring fields.
 
@@ -54,6 +54,18 @@ The first implementation will include dashboard metrics, queues, user sanctions,
 
 Alternative considered: implement only one deep workflow, such as password reset. That would leave the main need, a complete administrative cockpit, unsolved.
 
+### Decision: Persist automatic sync schedule and health telemetry
+
+The application stores one sync schedule with enabled state, interval, next run, last attempt, last success, status, and error. A protected cron route runs every five minutes and atomically claims work only when the configured schedule is due. Sync logs distinguish source API success, degraded backup use, and failure.
+
+### Decision: Convert kickoff wall clocks with venue time zones
+
+The external API exposes a local date without an offset. Stadium IDs map to IANA time zones and are converted to UTC before persistence. This handles Mexico independently from United States Central Time and lets all UI surfaces format the same stored instant consistently.
+
+### Decision: Permit guarded batch user deletion
+
+Moderators can delete multiple ordinary users with one required reason. The operation rejects self-deletion, platform admins, the system account, and users who still own leagues, then writes the affected IDs and emails to the audit log in the same transaction.
+
 ## Risks / Trade-offs
 
 - Admin role bootstrap problem -> allow seeding or direct database assignment for the first super admin; document the field and keep default `none`.
@@ -71,6 +83,7 @@ Alternative considered: implement only one deep workflow, such as password reset
 5. Update sensitive existing endpoints to use admin checks where browser admin access is needed, while preserving operations-secret compatibility for machine calls.
 6. Add focused tests for admin authorization, moderation state, and audit logging.
 7. Run lint, tests, build, and OpenSpec validation.
+8. Add automatic sync configuration, source-aware telemetry, venue time-zone conversion, and guarded user batch deletion.
 
 Rollback strategy: leave new fields nullable/defaulted and route the admin UI behind role checks. If needed, remove links to `/admin` while preserving existing player/league behavior.
 

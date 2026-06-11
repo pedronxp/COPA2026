@@ -24,3 +24,14 @@ The system SHALL prevent banned or currently suspended users from logging in or 
 #### Scenario: Banned user attempts login
 - **WHEN** a banned user submits valid credentials
 - **THEN** the system rejects login without creating a new session
+
+### Requirement: Delete ordinary users in batch
+The system SHALL allow authorized moderators to permanently delete multiple eligible ordinary users with one required reason and one audit event.
+
+#### Scenario: Moderator deletes an eligible batch
+- **WHEN** a moderator selects ordinary users without owned leagues and submits one valid reason
+- **THEN** the users and dependent records are deleted and the audit log records the reason and affected accounts
+
+#### Scenario: Protected account is included
+- **WHEN** the batch includes the current moderator, a platform admin, the system account, or a user who owns a league
+- **THEN** the system rejects the complete batch without deleting any selected user

@@ -10,6 +10,9 @@ The application already has sensitive operational flows for password reset appro
 - Add admin-facing password reset request management with approval/rejection context and status filtering.
 - Add global league administration for renaming leagues, changing lifecycle/status, transferring ownership support, and viewing rule/member risk signals.
 - Add API and match operations views for sync health, recent sync logs, score/manual status controls, and recalculation entry points.
+- Add configurable automatic API synchronization with durable schedule state, failure/degraded telemetry, and a protected cron entry point.
+- Convert API match wall-clock times with the IANA time zone of each stadium so Brazilian display times remain correct.
+- Add protected bulk user deletion with one required reason, audit metadata, and safeguards for admins, system accounts, self-deletion, and league owners.
 - Add audit logging for privileged actions such as password reset approval, user sanctions, league edits, score changes, sync triggers, and rules changes.
 - Add a configurable operations surface for default rules/presets that can be applied safely to future leagues.
 
@@ -20,9 +23,9 @@ The application already has sensitive operational flows for password reset appro
 - `admin-access-control`: Platform admin roles, permission gates, protected admin routes, and safe denial behavior.
 - `admin-operations-dashboard`: Admin overview, operational queue counts, league/user/match metrics, and API sync health.
 - `admin-password-reset-queue`: Password reset request listing, filtering, approval, rejection, and audit metadata.
-- `admin-user-moderation`: User search, profile inspection, block/suspend/ban states, session revocation, and moderation history.
+- `admin-user-moderation`: User search, profile inspection, block/suspend/ban states, protected batch deletion, session revocation, and moderation history.
 - `admin-league-operations`: Global league search, rename/status controls, owner support, member risk review, and rule visibility.
-- `admin-match-api-operations`: Sync log inspection, manual sync trigger, match status/score correction, and scoring recalculation controls.
+- `admin-match-api-operations`: Sync log inspection, manual and scheduled sync, source health telemetry, venue-aware kickoff conversion, match status/score correction, and scoring recalculation controls.
 - `admin-audit-log`: Immutable administrative event recording and searchable review surfaces.
 
 ### Modified Capabilities

@@ -27,6 +27,8 @@ export interface ActiveLeagueOption {
   pointsWinnerHome: number;
   pointsWinnerAway: number;
   pointsDraw: number;
+  pointsBothScoreYes: number;
+  pointsBothScoreNo: number;
   lastPublishedAt: string | null;
 }
 
@@ -75,6 +77,8 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
         pointsWinnerHome: true,
         pointsWinnerAway: true,
         pointsDraw: true,
+        pointsBothScoreYes: true,
+        pointsBothScoreNo: true,
         lastPublishedAt: true,
       },
     }),
@@ -119,6 +123,8 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
     pointsWinnerHome: league?.pointsWinnerHome ?? 2,
     pointsWinnerAway: league?.pointsWinnerAway ?? 2,
     pointsDraw: league?.pointsDraw ?? 2,
+    pointsBothScoreYes: league?.pointsBothScoreYes ?? 0,
+    pointsBothScoreNo: league?.pointsBothScoreNo ?? 0,
     lastPublishedAt: league?.lastPublishedAt?.toISOString() ?? null,
   };
 }
@@ -200,6 +206,8 @@ async function getMemberLeagueOptions(userId: string): Promise<ActiveLeagueOptio
       pointsWinnerHome: league.pointsWinnerHome,
       pointsWinnerAway: league.pointsWinnerAway,
       pointsDraw: league.pointsDraw,
+      pointsBothScoreYes: league.pointsBothScoreYes,
+      pointsBothScoreNo: league.pointsBothScoreNo,
       lastPublishedAt: league.lastPublishedAt?.toISOString() ?? null,
     };
   });

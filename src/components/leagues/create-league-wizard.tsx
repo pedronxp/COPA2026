@@ -16,6 +16,7 @@ interface WizardData {
   visibility: 'public' | 'private';
   joinPolicy: 'open' | 'approval' | 'invite';
   maxMembers: number;
+  visualTheme: 'pulse' | 'stadium' | 'classic';
   expiresAt: string;
   scoringPreset: PresetKey;
   windowHours: number;
@@ -26,6 +27,8 @@ interface WizardData {
   pointsWinnerHome: number;
   pointsWinnerAway: number;
   pointsDraw: number;
+  pointsBothScoreYes: number;
+  pointsBothScoreNo: number;
   scoringStartMatchday: number;
   groupPublicationMode: string;
   knockoutPublicationMode: string;
@@ -38,6 +41,7 @@ const initialData: WizardData = {
   visibility: 'private',
   joinPolicy: 'invite',
   maxMembers: 20,
+  visualTheme: 'pulse',
   expiresAt: '2026-08-01',
   scoringPreset: 'standard',
   windowHours: 48,
@@ -48,6 +52,8 @@ const initialData: WizardData = {
   pointsWinnerHome: 2,
   pointsWinnerAway: 2,
   pointsDraw: 2,
+  pointsBothScoreYes: 1,
+  pointsBothScoreNo: 1,
   scoringStartMatchday: 1,
   groupPublicationMode: 'match',
   knockoutPublicationMode: 'match',
@@ -186,6 +192,24 @@ export function CreateLeagueWizard() {
                 <textarea value={data.description} onChange={(event) => update('description', event.target.value)} maxLength={400} rows={4} placeholder="Uma frase curta sobre a disputa." />
                 <small>{data.description.length}/400</small>
               </label>
+              <fieldset className="league-theme-picker">
+                <legend>Identidade visual</legend>
+                {[
+                  ['pulse', 'activity', 'Pulso', 'Ciano e verde com energia em movimento.'],
+                  ['stadium', 'broadcast-pin', 'Estadio', 'Verde de campo e luzes de arquibancada.'],
+                  ['classic', 'award', 'Classico', 'Dourado e vermelho com clima de decisao.'],
+                ].map(([value, icon, title, description]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={data.visualTheme === value ? 'selected' : ''}
+                    onClick={() => update('visualTheme', value as WizardData['visualTheme'])}
+                  >
+                    <i className={`bi bi-${icon}`} aria-hidden="true"></i>
+                    <span><strong>{title}</strong><small>{description}</small></span>
+                  </button>
+                ))}
+              </fieldset>
             </div>
           </div>
         )}
@@ -255,6 +279,8 @@ export function CreateLeagueWizard() {
                 ['pointsWinnerHome', 'Vitória Casa'],
                 ['pointsWinnerAway', 'Vitória Fora'],
                 ['pointsDraw', 'Empate correto'],
+                ['pointsBothScoreYes', 'Ambas marcam: sim'],
+                ['pointsBothScoreNo', 'Ambas marcam: nao'],
               ].map(([key, label]) => (
                 <label className="league-score-field" key={key}>
                   <span>{label}</span>
@@ -262,6 +288,10 @@ export function CreateLeagueWizard() {
                 </label>
               ))}
             </div>
+            <p className="league-score-note">
+              <i className="bi bi-info-circle" aria-hidden="true"></i>
+              Placar exato, saldo ou resultado usam apenas o nivel mais preciso. O bonus de ambas marcam soma ao nivel obtido.
+            </p>
             <div className="league-field-grid">
               <label className="league-field">
                 <span>Janela de palpites (horas)</span>
@@ -327,6 +357,8 @@ export function CreateLeagueWizard() {
                 <div><dt>Placar exato</dt><dd>+{data.pointsExact} pontos</dd></div>
                 <div><dt>Vitória Casa / Fora</dt><dd>+{data.pointsWinnerHome} / +{data.pointsWinnerAway} pts</dd></div>
                 <div><dt>Empate</dt><dd>+{data.pointsDraw} pontos</dd></div>
+                <div><dt>Ambas marcam</dt><dd>Sim +{data.pointsBothScoreYes} / Nao +{data.pointsBothScoreNo}</dd></div>
+                <div><dt>Visual</dt><dd>{data.visualTheme === 'pulse' ? 'Pulso' : data.visualTheme === 'stadium' ? 'Estadio' : 'Classico'}</dd></div>
                 <div><dt>Grupos</dt><dd>{data.groupPublicationMode.replaceAll('_', ' ')}</dd></div>
                 <div><dt>Mata-mata</dt><dd>{data.knockoutPublicationMode.replaceAll('_', ' ')}</dd></div>
               </dl>

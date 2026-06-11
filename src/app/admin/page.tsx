@@ -55,13 +55,19 @@ export default async function AdminDashboardPage() {
           <Link href="/admin/matches">Ver partidas</Link>
         </div>
         <div className="admin-health">
-          <span className={`admin-status-dot ${data.staleSync ? 'danger' : 'ok'}`} />
+          <span className={`admin-status-dot ${data.apiHealth.tone}`} />
           <div>
-            <strong>{data.staleSync ? 'Sincronizacao ausente ou antiga' : 'Sincronizacao recente'}</strong>
+            <strong>{data.apiHealth.title}</strong>
+            <p>{data.apiHealth.detail}</p>
             <p>
               Ultima sync: {formatDate(data.latestSync?.syncedAt)}. Criadas:{' '}
               {data.latestSync?.matchesCreated ?? 0}, atualizadas:{' '}
               {data.latestSync?.matchesUpdated ?? 0}.
+            </p>
+            <p>
+              Agendamento: {data.syncSchedule.enabled ? 'ativo' : 'desativado'} a cada{' '}
+              {data.syncSchedule.intervalMinutes} minutos. Proxima:{' '}
+              {formatDate(data.syncSchedule.nextRunAt)}.
             </p>
           </div>
         </div>

@@ -2,9 +2,12 @@
 // Serviço de dados do bolão - 100% Prisma, sem mock, sem fallback em memória
 import { prisma, withRetry } from './prisma';
 import type { Prisma } from '@prisma/client';
-import { fetchGames, fetchTeams, type ApiTeam } from './football-api';
+import { fetchGamesResult, fetchTeamsResult, type ApiTeam } from './football-api';
 import { translateTeamName } from './team-translation';
 import { parseMatchLocalDate } from './match-time';
+import { calculatePredictionScore } from './scoring-domain';
+
+export { calculatePredictionScore } from './scoring-domain';
 
 // ─── Tipos Exportados ────────────────────────────────────────────────
 
@@ -62,6 +65,9 @@ export interface SyncReport {
   created: number;
   updated: number;
   source: string;
+  status: 'success' | 'degraded';
+  error: string | null;
+  durationMs: number;
 }
 
 // ─── Lógica de Pontuação (regras customizadas ou padrão GE) ──────────
@@ -78,8 +84,12 @@ export function calculatePredictionPoints(
     pointsWinnerHome?: number;
     pointsWinnerAway?: number;
     pointsDraw: number;
+    pointsBothScoreYes?: number;
+    pointsBothScoreNo?: number;
   }
 ): number {
+  return calculatePredictionScore(homeGuess, awayGuess, homeScore, awayScore, rules).total;
+  /*
   const pointsExact = rules?.pointsExact ?? 5;
   const pointsDiff = rules?.pointsDiff ?? 3;
   const pointsWinner = rules?.pointsWinner ?? 2;
@@ -118,6 +128,7 @@ export function calculatePredictionPoints(
 
   // 5. Erro Total
   return 0;
+  */
 }
 
 // ─── Funções de Dados (Prisma direto) ────────────────────────────────
@@ -612,12 +623,24 @@ function parseLocalDateWithOffset(dateStr: string, stadiumId: string): Date {
  * Busca dados da WorldCup26.ir, faz upsert em massa no banco Match.
  * Retorna relatório de quantos foram criados/atualizados.
  */
-export async function syncFromApi(): Promise<SyncReport> {
-  const [games, teams] = await Promise.all([fetchGames(), fetchTeams()]);
+export async function syncFromApi(trigger = 'manual'): Promise<SyncReport> {
+  const startedAt = Date.now();
+  const [gamesResult, teamsResult] = await Promise.all([
+    fetchGamesResult(),
+    fetchTeamsResult(),
+  ]);
+  const games = gamesResult.data;
+  const teams = teamsResult.data;
+  const errors = [gamesResult.error, teamsResult.error].filter(Boolean);
+  const status = errors.length > 0 ? 'degraded' : 'success';
+  const source =
+    gamesResult.source === 'api' && teamsResult.source === 'api'
+      ? 'worldcup26'
+      : 'backup';
 
   if (games.length === 0) {
     console.warn('[sync] Nenhuma partida retornada pela API externa.');
-    return { created: 0, updated: 0, source: 'worldcup26' };
+    throw new Error('Nenhuma partida retornada pela API externa ou pelo backup.');
   }
 
   // Criar mapa de times para obter bandeiras
@@ -692,12 +715,23 @@ export async function syncFromApi(): Promise<SyncReport> {
     data: {
       matchesCreated: created,
       matchesUpdated: updated,
-      source: 'worldcup26',
+      source,
+      status,
+      trigger,
+      error: errors.join(' ') || null,
+      durationMs: Date.now() - startedAt,
     },
   });
 
   console.log(`[sync] Sincronização concluída: ${created} criadas, ${updated} atualizadas.`);
-  return { created, updated, source: 'worldcup26' };
+  return {
+    created,
+    updated,
+    source,
+    status,
+    error: errors.join(' ') || null,
+    durationMs: Date.now() - startedAt,
+  };
 }
 
 // ─── Funções Administrativas ────────────────────────────────────────

@@ -54,3 +54,13 @@
 - [x] 7.3 Run Prisma validation and generation, lint, tests, and production build
 - [x] 7.4 Verify `/leagues`, create, join, public detail, private detail, and mobile layouts in the browser
 - [x] 7.5 Update OpenSpec task status and validate the completed change
+
+## 8. Rich Scoring And League Identity
+
+- [ ] 8.1 Extend league and membership models with both-score values, visual theme, and exact-score streaks
+- [ ] 8.2 Add scoring breakdown logic and preserve historical league totals through zero-value migration defaults
+- [ ] 8.3 Recompute current and best exact-score streaks idempotently during scoring and corrections
+- [ ] 8.4 Expand creation presets, custom controls, review, and rules displays
+- [ ] 8.5 Correct creation-flow typography, form contrast, autofill, and responsive score controls
+- [ ] 8.6 Add league theme treatment, animated hot-streak labels, and WhatsApp sharing
+- [ ] 8.7 Add focused domain, scoring, integration, and UI validation

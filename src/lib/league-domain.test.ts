@@ -18,8 +18,24 @@ describe('league domain', () => {
       visibility: 'public',
     });
     expect(result.joinPolicy).toBe('open');
+    expect(result.visualTheme).toBe('pulse');
     expect(result.pointsExact).toBe(5);
+    expect(result.pointsBothScoreYes).toBe(1);
+    expect(result.pointsBothScoreNo).toBe(1);
     expect(result.maxMembers).toBe(50);
+  });
+
+  it('accepts visual theme and both-teams-score settings', () => {
+    const result = validateLeagueConfiguration({
+      name: 'Liga Tematica',
+      visualTheme: 'stadium',
+      pointsBothScoreYes: 4,
+      pointsBothScoreNo: 1,
+    });
+
+    expect(result.visualTheme).toBe('stadium');
+    expect(result.pointsBothScoreYes).toBe(4);
+    expect(result.pointsBothScoreNo).toBe(1);
   });
 
   it('rejects member limits above 50', () => {

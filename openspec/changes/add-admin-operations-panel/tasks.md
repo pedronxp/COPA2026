@@ -25,3 +25,13 @@
 
 - [x] 4.1 Add focused tests for admin permissions, sanctions, and audit logging
 - [x] 4.2 Run Prisma generation, lint, tests, production build, and OpenSpec validation
+
+## 5. Scheduled Sync And Bulk Operations
+
+- [x] 5.1 Persist sync schedule state and source-aware success, degraded, and failure telemetry
+- [x] 5.2 Add protected due-only cron execution and admin interval configuration
+- [x] 5.3 Convert venue-local API kickoff times with stadium IANA time zones
+- [x] 5.4 Add guarded batch user deletion with one reason and transactional audit logging
+- [x] 5.5 Improve admin API health and sync history presentation
+- [x] 5.6 Add focused time-zone and health-state tests, migrate the database, and run a successful live sync
+- [x] 5.7 Limit each Prisma process pool so concurrent admin requests do not exhaust Neon connections

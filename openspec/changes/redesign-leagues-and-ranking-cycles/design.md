@@ -56,6 +56,18 @@ The selected preset name is informational. Concrete point values and prediction 
 
 Rules become locked when the first prediction is created. Administrative edits after locking may only affect explicitly future-safe metadata; scoring values and prediction timing remain immutable.
 
+### Keep precision tiers exclusive and bonuses additive
+
+The base score uses one precision tier: exact score, correct goal difference, or correct outcome (home, draw, away). The both-teams-to-score yes/no value is an independent bonus and may be added to any base tier. This avoids triple-counting the same exact prediction while still supporting richer scoring.
+
+### Track exact-score heat per league
+
+`LeagueMember` stores the current and best consecutive exact-score streak. Scoring recomputes the streak from finished predictions ordered by kickoff, which keeps corrections and out-of-order match processing consistent. Three or more consecutive exact scores display an animated "Em alta" marker in that league only.
+
+### Give each league a visual theme
+
+The creator selects a validated visual theme copied into the league. The detail experience maps that value to scoped CSS variables and subtle motion, allowing leagues to feel distinct without introducing arbitrary user CSS or inaccessible color combinations.
+
 ### Separate calculation from publication
 
 Each processed prediction creates one `LeaguePointEntry`, uniquely keyed by prediction. The entry records calculated points, tournament stage, matchday, status, timestamps, and correction metadata.
@@ -105,6 +117,8 @@ This avoids a high-risk full application rewrite while removing league complexit
 - [Concurrent joins can exceed capacity] -> Count and create membership within a serializable transaction and retain the unique membership constraint.
 - [Large change collides with existing uncommitted work] -> Add focused modules and preserve current files unless integration requires a narrow edit.
 - [String domain values can drift] -> Centralize constants, TypeScript unions, and allowlist validators.
+- [Additive bonuses could surprise users] -> Show the score composition in creation, review, and league rules.
+- [Animations can distract or affect accessibility] -> Keep motion subtle and disable it under `prefers-reduced-motion`.
 
 ## Migration Plan
 
@@ -117,6 +131,7 @@ This avoids a high-risk full application rewrite while removing league complexit
 7. Redirect or simplify the legacy league tab.
 8. Reprocess no historical scores automatically; existing member points remain published baseline totals.
 9. Validate production data before making new fields operationally required.
+10. Backfill existing leagues with zero both-teams-to-score bonuses and the default visual theme so historical totals remain unchanged.
 
 Rollback keeps the additive columns and tables but routes traffic back to legacy handlers. No destructive column removal is required for the first release.
 

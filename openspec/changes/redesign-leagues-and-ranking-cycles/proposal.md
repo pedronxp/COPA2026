@@ -9,6 +9,8 @@ The current leagues experience mixes discovery, creation, participation, ranking
 - Add public league discovery with leader, ranking preview, rules, status, and participant count.
 - Redesign `/leagues`, `/leagues/create`, `/leagues/join`, and `/leagues/[slug]` as focused responsive experiences.
 - Add scoring presets and validated custom scoring rules.
+- Add configurable home-win, draw, away-win, exact-score, goal-difference, and both-teams-to-score values with an understandable score breakdown.
+- Add league-specific visual themes, exact-score hot streaks, and WhatsApp sharing.
 - Add configurable prediction windows, edit limits, member limits, and league lifecycle states.
 - Add ranking calculation and publication cycles by match, round interval, phase, or custom administrative release.
 - Separate calculated, pending, and published league points with an auditable point ledger.
@@ -24,6 +26,7 @@ The current leagues experience mixes discovery, creation, participation, ranking
 - `league-management`: League creation, lifecycle, URLs, visibility, membership limits, roles, and administration.
 - `league-discovery-access`: Public discovery, private access, invitations, approval requests, and visibility-safe league views.
 - `league-scoring-rules`: Scoring presets, custom point values, prediction windows, edit limits, validation, and rule locking.
+- `league-scoring-rules`: Scoring presets, custom point values, both-teams-to-score bonuses, prediction windows, edit limits, validation, and rule locking.
 - `league-ranking-cycles`: Per-match point calculation, pending versus published points, round/phase publication policies, snapshots, and corrections.
 
 ### Modified Capabilities

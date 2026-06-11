@@ -1,6 +1,10 @@
 import { requireAdminPage } from '@/lib/admin-auth';
 import { getMatchOperationsData } from '@/lib/admin-service';
-import { correctMatchAction, triggerSyncAction } from '@/app/admin/actions';
+import {
+  configureSyncAction,
+  correctMatchAction,
+  triggerSyncAction,
+} from '@/app/admin/actions';
 
 function fmt(value: Date | null | undefined) {
   if (!value) return '-';
@@ -36,14 +40,62 @@ export default async function AdminMatchesPage() {
 
       <div className="admin-panel">
         <div className="admin-panel-head">
+          <div>
+            <h2>Sincronizacao automatica</h2>
+            <p>{data.apiHealth.title}: {data.apiHealth.detail}</p>
+          </div>
+          <span className={`admin-badge ${data.apiHealth.tone}`}>
+            {data.apiHealth.state}
+          </span>
+        </div>
+        <form className="admin-schedule-form" action={configureSyncAction}>
+          <label className="admin-toggle">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={data.syncSchedule.enabled}
+            />
+            <span>Agendamento ativo</span>
+          </label>
+          <label className="admin-field">
+            <span>Intervalo</span>
+            <select
+              name="intervalMinutes"
+              defaultValue={data.syncSchedule.intervalMinutes}
+            >
+              <option value={5}>5 minutos</option>
+              <option value={10}>10 minutos</option>
+              <option value={15}>15 minutos</option>
+              <option value={30}>30 minutos</option>
+              <option value={60}>1 hora</option>
+              <option value={180}>3 horas</option>
+              <option value={360}>6 horas</option>
+              <option value={720}>12 horas</option>
+              <option value={1440}>24 horas</option>
+            </select>
+          </label>
+          <div className="admin-schedule-meta">
+            <small>Proxima: {fmt(data.syncSchedule.nextRunAt)}</small>
+            <small>Ultimo sucesso: {fmt(data.syncSchedule.lastSuccessAt)}</small>
+          </div>
+          <button className="admin-button secondary" type="submit">
+            <i className="bi bi-calendar-check" aria-hidden="true" /> Salvar agendamento
+          </button>
+        </form>
+      </div>
+
+      <div className="admin-panel">
+        <div className="admin-panel-head">
           <h2>Ultimas sincronizacoes</h2>
         </div>
         <div className="admin-list">
           {data.syncLogs.map((log) => (
             <article className="admin-list-row" key={log.id}>
               <div>
-                <strong>{log.source}</strong>
+                <strong>{log.source} · {log.status}</strong>
                 <small>{log.matchesCreated} criadas · {log.matchesUpdated} atualizadas</small>
+                <small>{log.trigger}{log.durationMs ? ` · ${log.durationMs} ms` : ''}</small>
+                {log.error && <small className="admin-error-text">{log.error}</small>}
               </div>
               <time>{fmt(log.syncedAt)}</time>
             </article>

@@ -35,3 +35,17 @@ The system SHALL support owner, subadmin, and member roles with explicit permiss
 #### Scenario: Member leaves
 - **WHEN** a non-owner member leaves a league
 - **THEN** the membership is removed without affecting historical scoring records
+
+### Requirement: Select a league visual theme
+The system SHALL allow the creator to choose one validated visual theme that affects only the league presentation.
+
+#### Scenario: Create a league with the pulse theme
+- **WHEN** the creator selects the pulse theme
+- **THEN** league cards and detail surfaces use the corresponding scoped colors and subtle animation
+
+### Requirement: Share a league through WhatsApp
+The system SHALL provide a WhatsApp share command containing the league name, URL, and invite code when available.
+
+#### Scenario: Member shares a private league
+- **WHEN** an authorized member activates WhatsApp sharing
+- **THEN** the system opens a WhatsApp share URL with the league invitation context

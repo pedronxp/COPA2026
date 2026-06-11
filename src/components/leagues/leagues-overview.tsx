@@ -26,7 +26,7 @@ function statusLabel(status: string) {
 
 function LeagueCard({ league, mine }: { league: LeagueCardData; mine: boolean }) {
   return (
-    <article className="league-card">
+    <article className={`league-card theme-${league.visualTheme}`}>
       <div className="league-card-topline">
         <div className="league-card-emblem" aria-hidden="true">
           {league.name.slice(0, 2).toUpperCase()}

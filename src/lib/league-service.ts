@@ -31,6 +31,8 @@ const COMPETITIVE_FIELDS = new Set([
   'pointsWinnerHome',
   'pointsWinnerAway',
   'pointsDraw',
+  'pointsBothScoreYes',
+  'pointsBothScoreNo',
 ]);
 
 export class LeagueServiceError extends Error {
@@ -125,6 +127,8 @@ function scoringProjection(league: {
   pointsWinnerHome: number;
   pointsWinnerAway: number;
   pointsDraw: number;
+  pointsBothScoreYes: number;
+  pointsBothScoreNo: number;
 }) {
   return {
     preset: league.scoringPreset,
@@ -140,6 +144,8 @@ function scoringProjection(league: {
     pointsWinnerHome: league.pointsWinnerHome,
     pointsWinnerAway: league.pointsWinnerAway,
     pointsDraw: league.pointsDraw,
+    pointsBothScoreYes: league.pointsBothScoreYes,
+    pointsBothScoreNo: league.pointsBothScoreNo,
   };
 }
 
@@ -152,6 +158,7 @@ function baseProjection(league: {
   joinPolicy: string;
   status: string;
   maxMembers: number;
+  visualTheme: string;
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -166,6 +173,7 @@ function baseProjection(league: {
     joinPolicy: league.joinPolicy,
     status: league.status,
     maxMembers: league.maxMembers,
+    visualTheme: league.visualTheme,
     expiresAt: league.expiresAt,
     createdAt: league.createdAt,
     updatedAt: league.updatedAt,
@@ -362,6 +370,8 @@ export async function listMyLeagues(userId: string) {
       leagueId: true,
       userId: true,
       points: true,
+      exactScoreStreak: true,
+      bestExactScoreStreak: true,
       joinedAt: true,
       user: { select: { name: true, image: true } },
     },
@@ -492,6 +502,7 @@ export async function createLeague(userId: string, input: Record<string, unknown
             joinPolicy: configuration.joinPolicy,
             status: configuration.status,
             maxMembers: configuration.maxMembers,
+            visualTheme: configuration.visualTheme,
             scoringPreset: configuration.scoringPreset,
             scoringStartMatchday: configuration.scoringStartMatchday,
             groupPublicationMode: configuration.groupPublicationMode,
@@ -505,6 +516,8 @@ export async function createLeague(userId: string, input: Record<string, unknown
             pointsWinnerHome: configuration.pointsWinnerHome,
             pointsWinnerAway: configuration.pointsWinnerAway,
             pointsDraw: configuration.pointsDraw,
+            pointsBothScoreYes: configuration.pointsBothScoreYes,
+            pointsBothScoreNo: configuration.pointsBothScoreNo,
           },
           include: {
             owner: { select: { id: true, name: true, image: true } },
@@ -619,6 +632,7 @@ function normalizeUpdate(
     visibility: string;
     joinPolicy: string;
     maxMembers: number;
+    visualTheme: string;
     scoringPreset: string;
     scoringStartMatchday: number;
     groupPublicationMode: string;
@@ -632,6 +646,8 @@ function normalizeUpdate(
     pointsWinnerHome: number;
     pointsWinnerAway: number;
     pointsDraw: number;
+    pointsBothScoreYes: number;
+    pointsBothScoreNo: number;
   },
   input: Record<string, unknown>,
 ) {
@@ -643,6 +659,7 @@ function normalizeUpdate(
       visibility: input.visibility ?? current.visibility,
       joinPolicy: input.joinPolicy ?? current.joinPolicy,
       maxMembers: input.maxMembers ?? current.maxMembers,
+      visualTheme: input.visualTheme ?? current.visualTheme,
       scoringPreset: input.scoringPreset ?? current.scoringPreset,
       scoringStartMatchday:
         input.scoringStartMatchday ?? current.scoringStartMatchday,
@@ -659,6 +676,10 @@ function normalizeUpdate(
       pointsWinnerHome: input.pointsWinnerHome ?? current.pointsWinnerHome,
       pointsWinnerAway: input.pointsWinnerAway ?? current.pointsWinnerAway,
       pointsDraw: input.pointsDraw ?? current.pointsDraw,
+      pointsBothScoreYes:
+        input.pointsBothScoreYes ?? current.pointsBothScoreYes,
+      pointsBothScoreNo:
+        input.pointsBothScoreNo ?? current.pointsBothScoreNo,
     });
   } catch (error) {
     if (error instanceof LeagueValidationError) {
@@ -748,6 +769,7 @@ export async function updateLeague(
         joinPolicy: configuration.joinPolicy,
         status: requestedStatus,
         maxMembers: configuration.maxMembers,
+        visualTheme: configuration.visualTheme,
         scoringPreset: configuration.scoringPreset,
         scoringStartMatchday: configuration.scoringStartMatchday,
         groupPublicationMode: configuration.groupPublicationMode,
@@ -761,6 +783,8 @@ export async function updateLeague(
         pointsWinnerHome: configuration.pointsWinnerHome,
         pointsWinnerAway: configuration.pointsWinnerAway,
         pointsDraw: configuration.pointsDraw,
+        pointsBothScoreYes: configuration.pointsBothScoreYes,
+        pointsBothScoreNo: configuration.pointsBothScoreNo,
       },
       select: {
         id: true,
@@ -771,6 +795,7 @@ export async function updateLeague(
         joinPolicy: true,
         status: true,
         maxMembers: true,
+        visualTheme: true,
         scoringPreset: true,
         scoringStartMatchday: true,
         groupPublicationMode: true,
@@ -784,6 +809,8 @@ export async function updateLeague(
         pointsWinnerHome: true,
         pointsWinnerAway: true,
         pointsDraw: true,
+        pointsBothScoreYes: true,
+        pointsBothScoreNo: true,
         rulesLockedAt: true,
         lastPublishedAt: true,
         updatedAt: true,
@@ -989,6 +1016,8 @@ export async function listLeagueMembers(reference: string, userId: string) {
       userId: true,
       role: true,
       points: true,
+      exactScoreStreak: true,
+      bestExactScoreStreak: true,
       joinedAt: true,
       user: {
         select: {
@@ -1014,6 +1043,8 @@ export async function listLeagueMembers(reference: string, userId: string) {
     email: isAdmin ? member.user.email : undefined,
     image: member.user.image,
     points: member.points,
+    exactScoreStreak: member.exactScoreStreak,
+    bestExactScoreStreak: member.bestExactScoreStreak,
     rank: ranked[index].rank,
     streak: member.user.streak,
     misses: member.user.misses,

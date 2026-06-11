@@ -3,7 +3,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { generateToken } from '@/lib/auth';
 import { SESSION_COOKIE_NAME } from '@/lib/session-constants';
 
@@ -56,13 +56,13 @@ export async function createSession(userId: string) {
   const sessionToken = generateToken();
   const expires = getSessionExpiry();
 
-  await prisma.session.create({
+  await withRetry(() => prisma.session.create({
     data: {
       sessionToken,
       userId,
       expires,
     },
-  });
+  }));
 
   return { sessionToken, expires };
 }
@@ -72,9 +72,9 @@ export async function deleteCurrentSession() {
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (sessionToken) {
-    await prisma.session.deleteMany({
+    await withRetry(() => prisma.session.deleteMany({
       where: { sessionToken },
-    });
+    }));
   }
 }
 
@@ -85,7 +85,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!sessionToken) return null;
 
   try {
-    const session = await prisma.session.findUnique({
+    const session = await withRetry(() => prisma.session.findUnique({
       where: { sessionToken },
       include: {
         user: {
@@ -103,7 +103,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
           },
         },
       },
-    });
+    }));
 
     if (!session || session.expires <= new Date() || session.revokedAt) {
       await prisma.session.deleteMany({ where: { sessionToken } });

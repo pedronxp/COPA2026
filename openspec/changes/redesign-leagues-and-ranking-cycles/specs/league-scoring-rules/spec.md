@@ -34,3 +34,35 @@ The system SHALL calculate prediction statistics only from predictions in the re
 #### Scenario: View match sentiment
 - **WHEN** a member requests statistics for a match in a league
 - **THEN** percentages and totals contain only predictions from that league
+
+### Requirement: Score outcome variants independently
+The system SHALL allow each league to configure distinct values for a correct home win, draw, and away win.
+
+#### Scenario: Predict the correct away winner
+- **WHEN** a participant predicts an away win and the away team wins without a more precise score-tier match
+- **THEN** the participant receives the league's configured away-win points
+
+### Requirement: Award both-teams-to-score bonuses
+The system SHALL derive whether both teams score from the predicted and actual score and award the configured yes or no bonus when they match.
+
+#### Scenario: Both teams score
+- **WHEN** the prediction and result both contain at least one goal for each team
+- **THEN** the scoring result includes the configured both-score-yes bonus in addition to the single applicable precision tier
+
+#### Scenario: At least one team does not score
+- **WHEN** the prediction and result both indicate that at least one team finishes without scoring
+- **THEN** the scoring result includes the configured both-score-no bonus
+
+### Requirement: Track league exact-score streaks
+The system SHALL track current and best consecutive exact-score streaks separately for each league member.
+
+#### Scenario: Member reaches three exact scores
+- **WHEN** a member records three consecutive exact scores in finished league matches
+- **THEN** the ranking marks the member as "Em alta" with an animated fire indicator
+
+### Requirement: Explain score composition
+The system SHALL show all configured score tiers and bonuses during league creation, review, and rule inspection.
+
+#### Scenario: Creator reviews custom rules
+- **WHEN** the creator reaches the review step
+- **THEN** the interface lists home, draw, away, exact, difference, and both-score values with readable contrast

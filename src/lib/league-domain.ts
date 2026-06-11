@@ -11,6 +11,7 @@ export const GROUP_PUBLICATION_MODES = [
   'manual',
 ] as const;
 export const KNOCKOUT_PUBLICATION_MODES = ['match', 'stage', 'manual'] as const;
+export const LEAGUE_VISUAL_THEMES = ['pulse', 'stadium', 'classic'] as const;
 
 export type LeagueVisibility = (typeof LEAGUE_VISIBILITIES)[number];
 export type LeagueJoinPolicy = (typeof LEAGUE_JOIN_POLICIES)[number];
@@ -18,6 +19,7 @@ export type LeagueStatus = (typeof LEAGUE_STATUSES)[number];
 export type LeagueRole = (typeof LEAGUE_ROLES)[number];
 export type GroupPublicationMode = (typeof GROUP_PUBLICATION_MODES)[number];
 export type KnockoutPublicationMode = (typeof KNOCKOUT_PUBLICATION_MODES)[number];
+export type LeagueVisualTheme = (typeof LEAGUE_VISUAL_THEMES)[number];
 
 export interface LeagueScoringRules {
   windowHours: number;
@@ -28,6 +30,8 @@ export interface LeagueScoringRules {
   pointsWinnerHome: number;
   pointsWinnerAway: number;
   pointsDraw: number;
+  pointsBothScoreYes: number;
+  pointsBothScoreNo: number;
 }
 
 export const SCORING_PRESETS = {
@@ -43,6 +47,8 @@ export const SCORING_PRESETS = {
       pointsWinnerHome: 2,
       pointsWinnerAway: 2,
       pointsDraw: 2,
+      pointsBothScoreYes: 1,
+      pointsBothScoreNo: 1,
     },
   },
   casual: {
@@ -57,6 +63,8 @@ export const SCORING_PRESETS = {
       pointsWinnerHome: 2,
       pointsWinnerAway: 2,
       pointsDraw: 2,
+      pointsBothScoreYes: 1,
+      pointsBothScoreNo: 1,
     },
   },
   exact: {
@@ -71,6 +79,8 @@ export const SCORING_PRESETS = {
       pointsWinnerHome: 1,
       pointsWinnerAway: 1,
       pointsDraw: 2,
+      pointsBothScoreYes: 2,
+      pointsBothScoreNo: 2,
     },
   },
   custom: {
@@ -85,6 +95,8 @@ export const SCORING_PRESETS = {
       pointsWinnerHome: 2,
       pointsWinnerAway: 2,
       pointsDraw: 2,
+      pointsBothScoreYes: 1,
+      pointsBothScoreNo: 1,
     },
   },
 } as const;
@@ -154,6 +166,20 @@ export function validateScoringRules(
     pointsWinnerHome: boundedInteger(input.pointsWinnerHome, fallback.pointsWinnerHome ?? fallback.pointsWinner, 0, 100, 'pointsWinnerHome'),
     pointsWinnerAway: boundedInteger(input.pointsWinnerAway, fallback.pointsWinnerAway ?? fallback.pointsWinner, 0, 100, 'pointsWinnerAway'),
     pointsDraw: boundedInteger(input.pointsDraw, fallback.pointsDraw, 0, 100, 'pointsDraw'),
+    pointsBothScoreYes: boundedInteger(
+      input.pointsBothScoreYes,
+      fallback.pointsBothScoreYes,
+      0,
+      100,
+      'pointsBothScoreYes',
+    ),
+    pointsBothScoreNo: boundedInteger(
+      input.pointsBothScoreNo,
+      fallback.pointsBothScoreNo,
+      0,
+      100,
+      'pointsBothScoreNo',
+    ),
   };
 }
 
@@ -173,6 +199,9 @@ export function validateLeagueConfiguration(input: Record<string, unknown>) {
     : visibility === 'public'
       ? 'open'
       : 'invite';
+  const visualTheme = isOneOf(input.visualTheme, LEAGUE_VISUAL_THEMES)
+    ? input.visualTheme
+    : 'pulse';
   const scoringPreset =
     typeof input.scoringPreset === 'string' && input.scoringPreset in SCORING_PRESETS
       ? (input.scoringPreset as ScoringPreset)
@@ -205,6 +234,7 @@ export function validateLeagueConfiguration(input: Record<string, unknown>) {
         : createLeagueSlug(name),
     visibility,
     joinPolicy,
+    visualTheme,
     scoringPreset,
     status: 'active' as const,
     maxMembers: boundedInteger(input.maxMembers, 50, 2, 50, 'maxMembers'),

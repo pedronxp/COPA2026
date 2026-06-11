@@ -19,6 +19,8 @@ function serializeMember(member: {
   role: string;
   points: number;
   pendingPoints: number;
+  exactScoreStreak: number;
+  bestExactScoreStreak: number;
   joinedAt: Date;
   user: { name: string | null; image: string | null };
 }): LeagueRankingEntry {
@@ -29,6 +31,8 @@ function serializeMember(member: {
     role: member.role as LeagueRole,
     points: member.points,
     pendingPoints: member.pendingPoints,
+    exactScoreStreak: member.exactScoreStreak,
+    bestExactScoreStreak: member.bestExactScoreStreak,
     joinedAt: member.joinedAt.toISOString(),
   };
 }
@@ -59,6 +63,8 @@ async function getOverviewRows(userId: string) {
           role: true,
           points: true,
           pendingPoints: true,
+          exactScoreStreak: true,
+          bestExactScoreStreak: true,
           joinedAt: true,
           user: { select: { name: true, image: true } },
         },
@@ -81,6 +87,7 @@ function serializeCard(league: LeagueWithMembers, userId: string): LeagueCardDat
     joinPolicy: league.joinPolicy,
     status: league.status,
     maxMembers: league.maxMembers,
+    visualTheme: league.visualTheme,
     memberCount: ranking.length,
     ownerName: displayName(league.owner.name),
     ownerImage: league.owner.image,
@@ -96,6 +103,8 @@ function serializeCard(league: LeagueWithMembers, userId: string): LeagueCardDat
     pointsWinnerHome: league.pointsWinnerHome,
     pointsWinnerAway: league.pointsWinnerAway,
     pointsDraw: league.pointsDraw,
+    pointsBothScoreYes: league.pointsBothScoreYes,
+    pointsBothScoreNo: league.pointsBothScoreNo,
     lastPublishedAt: league.lastPublishedAt?.toISOString() ?? null,
   };
 }
@@ -126,6 +135,8 @@ export async function getLeagueDetail(identifier: string, userId: string): Promi
           role: true,
           points: true,
           pendingPoints: true,
+          exactScoreStreak: true,
+          bestExactScoreStreak: true,
           joinedAt: true,
           user: { select: { name: true, image: true } },
         },
@@ -162,7 +173,7 @@ export async function getLeagueDetail(identifier: string, userId: string): Promi
 
   return {
     ...card,
-    inviteCode: canManage ? league.inviteCode : null,
+    inviteCode: membership ? league.inviteCode : null,
     expiresAt: league.expiresAt.toISOString(),
     windowHours: league.windowHours,
     maxEdits: league.maxEdits,

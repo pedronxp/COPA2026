@@ -7,6 +7,8 @@ export interface LeagueRankingEntry {
   role: LeagueRole;
   points: number;
   pendingPoints: number;
+  exactScoreStreak: number;
+  bestExactScoreStreak: number;
   joinedAt: string;
 }
 
@@ -19,6 +21,7 @@ export interface LeagueCardData {
   joinPolicy: string;
   status: string;
   maxMembers: number;
+  visualTheme: string;
   memberCount: number;
   ownerName: string;
   ownerImage: string | null;
@@ -34,6 +37,8 @@ export interface LeagueCardData {
   pointsWinnerHome: number;
   pointsWinnerAway: number;
   pointsDraw: number;
+  pointsBothScoreYes: number;
+  pointsBothScoreNo: number;
   lastPublishedAt: string | null;
 }
 

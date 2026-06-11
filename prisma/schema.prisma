@@ -124,8 +124,25 @@ model SyncLog {
   matchesCreated Int      @default(0)
   matchesUpdated Int      @default(0)
   source         String   @default("worldcup26")
+  status         String   @default("success")
+  trigger        String   @default("manual")
+  error          String?  @db.Text
+  durationMs     Int?
 
   @@index([syncedAt])
+  @@index([status, syncedAt])
+}
+
+model SyncSchedule {
+  id              String    @id @default("default")
+  enabled         Boolean   @default(true)
+  intervalMinutes Int       @default(30)
+  nextRunAt       DateTime?
+  lastAttemptAt   DateTime?
+  lastSuccessAt   DateTime?
+  lastStatus      String    @default("never")
+  lastError       String?   @db.Text
+  updatedAt       DateTime  @updatedAt
 }
 
 model League {
@@ -139,6 +156,7 @@ model League {
   joinPolicy              String                  @default("invite")
   status                  String                  @default("active")
   maxMembers              Int                     @default(50)
+  visualTheme             String                  @default("pulse")
   scoringPreset           String                  @default("standard")
   scoringStartMatchday    Int                     @default(1)
   groupPublicationMode    String                  @default("match")
@@ -154,6 +172,8 @@ model League {
   pointsWinnerHome        Int                     @default(2)
   pointsWinnerAway        Int                     @default(2)
   pointsDraw              Int                     @default(2)
+  pointsBothScoreYes      Int                     @default(0)
+  pointsBothScoreNo       Int                     @default(0)
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @default(now()) @updatedAt
   owner                   User                    @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -175,6 +195,8 @@ model LeagueMember {
   role          String   @default("member")
   points        Int      @default(0)
   pendingPoints Int      @default(0)
+  exactScoreStreak     Int @default(0)
+  bestExactScoreStreak Int @default(0)
   status        String   @default("active")
   joinedAt      DateTime @default(now())
   league        League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
