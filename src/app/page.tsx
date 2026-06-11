@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
 
 const highlights = [
   { icon: 'bi-lightning-charge-fill', title: 'Palpites vivos', text: 'Janelas de aposta por partida, placar salvo e acompanhamento em tempo real.' },
@@ -6,13 +7,79 @@ const highlights = [
   { icon: 'bi-people-fill', title: 'Bolões privados', text: 'Crie ligas com regras próprias, código de convite e ranking exclusivo.' },
 ];
 
-const matchPreview = [
-  { home: 'Brasil', away: 'Alemanha', time: '18:00', votes: '1.284 palpites' },
-  { home: 'Argentina', away: 'França', time: '21:00', votes: '978 palpites' },
-  { home: 'Espanha', away: 'Japão', time: '16:00', votes: '742 palpites' },
-];
+function formatMatchTimeInfo(kickOff: Date, status: string, now: Date) {
+  if (status === 'live') {
+    return 'Ao vivo';
+  }
+  if (status === 'finished') {
+    return 'Finalizado';
+  }
+  
+  const diffMs = kickOff.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    return 'Em andamento';
+  }
+  
+  const diffHours = diffMs / (1000 * 60 * 60);
+  if (diffHours < 24) {
+    if (diffHours < 1) {
+      const diffMinutes = Math.max(1, Math.round(diffMs / (1000 * 60)));
+      return `em ${diffMinutes} min`;
+    }
+    const hours = Math.round(diffHours);
+    return `em ${hours}h`;
+  }
+  
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(kickOff).replace(',', ' às');
+}
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const now = new Date();
+
+  // Buscar partidas futuras (não terminadas) que começam a partir de agora ou começaram há até 3h
+  let activeMatches = await prisma.match.findMany({
+    where: {
+      status: { in: ['upcoming', 'live'] },
+      kickOff: { gte: new Date(now.getTime() - 3 * 60 * 60 * 1000) },
+    },
+    orderBy: {
+      kickOff: 'asc',
+    },
+    take: 3,
+    include: {
+      _count: {
+        select: { predictions: true },
+      },
+    },
+  });
+
+  // Se houver menos de 3 partidas futuras, buscar as partidas terminadas mais recentes para preencher a lista
+  if (activeMatches.length < 3) {
+    const fallbackCount = 3 - activeMatches.length;
+    const completedMatches = await prisma.match.findMany({
+      where: {
+        status: 'finished',
+      },
+      orderBy: {
+        kickOff: 'desc',
+      },
+      take: fallbackCount,
+      include: {
+        _count: {
+          select: { predictions: true },
+        },
+      },
+    });
+    activeMatches = [...activeMatches, ...completedMatches].sort(
+      (a, b) => a.kickOff.getTime() - b.kickOff.getTime()
+    );
+  }
+
   return (
     <main className="landing-page">
       <section className="landing-hero">
@@ -58,19 +125,38 @@ export default function LandingPage() {
               <span>Próximos jogos</span>
               <i className="bi bi-broadcast-pin"></i>
             </div>
-            {matchPreview.map((match) => (
-              <div className="scoreboard-match" key={`${match.home}-${match.away}`}>
-                <div>
-                  <strong>{match.home}</strong>
-                  <span>x</span>
-                  <strong>{match.away}</strong>
+            {activeMatches.map((match) => {
+              const isLiveOrFinished = match.status === 'live' || match.status === 'finished';
+              const timeLabel = formatMatchTimeInfo(match.kickOff, match.status, now);
+              const voteCount = match._count.predictions;
+
+              return (
+                <div className="scoreboard-match animate__animated animate__fadeIn" key={match.id}>
+                  <div>
+                    <strong>{match.homeTeam}</strong>
+                    {isLiveOrFinished ? (
+                      <span className={match.status === 'live' ? 'text-neon-green animate__animated animate__pulse animate__infinite mx-2' : 'text-secondary mx-2'}>
+                        {match.homeScore} x {match.awayScore}
+                      </span>
+                    ) : (
+                      <span>x</span>
+                    )}
+                    <strong>{match.awayTeam}</strong>
+                  </div>
+                  <div>
+                    {match.status === 'live' ? (
+                      <span className="text-danger d-inline-flex align-items-center gap-1.5" style={{ fontWeight: 800 }}>
+                        <span className="live-pulse" />
+                        {timeLabel}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#38bdf8' }}>{timeLabel}</span>
+                    )}
+                    <small>{voteCount.toLocaleString('pt-BR')} {voteCount === 1 ? 'palpite' : 'palpites'}</small>
+                  </div>
                 </div>
-                <div>
-                  <span>{match.time}</span>
-                  <small>{match.votes}</small>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </aside>
         </div>
       </section>
