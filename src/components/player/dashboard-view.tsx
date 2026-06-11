@@ -531,39 +531,42 @@ export function DashboardView({ user, data }: DashboardViewProps) {
         )}
       </section>
 
-      <section className="player-panel player-dashboard-side">
-        <div className="player-panel-heading">
+      <details className="player-summary-dropdown player-dashboard-side">
+        <summary>
           <div>
             <span className="player-kicker">Regras</span>
-            <h3>Pontuação</h3>
+            <strong>Pontuação</strong>
+          </div>
+          <i className="bi bi-chevron-down" aria-hidden="true" />
+        </summary>
+        <div style={{ padding: '0 16px 16px' }}>
+          <div className="player-rule-grid" style={{ marginTop: '8px' }}>
+            {[
+              { label: 'Exato', points: activeLeague.pointsExact, icon: 'bi-bullseye' },
+              { label: 'Saldo', points: activeLeague.pointsDiff, icon: 'bi-sliders' },
+              { label: 'Casa', points: activeLeague.pointsWinnerHome, icon: 'bi-house-door' },
+              { label: 'Empate', points: activeLeague.pointsDraw, icon: 'bi-shuffle' },
+              { label: 'Fora', points: activeLeague.pointsWinnerAway, icon: 'bi-airplane' },
+              { label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, icon: 'bi-check2-circle' },
+              { label: 'Ambas nao', points: activeLeague.pointsBothScoreNo, icon: 'bi-x-circle' },
+            ]
+              .filter((rule) => rule.points > 0)
+              .map((rule, idx) => (
+                <div key={idx}>
+                  <span className="rule-icon">
+                    <i className={`bi ${rule.icon}`} aria-hidden="true" />
+                  </span>
+                  <span className="rule-label">{rule.label}</span>
+                  <strong>{rule.points}</strong>
+                </div>
+              ))}
+          </div>
+          <div className="player-dashboard-note">
+            <i className="bi bi-shield-check" aria-hidden="true" />
+            <span>{formatJoinPolicyPtBr(activeLeague.joinPolicy)} - máximo de {activeLeague.maxEdits} edições por jogo</span>
           </div>
         </div>
-        <div className="player-rule-grid">
-          {[
-            { label: 'Exato', points: activeLeague.pointsExact, icon: 'bi-bullseye' },
-            { label: 'Saldo', points: activeLeague.pointsDiff, icon: 'bi-sliders' },
-            { label: 'Casa', points: activeLeague.pointsWinnerHome, icon: 'bi-house-door' },
-            { label: 'Empate', points: activeLeague.pointsDraw, icon: 'bi-shuffle' },
-            { label: 'Fora', points: activeLeague.pointsWinnerAway, icon: 'bi-airplane' },
-            { label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, icon: 'bi-check2-circle' },
-            { label: 'Ambas nao', points: activeLeague.pointsBothScoreNo, icon: 'bi-x-circle' },
-          ]
-            .filter((rule) => rule.points > 0)
-            .map((rule, idx) => (
-              <div key={idx}>
-                <span className="rule-icon">
-                  <i className={`bi ${rule.icon}`} aria-hidden="true" />
-                </span>
-                <span className="rule-label">{rule.label}</span>
-                <strong>{rule.points}</strong>
-              </div>
-            ))}
-        </div>
-        <div className="player-dashboard-note">
-          <i className="bi bi-shield-check" aria-hidden="true" />
-          <span>{formatJoinPolicyPtBr(activeLeague.joinPolicy)} - máximo de {activeLeague.maxEdits} edições por jogo</span>
-        </div>
-      </section>
+      </details>
     </div>
   );
 }
