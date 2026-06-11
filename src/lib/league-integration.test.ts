@@ -17,6 +17,7 @@ let getLeagueDetailFn: (typeof import('./league-service'))['getLeagueDetail'];
 let savePredictionFn: (typeof import('./prediction-service'))['saveLeaguePrediction'];
 let processScoringFn: (typeof import('./scoring-service'))['processLeagueScoringForMatch'];
 let deleteAdminLeagueFn: (typeof import('./admin-service'))['deleteAdminLeague'];
+let deleteUsersBatchFn: (typeof import('./admin-service'))['deleteUsersBatch'];
 
 async function createTestUser(prefix: string, label: string) {
   return db.user.create({
@@ -44,7 +45,7 @@ beforeAll(async () => {
   } = await import('./league-service'));
   ({ saveLeaguePrediction: savePredictionFn } = await import('./prediction-service'));
   ({ processLeagueScoringForMatch: processScoringFn } = await import('./scoring-service'));
-  ({ deleteAdminLeague: deleteAdminLeagueFn } = await import('./admin-service'));
+  ({ deleteAdminLeague: deleteAdminLeagueFn, deleteUsersBatch: deleteUsersBatchFn } = await import('./admin-service'));
 });
 
 afterAll(async () => {
@@ -332,6 +333,56 @@ integration('league integration', () => {
       // Validar que membros associados foram deletados em cascata
       const members = await db.leagueMember.findMany({ where: { leagueId: league.id } });
       expect(members).toHaveLength(0);
+    } finally {
+      await cleanup(prefix);
+    }
+  });
+
+  it('allows deletion of users who own leagues and cascades the deletion to their leagues', async () => {
+    const prefix = `codex-it-${randomUUID()}`;
+    await cleanup(prefix);
+
+    try {
+      const [adminUser, owner] = await Promise.all([
+        createTestUser(prefix, 'admin'),
+        createTestUser(prefix, 'owner'),
+      ]);
+      const adminActor = {
+        id: adminUser.id,
+        email: adminUser.email,
+        adminRole: 'super_admin',
+        accountStatus: 'active',
+        name: adminUser.name,
+      };
+
+      const league = await createLeagueFn(owner.id, {
+        name: `Liga Cascata Usuario ${prefix}`,
+        visibility: 'private',
+        joinPolicy: 'invite',
+      });
+
+      // Validar que o usuario e a liga existem
+      const userBefore = await db.user.findUnique({ where: { id: owner.id } });
+      const leagueBefore = await db.league.findUnique({ where: { id: league.id } });
+      expect(userBefore).not.toBeNull();
+      expect(leagueBefore).not.toBeNull();
+
+      // Deletar o usuario em lote
+      const deleteResult = await deleteUsersBatchFn({
+        actor: adminActor,
+        userIds: [owner.id],
+        reason: 'Teste de delecao de usuario com cascata de bolao',
+      });
+
+      expect(deleteResult.deleted).toBe(1);
+
+      // Validar que o usuario foi deletado
+      const userAfter = await db.user.findUnique({ where: { id: owner.id } });
+      expect(userAfter).toBeNull();
+
+      // Validar que a liga dele foi deletada em cascata pelo banco de dados
+      const leagueAfter = await db.league.findUnique({ where: { id: league.id } });
+      expect(leagueAfter).toBeNull();
     } finally {
       await cleanup(prefix);
     }

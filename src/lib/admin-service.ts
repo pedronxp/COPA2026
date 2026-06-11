@@ -267,10 +267,7 @@ export async function deleteUsersBatch(input: {
 
   if (users.length !== userIds.length) throw new Error('Um ou mais usuarios nao foram encontrados.');
   if (users.some((user) => user.id === 'system' || user.adminRole !== 'none')) {
-    throw new Error('Contas administrativas ou de sistema nao podem ser excluidas em lote.');
-  }
-  if (users.some((user) => user._count.leaguesOwned > 0)) {
-    throw new Error('Transfira os boloes pertencentes aos usuarios antes de exclui-los.');
+    throw new Error('Contas administrativas ou de sistema nao podem ser excluidas.');
   }
 
   await prisma.$transaction([
