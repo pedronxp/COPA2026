@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import type { SessionUser } from '@/lib/session';
 import type { ActiveLeagueContext } from '@/lib/active-league';
 import {
@@ -27,6 +27,8 @@ export function PlayerAppShell({
   children,
 }: PlayerAppShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isCreatingLeague = pathname === '/leagues/create';
   const { activeLeague, options, fallbackReason } = leagueContext;
   const primaryMobileItems = playerNavigationItems.filter((item) => item.mobilePrimary);
   const secondaryMobileItems = playerNavigationItems.filter((item) => !item.mobilePrimary);
@@ -104,7 +106,9 @@ export function PlayerAppShell({
               </>
             )}
           </div>
-          <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} />
+          {!isCreatingLeague && (
+            <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} />
+          )}
         </header>
 
         {fallbackReason && (
