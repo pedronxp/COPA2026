@@ -3645,3 +3645,48 @@ body {
     padding: 22px;
   }
 }
+
+/* Ajustes de Responsividade para Mobile */
+@media (max-width: 767px) {
+  .player-next-match {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  
+  .player-next-match .player-team-mark {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+
+  .player-next-match .player-team-mark.align-end,
+  .player-next-match .player-team-mark.align-start {
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+
+  .player-next-match .player-team-badge {
+    width: 52px !important;
+    height: 52px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .player-next-match .player-team-name {
+    font-size: 0.95rem !important;
+    max-width: none !important;
+  }
+
+  .player-next-match .player-versus {
+    margin: 8px 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .player-next-match .player-versus strong {
+    font-size: 1.6rem !important;
+  }
+}
