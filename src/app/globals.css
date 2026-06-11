@@ -255,6 +255,10 @@
   width: 150px;
 }
 
+.admin-inline-form input.admin-input-name {
+  width: 220px;
+}
+
 .admin-inline-form input[type='number'] {
   width: 74px;
 }

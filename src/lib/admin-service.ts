@@ -4,7 +4,13 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { recordAdminAudit, type AdminPermission } from '@/lib/admin-auth';
 import type { SessionUser } from '@/lib/session';
-import { syncFromApi, updateMatchScore } from '@/lib/matches-service';
+import { updateMatchScore } from '@/lib/matches-service';
+import { deriveSyncHealth } from '@/lib/sync-health';
+import {
+  executeSync,
+  getSyncSchedule,
+  updateSyncSchedule,
+} from '@/lib/sync-service';
 
 const LEAGUE_STATUSES = new Set(['draft', 'active', 'closed', 'archived']);
 const ACCOUNT_STATUSES = new Set(['active', 'blocked', 'suspended', 'banned']);
@@ -49,6 +55,7 @@ export async function getAdminDashboardData() {
     pendingResets,
     latestSync,
     recentAudit,
+    syncSchedule,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { accountStatus: 'active' } }),
@@ -66,10 +73,10 @@ export async function getAdminDashboardData() {
       take: 6,
       include: { actor: { select: { name: true, email: true } } },
     }),
+    getSyncSchedule(),
   ]);
 
-  const staleSync =
-    !latestSync || Date.now() - latestSync.syncedAt.getTime() > 6 * 60 * 60 * 1000;
+  const apiHealth = deriveSyncHealth(latestSync, syncSchedule);
 
   return {
     users: { total: totalUsers, active: activeUsers, restricted: restrictedUsers },
@@ -78,7 +85,8 @@ export async function getAdminDashboardData() {
     predictions,
     pendingResets,
     latestSync,
-    staleSync,
+    syncSchedule,
+    apiHealth,
     recentAudit,
   };
 }
@@ -179,6 +187,7 @@ export async function searchAdminUsers(query?: string | null) {
         select: {
           sessions: true,
           leaguesJoined: true,
+          leaguesOwned: true,
           predictions: true,
         },
       },
@@ -236,6 +245,53 @@ export async function moderateUser(input: {
   });
 }
 
+export async function deleteUsersBatch(input: {
+  actor: SessionUser;
+  userIds: string[];
+  reason: string;
+}) {
+  const reason = requireReason(input.reason);
+  const userIds = [...new Set(input.userIds.filter(Boolean))];
+  if (userIds.length === 0) throw new Error('Selecione pelo menos um usuario.');
+  if (userIds.includes(input.actor.id)) throw new Error('Voce nao pode excluir a propria conta.');
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: {
+      id: true,
+      email: true,
+      adminRole: true,
+      _count: { select: { leaguesOwned: true } },
+    },
+  });
+
+  if (users.length !== userIds.length) throw new Error('Um ou mais usuarios nao foram encontrados.');
+  if (users.some((user) => user.id === 'system' || user.adminRole !== 'none')) {
+    throw new Error('Contas administrativas ou de sistema nao podem ser excluidas em lote.');
+  }
+  if (users.some((user) => user._count.leaguesOwned > 0)) {
+    throw new Error('Transfira os boloes pertencentes aos usuarios antes de exclui-los.');
+  }
+
+  await prisma.$transaction([
+    prisma.adminAuditLog.create({
+      data: {
+        actorId: input.actor.id,
+        action: 'user.batch_delete',
+        entityType: 'user',
+        summary: `${input.actor.email} excluiu ${users.length} usuario(s) em lote.`,
+        metadata: safeJson({
+          reason,
+          users: users.map((user) => ({ id: user.id, email: user.email })),
+        }),
+      },
+    }),
+    prisma.user.deleteMany({ where: { id: { in: userIds } } }),
+  ]);
+
+  return { deleted: users.length };
+}
+
 export async function listAdminLeagues(query?: string | null) {
   const q = normalizeQuery(query);
 
@@ -265,11 +321,11 @@ export async function updateAdminLeague(input: {
   leagueId: string;
   name?: string | null;
   status?: string | null;
-  reason: string;
+  reason?: string | null;
 }) {
-  const reason = requireReason(input.reason);
+  const reason = input.reason?.trim() || 'Atualização via painel administrativo';
   const league = await prisma.league.findUnique({ where: { id: input.leagueId } });
-  if (!league) throw new Error('Bolao nao encontrado.');
+  if (!league) throw new Error('Bolão não encontrado.');
 
   const data: Prisma.LeagueUpdateInput = {};
   const nextName = normalizeQuery(input.name);
@@ -303,7 +359,7 @@ export async function updateAdminLeague(input: {
 }
 
 export async function getMatchOperationsData() {
-  const [syncLogs, matches, statusCounts] = await Promise.all([
+  const [syncLogs, matches, statusCounts, syncSchedule] = await Promise.all([
     prisma.syncLog.findMany({ orderBy: { syncedAt: 'desc' }, take: 12 }),
     prisma.match.findMany({
       orderBy: { kickOff: 'asc' },
@@ -311,13 +367,20 @@ export async function getMatchOperationsData() {
       include: { _count: { select: { predictions: true } } },
     }),
     prisma.match.groupBy({ by: ['status'], _count: { status: true } }),
+    getSyncSchedule(),
   ]);
 
-  return { syncLogs, matches, statusCounts };
+  return {
+    syncLogs,
+    matches,
+    statusCounts,
+    syncSchedule,
+    apiHealth: deriveSyncHealth(syncLogs[0] ?? null, syncSchedule),
+  };
 }
 
 export async function triggerAdminSync(actor: SessionUser) {
-  const report = await syncFromApi();
+  const report = await executeSync('manual');
 
   await recordAdminAudit({
     actorId: actor.id,
@@ -328,6 +391,28 @@ export async function triggerAdminSync(actor: SessionUser) {
   });
 
   return report;
+}
+
+export async function configureAdminSync(input: {
+  actor: SessionUser;
+  enabled: boolean;
+  intervalMinutes: number;
+}) {
+  const schedule = await updateSyncSchedule(input);
+
+  await recordAdminAudit({
+    actorId: input.actor.id,
+    action: 'sync.schedule_update',
+    entityType: 'sync',
+    entityId: schedule.id,
+    summary: `${input.actor.email} atualizou o agendamento da sincronizacao.`,
+    metadata: safeJson({
+      enabled: schedule.enabled,
+      intervalMinutes: schedule.intervalMinutes,
+    }),
+  });
+
+  return schedule;
 }
 
 export async function correctAdminMatch(input: {

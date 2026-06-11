@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { requireAdminPage } from '@/lib/admin-auth';
 
 const navItems = [
-  { href: '/admin', label: 'Visao geral', icon: 'bi-speedometer2' },
-  { href: '/admin/resets', label: 'Solicitacoes', icon: 'bi-key' },
-  { href: '/admin/users', label: 'Usuarios', icon: 'bi-people' },
-  { href: '/admin/leagues', label: 'Boloes', icon: 'bi-trophy' },
+  { href: '/admin', label: 'Visão geral', icon: 'bi-speedometer2' },
+  { href: '/admin/resets', label: 'Solicitações', icon: 'bi-key' },
+  { href: '/admin/users', label: 'Usuários', icon: 'bi-people' },
+  { href: '/admin/leagues', label: 'Bolões', icon: 'bi-trophy' },
   { href: '/admin/matches', label: 'API e partidas', icon: 'bi-broadcast' },
   { href: '/admin/audit', label: 'Auditoria', icon: 'bi-shield-check' },
 ];
@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="admin-sidebar" aria-label="Navegacao administrativa">
         <Link className="admin-brand" href="/admin">
           <span>CDC</span>
-          <strong>Operacoes</strong>
+          <strong>Operações</strong>
         </Link>
         <nav className="admin-nav">
           {navItems.map((item) => (

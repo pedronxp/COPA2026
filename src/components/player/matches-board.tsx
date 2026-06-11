@@ -40,14 +40,14 @@ function MatchStatsBar({ item }: { item: MatchViewModel }) {
     return (
       <div className="matches-stats-neutral">
         <i className="bi bi-people" aria-hidden="true" />
-        Sem estatisticas neste bolao
+        Sem estatísticas neste bolão
       </div>
     );
   }
 
   return (
     <div className="matches-stats">
-      <div className="matches-stats-bar" aria-label="Distribuicao dos palpites">
+      <div className="matches-stats-bar" aria-label="Distribuição dos palpites">
         <span className="home" style={{ width: `${stats.home}%` }} />
         <span className="draw" style={{ width: `${stats.draw}%` }} />
         <span className="away" style={{ width: `${stats.away}%` }} />
@@ -217,11 +217,11 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           <h2>Central de partidas</h2>
           <p>
             {activeLeague.name} tem janela de {activeLeague.windowHours}h, limite de{' '}
-            {activeLeague.maxEdits} edicoes e {activeLeague.memberCount} participantes.
+            {activeLeague.maxEdits} edições e {activeLeague.memberCount} participantes.
           </p>
         </div>
 
-        <div className="matches-rules-grid" aria-label="Regras de pontuacao">
+        <div className="matches-rules-grid" aria-label="Regras de pontuação">
           <button
             type="button"
             className={`matches-rule-btn-item ${activeRuleHelp === 'exact' ? 'active' : ''}`}
@@ -333,7 +333,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
         <section className="player-panel player-empty-state">
           <i className="bi bi-calendar-x" aria-hidden="true" />
           <h3>Nenhuma partida neste filtro</h3>
-          <p>Troque a visao ativa para ver outras partidas do bolao.</p>
+          <p>Troque a visão ativa para ver outras partidas do bolão.</p>
         </section>
       ) : (
         <div className="matches-section-stack">
@@ -466,12 +466,12 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                         <footer className="matches-row-footer">
                           <span className={item.reachedLimit ? 'danger' : ''}>
                             {item.reachedLimit
-                              ? 'Limite de edicoes atingido'
+                              ? 'Limite de edições atingido'
                               : item.prediction
                                 ? `Salvo: ${item.prediction.homeGuess} x ${item.prediction.awayGuess}`
                                 : 'Sem palpite salvo'}
                             {' · '}
-                            {item.editCount}/{activeLeague.maxEdits} edicoes
+                            {item.editCount}/{activeLeague.maxEdits} edições
                           </span>
                           <button
                             type="button"

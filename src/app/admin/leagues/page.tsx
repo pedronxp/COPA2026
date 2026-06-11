@@ -12,11 +12,11 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
     <section className="admin-stack">
       <header className="admin-page-head">
         <div>
-          <p>Operacao global</p>
-          <h1>Boloes</h1>
+          <p>Operação global</p>
+          <h1>Bolões</h1>
         </div>
         <form className="admin-filter" action="/admin/leagues">
-          <input name="q" defaultValue={q} placeholder="Buscar bolao, slug ou convite" />
+          <input name="q" defaultValue={q} placeholder="Buscar bolão, slug ou convite" />
           <button className="admin-button secondary" type="submit">Buscar</button>
         </form>
       </header>
@@ -36,21 +36,26 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
               </small>
               <form className="admin-inline-form" action={updateLeagueAction}>
                 <input type="hidden" name="leagueId" value={league.id} />
-                <input name="name" defaultValue={league.name} aria-label="Nome do bolao" />
-                <select name="status" defaultValue={league.status} aria-label="Status do bolao">
+                <input
+                  name="name"
+                  defaultValue={league.name}
+                  className="admin-input-name"
+                  aria-label="Nome do bolão"
+                />
+                <select name="status" defaultValue={league.status} aria-label="Status do bolão">
                   <option value="draft">Rascunho</option>
                   <option value="active">Ativo</option>
                   <option value="closed">Encerrado</option>
                   <option value="archived">Arquivado</option>
                 </select>
-                <input name="reason" placeholder="Motivo" required minLength={3} />
-                <button className="admin-icon-button" title="Salvar">
+                <input name="reason" placeholder="Motivo (opcional)" />
+                <button className="admin-icon-button" type="submit" title="Salvar">
                   <i className="bi bi-save" aria-hidden="true" />
                 </button>
               </form>
             </article>
           ))}
-          {leagues.length === 0 && <p className="admin-empty">Nenhum bolao encontrado.</p>}
+          {leagues.length === 0 && <p className="admin-empty">Nenhum bolão encontrado.</p>}
         </div>
       </div>
     </section>

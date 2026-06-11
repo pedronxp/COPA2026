@@ -1,10 +1,53 @@
 import { Prisma } from '@prisma/client';
-import { calculatePredictionPoints } from '@/lib/matches-service';
+import { calculatePredictionScore } from '@/lib/matches-service';
 import { prisma } from '@/lib/prisma';
 import {
   getCycleKey,
   publishReadyCyclesForMatch,
 } from '@/lib/league-ranking-service';
+
+async function recomputeExactScoreStreak(
+  tx: Prisma.TransactionClient,
+  leagueId: string,
+  userId: string,
+) {
+  const predictions = await tx.prediction.findMany({
+    where: {
+      leagueId,
+      userId,
+      processed: true,
+      match: {
+        status: 'finished',
+        homeScore: { not: null },
+        awayScore: { not: null },
+      },
+    },
+    orderBy: { match: { kickOff: 'asc' } },
+    select: {
+      homeGuess: true,
+      awayGuess: true,
+      match: { select: { homeScore: true, awayScore: true } },
+    },
+  });
+
+  let current = 0;
+  let best = 0;
+  for (const prediction of predictions) {
+    const exact =
+      prediction.homeGuess === prediction.match.homeScore &&
+      prediction.awayGuess === prediction.match.awayScore;
+    current = exact ? current + 1 : 0;
+    best = Math.max(best, current);
+  }
+
+  await tx.leagueMember.updateMany({
+    where: { leagueId, userId },
+    data: {
+      exactScoreStreak: current,
+      bestExactScoreStreak: best,
+    },
+  });
+}
 
 export async function processLeagueScoringForMatch(matchId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
@@ -24,14 +67,17 @@ export async function processLeagueScoringForMatch(matchId: string) {
       pointsWinnerHome: prediction.league.pointsWinnerHome,
       pointsWinnerAway: prediction.league.pointsWinnerAway,
       pointsDraw: prediction.league.pointsDraw,
+      pointsBothScoreYes: prediction.league.pointsBothScoreYes,
+      pointsBothScoreNo: prediction.league.pointsBothScoreNo,
     };
-    const newPoints = calculatePredictionPoints(
+    const score = calculatePredictionScore(
       prediction.homeGuess,
       prediction.awayGuess,
       match.homeScore,
       match.awayScore,
       rules,
     );
+    const newPoints = score.total;
     const cycleKey = getCycleKey(prediction.league, match);
     const isGlobal = prediction.leagueId === 'global';
     const publishImmediately =
@@ -49,12 +95,27 @@ export async function processLeagueScoringForMatch(matchId: string) {
 
           if (existing) {
             const delta = newPoints - existing.points;
-            if (delta === 0) return { changed: false, pending: false };
-
             await tx.leaguePointEntry.update({
               where: { id: existing.id },
-              data: { points: newPoints },
+              data: {
+                points: newPoints,
+                metadata: {
+                  score: score as unknown as Prisma.InputJsonValue,
+                  prediction: {
+                    home: prediction.homeGuess,
+                    away: prediction.awayGuess,
+                  },
+                  result: { home: match.homeScore, away: match.awayScore },
+                },
+              },
             });
+            await recomputeExactScoreStreak(
+              tx,
+              prediction.leagueId,
+              prediction.userId,
+            );
+            if (delta === 0) return { changed: false, pending: false };
+
             await tx.leaguePointEntry.create({
               data: {
                 leagueId: prediction.leagueId,
@@ -71,6 +132,7 @@ export async function processLeagueScoringForMatch(matchId: string) {
                   predictionId: prediction.id,
                   previousPoints: existing.points,
                   correctedPoints: newPoints,
+                  score: score as unknown as Prisma.InputJsonValue,
                 },
               },
             });
@@ -122,8 +184,22 @@ export async function processLeagueScoringForMatch(matchId: string) {
               matchday: match.matchday,
               cycleKey,
               publishedAt: publishImmediately ? new Date() : null,
+              metadata: {
+                score: score as unknown as Prisma.InputJsonValue,
+                prediction: {
+                  home: prediction.homeGuess,
+                  away: prediction.awayGuess,
+                },
+                result: { home: match.homeScore, away: match.awayScore },
+              },
             },
           });
+
+          await recomputeExactScoreStreak(
+            tx,
+            prediction.leagueId,
+            prediction.userId,
+          );
 
           if (isGlobal) {
             const isHit = newPoints > 0;
