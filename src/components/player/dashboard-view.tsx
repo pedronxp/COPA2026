@@ -434,32 +434,34 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                     </span>
                     <div className="teams-result">
                       <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
-                      <span 
-                        className="score-pill notranslate" 
-                        translate="no" 
-                        style={{ 
-                          fontWeight: 800,
-                          color: '#ef4444', 
-                          backgroundColor: 'rgba(239, 68, 68, 0.12)', 
-                          borderColor: 'rgba(239, 68, 68, 0.35)',
-                          borderWidth: '1px',
-                          borderStyle: 'solid'
-                        }}
-                      >
-                        {match.homeScore} x {match.awayScore}
-                      </span>
+                      <div className="d-flex flex-column align-items-center gap-1.5">
+                        <span 
+                          className="score-pill notranslate" 
+                          translate="no" 
+                          style={{ 
+                            fontWeight: 800,
+                            color: '#ef4444', 
+                            backgroundColor: 'rgba(239, 68, 68, 0.12)', 
+                            borderColor: 'rgba(239, 68, 68, 0.35)',
+                            borderWidth: '1px',
+                            borderStyle: 'solid'
+                          }}
+                        >
+                          {match.homeScore} x {match.awayScore}
+                        </span>
+                        {userPred ? (
+                          <small className="text-success fw-bold" style={{ fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+                            Seu palpite: {userPred.homeGuess} x {userPred.awayGuess}
+                          </small>
+                        ) : (
+                          <small className="text-warning fw-bold" style={{ fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+                            Você não palpitou
+                          </small>
+                        )}
+                      </div>
                       <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
                     </div>
                   </div>
-                  {userPred ? (
-                    <small className="guess-label text-success">
-                      Seu palpite: {userPred.homeGuess} x {userPred.awayGuess}
-                    </small>
-                  ) : (
-                    <small className="guess-label text-warning">
-                      Você não palpitou nesta partida
-                    </small>
-                  )}
                 </div>
               );
             })}
