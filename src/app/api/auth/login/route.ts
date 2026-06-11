@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/auth';
 import { createSession, getSessionCookieOptions, SESSION_COOKIE_NAME } from '@/lib/session';
 import { isValidEmail, normalizeEmail, readStringField } from '@/lib/auth-validation';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getAccountRestriction } from '@/lib/admin-auth';
 
 export async function POST(request: Request) {
   try {
@@ -31,9 +32,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: emailNorm },
-    });
+    const user = await withRetry(() =>
+      prisma.user.findUnique({
+        where: { email: emailNorm },
+      })
+    );
 
     if (!user || !user.passwordHash) {
       return NextResponse.json(
@@ -47,6 +50,11 @@ export async function POST(request: Request) {
         { error: 'Senha incorreta. Verifique e tente novamente.', code: 'invalid_credentials' },
         { status: 400 },
       );
+    }
+
+    const restriction = getAccountRestriction(user.accountStatus, user.suspendedUntil);
+    if (restriction && user.accountStatus !== 'blocked') {
+      return NextResponse.json({ error: restriction, code: 'account_restricted' }, { status: 403 });
     }
 
     const { sessionToken, expires } = await createSession(user.id);

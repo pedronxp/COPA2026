@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import { createSession, getSessionCookieOptions, SESSION_COOKIE_NAME } from '@/lib/session';
 import {
@@ -41,9 +41,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: emailNorm },
-    });
+    const existing = await withRetry(() =>
+      prisma.user.findUnique({
+        where: { email: emailNorm },
+      })
+    );
 
     if (existing) {
       return NextResponse.json(
@@ -52,42 +54,50 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.create({
-      data: {
-        name: name || 'Torcedor',
-        email: emailNorm,
-        passwordHash: hashPassword(password),
-        image: image || 'CDC',
-        points: 0,
-      },
-    });
-
-    let globalLeague = await prisma.league.findUnique({ where: { id: 'global' } });
-    if (!globalLeague) {
-      globalLeague = await prisma.league.create({
+    const user = await withRetry(() =>
+      prisma.user.create({
         data: {
-          id: 'global',
-          name: 'Bolao Global da Copa',
-          description: 'O bolao oficial da plataforma para todos os torcedores.',
-          inviteCode: 'COPA-GLOBAL',
-          ownerId: user.id,
-          expiresAt: new Date('2026-08-01T00:00:00Z'),
+          name: name || 'Torcedor',
+          email: emailNorm,
+          passwordHash: hashPassword(password),
+          image: image || 'CDC',
+          points: 0,
         },
-      });
+      })
+    );
+
+    let globalLeague = await withRetry(() =>
+      prisma.league.findUnique({ where: { id: 'global' } })
+    );
+    if (!globalLeague) {
+      globalLeague = await withRetry(() =>
+        prisma.league.create({
+          data: {
+            id: 'global',
+            name: 'Bolao Global da Copa',
+            description: 'O bolao oficial da plataforma para todos os torcedores.',
+            inviteCode: 'COPA-GLOBAL',
+            ownerId: user.id,
+            expiresAt: new Date('2026-08-01T00:00:00Z'),
+          },
+        })
+      );
     }
 
-    await prisma.leagueMember.upsert({
-      where: {
-        leagueId_userId: { leagueId: 'global', userId: user.id },
-      },
-      update: {},
-      create: {
-        leagueId: globalLeague.id,
-        userId: user.id,
-        role: 'member',
-        points: 0,
-      },
-    });
+    await withRetry(() =>
+      prisma.leagueMember.upsert({
+        where: {
+          leagueId_userId: { leagueId: 'global', userId: user.id },
+        },
+        update: {},
+        create: {
+          leagueId: globalLeague.id,
+          userId: user.id,
+          role: 'member',
+          points: 0,
+        },
+      })
+    );
 
     const { sessionToken, expires } = await createSession(user.id);
     const response = NextResponse.json({
