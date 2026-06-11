@@ -240,7 +240,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
         </div>
       </section>
 
-      <details className="player-summary-dropdown" open>
+      <details className="player-summary-dropdown">
         <summary>
           <div>
             <span className="player-kicker">Resumo do bolão</span>
