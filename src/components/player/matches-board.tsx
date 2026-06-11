@@ -87,8 +87,89 @@ const RULE_EXPLANATIONS = {
     title: 'Vitória do Visitante',
     desc: 'Você ganha estes pontos se acertar apenas o vencedor (time visitante), sem acertar o placar exato ou o saldo correto de gols. Exemplo: seu palpite foi 1x2 e o jogo terminou 0x3.',
     icon: 'bi-airplane'
+  },
+  bothYes: {
+    title: 'Ambas Marcam: Sim',
+    desc: 'Bônus somado quando seu palpite indica gols dos dois lados e o resultado também tem gols dos dois times.',
+    icon: 'bi-check2-circle'
+  },
+  bothNo: {
+    title: 'Ambas Marcam: Não',
+    desc: 'Bônus somado quando seu palpite indica que pelo menos um time não marca e o resultado confirma isso.',
+    icon: 'bi-x-circle'
   }
 } as const;
+
+function renderRuleIcon(ruleKey: string, className = "football-rule-icon") {
+  switch (ruleKey) {
+    case 'exact':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 7.5L16 10.5L14.5 15.5H9.5L8 10.5L12 7.5Z" fill="currentColor" fillOpacity="0.15" />
+          <path d="M12 2v5.5M12 16.5V22M2 12h5.5M16.5 12H22M4.5 4.5l3.5 3M16 7.5l3.5-3M4.5 19.5l3.5-3M16 16.5l3.5 3" />
+        </svg>
+      );
+    case 'diff':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <path d="M3 20V8h18v12" />
+          <path d="M3 8l3-4h12l3 4" strokeDasharray="2 2" />
+          <path d="M6 4v16M18 4v16M12 4v16" strokeDasharray="2 2" />
+          <path d="M3 12h18M3 16h18" strokeDasharray="2 2" />
+          <circle cx="12" cy="14" r="2" fill="currentColor" fillOpacity="0.3" />
+        </svg>
+      );
+    case 'winnerHome':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <path d="M6 20h12v-9l-3-3H9l-3 3v9z" />
+          <path d="M6 11h4M18 11h-4" />
+          <path d="M10 8c1 1.5 3 1.5 4 0" />
+          <line x1="12" y1="11" x2="12" y2="20" strokeWidth="2.5" />
+          <line x1="9" y1="11" x2="9" y2="20" strokeWidth="1" strokeDasharray="1 1" />
+          <line x1="15" y1="11" x2="15" y2="20" strokeWidth="1" strokeDasharray="1 1" />
+        </svg>
+      );
+    case 'draw':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <path d="M6 14m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+          <path d="M13 9H18a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-5" />
+          <path d="M6 12a3 3 0 0 1 3 -3h4" />
+          <path d="M3 14v-3a8 8 0 1 1 16 0v3" />
+        </svg>
+      );
+    case 'winnerAway':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <path d="M6 20h12v-9l-3-3H9l-3 3v9z" />
+          <path d="M6 11h4M18 11h-4" />
+          <path d="M10 8c1 1.5 3 1.5 4 0" />
+          <line x1="8" y1="20" x2="16" y2="11" strokeWidth="2.5" />
+        </svg>
+      );
+    case 'bothYes':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <circle cx="7" cy="12" r="4" fill="currentColor" fillOpacity="0.1" />
+          <path d="M7 8v8M3 12h8" />
+          <circle cx="17" cy="12" r="4" fill="currentColor" fillOpacity="0.1" />
+          <path d="M17 8v8M13 12h8" />
+        </svg>
+      );
+    case 'bothNo':
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.2rem', height: '1.2rem', display: 'inline-block', verticalAlign: 'middle' }}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" fillOpacity="0.15" />
+          <circle cx="12" cy="11" r="3" />
+          <line x1="9.5" y1="8.5" x2="14.5" y2="13.5" />
+        </svg>
+      );
+    default:
+      return <i className="bi bi-star" />;
+  }
+}
 
 export function MatchesBoard({ data }: MatchesBoardProps) {
   const router = useRouter();
@@ -222,51 +303,31 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
         </div>
 
         <div className="matches-rules-grid" aria-label="Regras de pontuação">
-          <button
-            type="button"
-            className={`matches-rule-btn-item ${activeRuleHelp === 'exact' ? 'active' : ''}`}
-            onClick={() => setActiveRuleHelp(activeRuleHelp === 'exact' ? null : 'exact')}
-            title="Clique para ver detalhes sobre a regra de Placar Exato"
-          >
-            <span>Exato</span>
-            <strong>{activeLeague.pointsExact}</strong>
-          </button>
-          <button
-            type="button"
-            className={`matches-rule-btn-item ${activeRuleHelp === 'diff' ? 'active' : ''}`}
-            onClick={() => setActiveRuleHelp(activeRuleHelp === 'diff' ? null : 'diff')}
-            title="Clique para ver detalhes sobre a regra de Saldo de Gols"
-          >
-            <span>Saldo</span>
-            <strong>{activeLeague.pointsDiff}</strong>
-          </button>
-          <button
-            type="button"
-            className={`matches-rule-btn-item ${activeRuleHelp === 'winnerHome' ? 'active' : ''}`}
-            onClick={() => setActiveRuleHelp(activeRuleHelp === 'winnerHome' ? null : 'winnerHome')}
-            title="Clique para ver detalhes sobre a regra de Vitória do Mandante (Casa)"
-          >
-            <span>Casa</span>
-            <strong>{activeLeague.pointsWinnerHome}</strong>
-          </button>
-          <button
-            type="button"
-            className={`matches-rule-btn-item ${activeRuleHelp === 'draw' ? 'active' : ''}`}
-            onClick={() => setActiveRuleHelp(activeRuleHelp === 'draw' ? null : 'draw')}
-            title="Clique para ver detalhes sobre a regra de Empate"
-          >
-            <span>Empate</span>
-            <strong>{activeLeague.pointsDraw}</strong>
-          </button>
-          <button
-            type="button"
-            className={`matches-rule-btn-item ${activeRuleHelp === 'winnerAway' ? 'active' : ''}`}
-            onClick={() => setActiveRuleHelp(activeRuleHelp === 'winnerAway' ? null : 'winnerAway')}
-            title="Clique para ver detalhes sobre a regra de Vitória do Visitante"
-          >
-            <span>Visitante</span>
-            <strong>{activeLeague.pointsWinnerAway}</strong>
-          </button>
+          {(
+            [
+              { key: 'exact', label: 'Exato', points: activeLeague.pointsExact, title: 'Placar Exato' },
+              { key: 'diff', label: 'Saldo', points: activeLeague.pointsDiff, title: 'Saldo de Gols' },
+              { key: 'winnerHome', label: 'Casa', points: activeLeague.pointsWinnerHome, title: 'Vitória do Mandante (Casa)' },
+              { key: 'draw', label: 'Empate', points: activeLeague.pointsDraw, title: 'Empate' },
+              { key: 'winnerAway', label: 'Visitante', points: activeLeague.pointsWinnerAway, title: 'Vitória do Visitante' },
+              { key: 'bothYes', label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, title: 'Ambas Marcam Sim' },
+              { key: 'bothNo', label: 'Ambas não', points: activeLeague.pointsBothScoreNo, title: 'Ambas Marcam Não' },
+            ] as const
+          ).map((rule) => (
+            <button
+              key={rule.key}
+              type="button"
+              className={`matches-rule-btn-item ${activeRuleHelp === rule.key ? 'active' : ''}`}
+              onClick={() => setActiveRuleHelp(activeRuleHelp === rule.key ? null : rule.key)}
+              title={`Clique para ver detalhes sobre a regra de ${rule.title}`}
+            >
+              <span className="matches-rule-btn-content">
+                {renderRuleIcon(rule.key)}
+                <span className="matches-rule-label">{rule.label}</span>
+              </span>
+              <strong>{rule.points}</strong>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -274,7 +335,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
         <div className="matches-rule-explanation-box animate__animated animate__fadeIn">
           <div className="explanation-header">
             <div className="explanation-title-group">
-              <i className={`bi ${RULE_EXPLANATIONS[activeRuleHelp].icon} explanation-icon`} aria-hidden="true" />
+              {renderRuleIcon(activeRuleHelp, "explanation-icon")}
               <div>
                 <h3>{RULE_EXPLANATIONS[activeRuleHelp].title}</h3>
                 <span className="explanation-points">
@@ -283,7 +344,9 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                     activeRuleHelp === 'diff' ? activeLeague.pointsDiff :
                     activeRuleHelp === 'winnerHome' ? activeLeague.pointsWinnerHome :
                     activeRuleHelp === 'draw' ? activeLeague.pointsDraw :
-                    activeLeague.pointsWinnerAway
+                    activeRuleHelp === 'winnerAway' ? activeLeague.pointsWinnerAway :
+                    activeRuleHelp === 'bothYes' ? activeLeague.pointsBothScoreYes :
+                    activeLeague.pointsBothScoreNo
                   } pontos</strong> nesta liga
                 </span>
               </div>
