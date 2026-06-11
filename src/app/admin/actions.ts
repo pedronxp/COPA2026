@@ -3,11 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdminPage } from '@/lib/admin-auth';
 import {
+  configureAdminSync,
   correctAdminMatch,
   decidePasswordResetRequest,
+  deleteUsersBatch,
   moderateUser,
   triggerAdminSync,
   updateAdminLeague,
+  deleteAdminLeague,
 } from '@/lib/admin-service';
 
 function text(formData: FormData, key: string) {
@@ -57,6 +60,22 @@ export async function moderateUserAction(formData: FormData) {
   revalidatePath('/admin/users');
 }
 
+export async function deleteUsersBatchAction(formData: FormData) {
+  const actor = await requireAdminPage('users:moderate');
+  const userIds = formData
+    .getAll('userIds')
+    .filter((value): value is string => typeof value === 'string');
+
+  await deleteUsersBatch({
+    actor,
+    userIds,
+    reason: text(formData, 'reason'),
+  });
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/users');
+}
+
 export async function updateLeagueAction(formData: FormData) {
   const actor = await requireAdminPage('leagues:manage');
 
@@ -72,9 +91,35 @@ export async function updateLeagueAction(formData: FormData) {
   revalidatePath('/admin/leagues');
 }
 
+export async function deleteLeagueAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+
+  await deleteAdminLeague({
+    actor,
+    leagueId: text(formData, 'leagueId'),
+    reason: text(formData, 'reason'),
+  });
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/leagues');
+}
+
 export async function triggerSyncAction() {
   const actor = await requireAdminPage('matches:operate');
   await triggerAdminSync(actor);
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/matches');
+}
+
+export async function configureSyncAction(formData: FormData) {
+  const actor = await requireAdminPage('matches:operate');
+
+  await configureAdminSync({
+    actor,
+    enabled: formData.get('enabled') === 'on',
+    intervalMinutes: intValue(formData, 'intervalMinutes'),
+  });
 
   revalidatePath('/admin');
   revalidatePath('/admin/matches');

@@ -525,7 +525,7 @@
 }
 
 .admin-table-row.league-row {
-  grid-template-columns: minmax(240px, 1.3fr) 110px minmax(150px, 0.8fr) minmax(170px, 0.8fr) minmax(500px, 1.9fr);
+  grid-template-columns: minmax(240px, 1.3fr) 110px minmax(150px, 0.8fr) minmax(170px, 0.8fr) minmax(720px, 2.1fr);
 }
 
 .admin-table-row.match-row {

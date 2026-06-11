@@ -358,6 +358,41 @@ export async function updateAdminLeague(input: {
   });
 }
 
+export async function deleteAdminLeague(input: {
+  actor: SessionUser;
+  leagueId: string;
+  reason: string;
+}) {
+  const reason = requireReason(input.reason);
+  if (input.leagueId === 'global') {
+    throw new Error('O bolao global nao pode ser excluido.');
+  }
+
+  const league = await prisma.league.findUnique({
+    where: { id: input.leagueId },
+    select: { id: true, name: true, slug: true },
+  });
+
+  if (!league) throw new Error('Bolao nao encontrado.');
+
+  await prisma.$transaction([
+    prisma.adminAuditLog.create({
+      data: {
+        actorId: input.actor.id,
+        action: 'league.delete',
+        entityType: 'league',
+        entityId: input.leagueId,
+        summary: `${input.actor.email} excluiu o bolao ${league.name} (${league.slug || league.id}).`,
+        metadata: safeJson({ reason }),
+      },
+    }),
+    prisma.league.delete({ where: { id: input.leagueId } }),
+  ]);
+
+  return { deleted: true };
+}
+
+
 export async function getMatchOperationsData() {
   const [syncLogs, matches, statusCounts, syncSchedule] = await Promise.all([
     prisma.syncLog.findMany({ orderBy: { syncedAt: 'desc' }, take: 12 }),

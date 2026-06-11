@@ -16,6 +16,7 @@ let joinLeagueFn: (typeof import('./league-service'))['joinLeague'];
 let getLeagueDetailFn: (typeof import('./league-service'))['getLeagueDetail'];
 let savePredictionFn: (typeof import('./prediction-service'))['saveLeaguePrediction'];
 let processScoringFn: (typeof import('./scoring-service'))['processLeagueScoringForMatch'];
+let deleteAdminLeagueFn: (typeof import('./admin-service'))['deleteAdminLeague'];
 
 async function createTestUser(prefix: string, label: string) {
   return db.user.create({
@@ -43,6 +44,7 @@ beforeAll(async () => {
   } = await import('./league-service'));
   ({ saveLeaguePrediction: savePredictionFn } = await import('./prediction-service'));
   ({ processLeagueScoringForMatch: processScoringFn } = await import('./scoring-service'));
+  ({ deleteAdminLeague: deleteAdminLeagueFn } = await import('./admin-service'));
 });
 
 afterAll(async () => {
@@ -130,10 +132,71 @@ integration('league integration', () => {
         where: { leagueId: league.id, userId: owner.id, matchId: match.id },
       });
 
-      expect(member.points).toBe(5);
+      expect(member.points).toBe(6);
       expect(member.pendingPoints).toBe(0);
+      expect(member.exactScoreStreak).toBe(1);
+      expect(member.bestExactScoreStreak).toBe(1);
       expect(entries).toHaveLength(1);
-      expect(entries[0].points).toBe(5);
+      expect(entries[0].points).toBe(6);
+    } finally {
+      await cleanup(prefix, matchIds);
+    }
+  });
+
+  it('tracks exact-score streaks inside the selected league', async () => {
+    const prefix = `codex-it-${randomUUID()}`;
+    const matchIds: string[] = [];
+    await cleanup(prefix);
+
+    try {
+      const owner = await createTestUser(prefix, 'owner');
+      const league = await createLeagueFn(owner.id, {
+        name: `Liga Sequencia ${prefix}`,
+        visibility: 'private',
+        joinPolicy: 'invite',
+        groupPublicationMode: 'match',
+      });
+      const matches = await Promise.all(
+        [0, 1, 2].map((index) =>
+          db.match.create({
+            data: {
+              homeTeam: `Casa ${index}`,
+              awayTeam: `Fora ${index}`,
+              kickOff: new Date(Date.now() - (3 - index) * 60 * 60 * 1000),
+              homeScore: 1,
+              awayScore: 0,
+              status: 'finished',
+              stage: 'group',
+              matchday: String(index + 1),
+            },
+          }),
+        ),
+      );
+      matchIds.push(...matches.map((match) => match.id));
+      await Promise.all(
+        matches.map((match) =>
+          db.prediction.create({
+            data: {
+              userId: owner.id,
+              leagueId: league.id,
+              matchId: match.id,
+              homeGuess: 1,
+              awayGuess: 0,
+            },
+          }),
+        ),
+      );
+
+      for (const match of matches) {
+        await processScoringFn(match.id);
+      }
+
+      const member = await db.leagueMember.findUniqueOrThrow({
+        where: { leagueId_userId: { leagueId: league.id, userId: owner.id } },
+      });
+
+      expect(member.exactScoreStreak).toBe(3);
+      expect(member.bestExactScoreStreak).toBe(3);
     } finally {
       await cleanup(prefix, matchIds);
     }
@@ -226,6 +289,51 @@ integration('league integration', () => {
       });
     } finally {
       await cleanup(prefix, matchIds);
+    }
+  });
+
+  it('allows administrators to delete leagues and cascades associated records', async () => {
+    const prefix = `codex-it-${randomUUID()}`;
+    await cleanup(prefix);
+
+    try {
+      const owner = await createTestUser(prefix, 'owner');
+      const adminActor = {
+        id: owner.id,
+        email: owner.email,
+        adminRole: 'super_admin',
+        accountStatus: 'active',
+        name: owner.name,
+      };
+
+      const league = await createLeagueFn(owner.id, {
+        name: `Liga Para Deletar ${prefix}`,
+        visibility: 'private',
+        joinPolicy: 'invite',
+      });
+
+      // Validar que a liga existe no banco
+      const leagueBefore = await db.league.findUnique({ where: { id: league.id } });
+      expect(leagueBefore).not.toBeNull();
+
+      // Deletar a liga
+      const deleteResult = await deleteAdminLeagueFn({
+        actor: adminActor,
+        leagueId: league.id,
+        reason: 'Teste de delecao de bolao',
+      });
+
+      expect(deleteResult.deleted).toBe(true);
+
+      // Validar que a liga foi excluida do banco
+      const leagueAfter = await db.league.findUnique({ where: { id: league.id } });
+      expect(leagueAfter).toBeNull();
+
+      // Validar que membros associados foram deletados em cascata
+      const members = await db.leagueMember.findMany({ where: { leagueId: league.id } });
+      expect(members).toHaveLength(0);
+    } finally {
+      await cleanup(prefix);
     }
   });
 });

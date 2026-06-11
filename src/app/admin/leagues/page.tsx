@@ -1,6 +1,7 @@
 import { requireAdminPage } from '@/lib/admin-auth';
 import { listAdminLeagues } from '@/lib/admin-service';
 import { updateLeagueAction } from '@/app/admin/actions';
+import { DeleteLeagueForm } from '@/components/admin/delete-league-form';
 
 export default async function AdminLeaguesPage({ searchParams }: PageProps<'/admin/leagues'>) {
   await requireAdminPage('leagues:manage');
@@ -34,25 +35,30 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
               <small>
                 {league.scoringPreset}: {league.pointsExact}/{league.pointsDiff}/{league.pointsWinner}/{league.pointsDraw}
               </small>
-              <form className="admin-inline-form" action={updateLeagueAction}>
-                <input type="hidden" name="leagueId" value={league.id} />
-                <input
-                  name="name"
-                  defaultValue={league.name}
-                  className="admin-input-name"
-                  aria-label="Nome do bolão"
-                />
-                <select name="status" defaultValue={league.status} aria-label="Status do bolão">
-                  <option value="draft">Rascunho</option>
-                  <option value="active">Ativo</option>
-                  <option value="closed">Encerrado</option>
-                  <option value="archived">Arquivado</option>
-                </select>
-                <input name="reason" placeholder="Motivo (opcional)" />
-                <button className="admin-icon-button" type="submit" title="Salvar">
-                  <i className="bi bi-save" aria-hidden="true" />
-                </button>
-              </form>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <form className="admin-inline-form" action={updateLeagueAction}>
+                  <input type="hidden" name="leagueId" value={league.id} />
+                  <input
+                    name="name"
+                    defaultValue={league.name}
+                    className="admin-input-name"
+                    aria-label="Nome do bolão"
+                  />
+                  <select name="status" defaultValue={league.status} aria-label="Status do bolão">
+                    <option value="draft">Rascunho</option>
+                    <option value="active">Ativo</option>
+                    <option value="closed">Encerrado</option>
+                    <option value="archived">Arquivado</option>
+                  </select>
+                  <input name="reason" placeholder="Motivo (opcional)" />
+                  <button className="admin-icon-button" type="submit" title="Salvar">
+                    <i className="bi bi-save" aria-hidden="true" />
+                  </button>
+                </form>
+                {league.id !== 'global' && (
+                  <DeleteLeagueForm leagueId={league.id} leagueName={league.name} />
+                )}
+              </div>
             </article>
           ))}
           {leagues.length === 0 && <p className="admin-empty">Nenhum bolão encontrado.</p>}
