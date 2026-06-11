@@ -227,18 +227,80 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
 
   function setQuickResult(matchId: string, result: 'home' | 'draw' | 'away') {
     setGuesses((current) => {
+      const prev = current[matchId];
+      const prevHome = prev?.home !== '' ? parseInt(prev?.home || '', 10) : NaN;
+      const prevAway = prev?.away !== '' ? parseInt(prev?.away || '', 10) : NaN;
+      const prevBoth = !isNaN(prevHome) && !isNaN(prevAway) && prevHome > 0 && prevAway > 0;
+
+      const shouldBoth = (activeLeague.pointsBothScoreYes > 0 || activeLeague.pointsBothScoreNo > 0) && prevBoth;
+
       let home = '1';
       let away = '0';
+
       if (result === 'draw') {
-        home = '1';
-        away = '1';
+        const isBothActive = activeLeague.pointsBothScoreYes > 0 || activeLeague.pointsBothScoreNo > 0;
+        if (isBothActive) {
+          home = shouldBoth ? '1' : '0';
+          away = shouldBoth ? '1' : '0';
+        } else {
+          home = '1';
+          away = '1';
+        }
       } else if (result === 'away') {
-        home = '0';
-        away = '1';
+        home = shouldBoth ? '1' : '0';
+        away = shouldBoth ? '2' : '1';
+      } else {
+        // 'home'
+        home = shouldBoth ? '2' : '1';
+        away = shouldBoth ? '1' : '0';
       }
+
       return {
         ...current,
         [matchId]: { home, away },
+      };
+    });
+  }
+
+  function setBothScoreResult(matchId: string, value: 'yes' | 'no') {
+    setGuesses((current) => {
+      const prev = current[matchId] || { home: '', away: '' };
+      let homeVal = prev.home !== '' ? parseInt(prev.home, 10) : NaN;
+      let awayVal = prev.away !== '' ? parseInt(prev.away, 10) : NaN;
+
+      if (isNaN(homeVal) && isNaN(awayVal)) {
+        if (value === 'yes') {
+          return { ...current, [matchId]: { home: '1', away: '1' } };
+        } else {
+          return { ...current, [matchId]: { home: '1', away: '0' } };
+        }
+      }
+
+      if (isNaN(homeVal)) homeVal = 0;
+      if (isNaN(awayVal)) awayVal = 0;
+
+      if (value === 'yes') {
+        if (homeVal === 0) homeVal = 1;
+        if (awayVal === 0) awayVal = 1;
+      } else {
+        if (homeVal > 0 && awayVal > 0) {
+          if (homeVal > awayVal) {
+            awayVal = 0;
+          } else if (awayVal > homeVal) {
+            homeVal = 0;
+          } else {
+            homeVal = 0;
+            awayVal = 0;
+          }
+        }
+      }
+
+      return {
+        ...current,
+        [matchId]: {
+          home: String(homeVal),
+          away: String(awayVal),
+        },
       };
     });
   }
@@ -441,73 +503,123 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                             align="end"
                           />
                           <div className="matches-prediction-center">
-                            <div className="matches-score-editor">
-                              <input
-                                aria-label={`Palpite para ${item.match.homeTeam}`}
-                                inputMode="numeric"
-                                value={guess.home}
-                                onChange={(event) =>
-                                  setGuess(item.match.id, 'home', event.target.value)
-                                }
-                                disabled={!item.canEdit}
-                                placeholder="-"
-                              />
-                              <span>x</span>
-                              <input
-                                aria-label={`Palpite para ${item.match.awayTeam}`}
-                                inputMode="numeric"
-                                value={guess.away}
-                                onChange={(event) =>
-                                  setGuess(item.match.id, 'away', event.target.value)
-                                }
-                                disabled={!item.canEdit}
-                                placeholder="-"
-                              />
-                            </div>
-                            <div className="matches-quick-1x2">
-                              {(() => {
-                                const homeVal = guess.home !== '' ? parseInt(guess.home, 10) : NaN;
-                                const awayVal = guess.away !== '' ? parseInt(guess.away, 10) : NaN;
-                                const isHomeActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal > awayVal;
-                                const isDrawActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal === awayVal;
-                                const isAwayActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal < awayVal;
+                            {activeLeague.pointsExact > 0 || activeLeague.pointsDiff > 0 ? (
+                              <div className="matches-score-editor">
+                                <input
+                                  aria-label={`Palpite para ${item.match.homeTeam}`}
+                                  inputMode="numeric"
+                                  value={guess.home}
+                                  onChange={(event) =>
+                                    setGuess(item.match.id, 'home', event.target.value)
+                                  }
+                                  disabled={!item.canEdit}
+                                  placeholder="-"
+                                />
+                                <span>x</span>
+                                <input
+                                  aria-label={`Palpite para ${item.match.awayTeam}`}
+                                  inputMode="numeric"
+                                  value={guess.away}
+                                  onChange={(event) =>
+                                    setGuess(item.match.id, 'away', event.target.value)
+                                  }
+                                  disabled={!item.canEdit}
+                                  placeholder="-"
+                                />
+                              </div>
+                            ) : (
+                              <div className="matches-score-display">
+                                <span>{guess.home !== '' ? guess.home : '-'}</span>
+                                <span>x</span>
+                                <span>{guess.away !== '' ? guess.away : '-'}</span>
+                              </div>
+                            )}
 
-                                return (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className={`matches-quick-btn ${isHomeActive ? 'active' : ''}`}
-                                      onClick={() => setQuickResult(item.match.id, 'home')}
-                                      disabled={!item.canEdit}
-                                      title="Vitória do time da casa (Palpita 1x0)"
-                                    >
-                                      <span className="d-md-none">Casa</span>
-                                      <span className="d-none d-md-inline">C</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={`matches-quick-btn ${isDrawActive ? 'active' : ''}`}
-                                      onClick={() => setQuickResult(item.match.id, 'draw')}
-                                      disabled={!item.canEdit}
-                                      title="Empate (Palpita 1x1)"
-                                    >
-                                      <span className="d-md-none">Empate</span>
-                                      <span className="d-none d-md-inline">X</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={`matches-quick-btn ${isAwayActive ? 'active' : ''}`}
-                                      onClick={() => setQuickResult(item.match.id, 'away')}
-                                      disabled={!item.canEdit}
-                                      title="Vitória do time visitante (Palpita 0x1)"
-                                    >
-                                      <span className="d-md-none">Fora</span>
-                                      <span className="d-none d-md-inline">V</span>
-                                    </button>
-                                  </>
-                                );
-                              })()}
-                            </div>
+                            {Boolean(
+                              activeLeague.pointsWinnerHome > 0 ||
+                              activeLeague.pointsWinnerAway > 0 ||
+                              activeLeague.pointsDraw > 0 ||
+                              activeLeague.pointsDiff > 0
+                            ) && (
+                              <div className="matches-quick-1x2">
+                                {(() => {
+                                  const homeVal = guess.home !== '' ? parseInt(guess.home, 10) : NaN;
+                                  const awayVal = guess.away !== '' ? parseInt(guess.away, 10) : NaN;
+                                  const isHomeActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal > awayVal;
+                                  const isDrawActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal === awayVal;
+                                  const isAwayActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal < awayVal;
+
+                                  return (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className={`matches-quick-btn ${isHomeActive ? 'active' : ''}`}
+                                        onClick={() => setQuickResult(item.match.id, 'home')}
+                                        disabled={!item.canEdit}
+                                        title="Vitória do time da casa (C)"
+                                      >
+                                        <span className="d-md-none">Casa</span>
+                                        <span className="d-none d-md-inline">C</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`matches-quick-btn ${isDrawActive ? 'active' : ''}`}
+                                        onClick={() => setQuickResult(item.match.id, 'draw')}
+                                        disabled={!item.canEdit}
+                                        title="Empate (X)"
+                                      >
+                                        <span className="d-md-none">Empate</span>
+                                        <span className="d-none d-md-inline">X</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`matches-quick-btn ${isAwayActive ? 'active' : ''}`}
+                                        onClick={() => setQuickResult(item.match.id, 'away')}
+                                        disabled={!item.canEdit}
+                                        title="Vitória do time visitante (F)"
+                                      >
+                                        <span className="d-md-none">Fora</span>
+                                        <span className="d-none d-md-inline">F</span>
+                                      </button>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+
+                            {Boolean(activeLeague.pointsBothScoreYes > 0 || activeLeague.pointsBothScoreNo > 0) && (
+                              <div className="matches-quick-both">
+                                {(() => {
+                                  const homeVal = guess.home !== '' ? parseInt(guess.home, 10) : NaN;
+                                  const awayVal = guess.away !== '' ? parseInt(guess.away, 10) : NaN;
+                                  const hasBothScore = !isNaN(homeVal) && !isNaN(awayVal) && homeVal > 0 && awayVal > 0;
+                                  const hasNoBothScore = !isNaN(homeVal) && !isNaN(awayVal) && (homeVal === 0 || awayVal === 0);
+
+                                  return (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className={`matches-quick-btn ${hasBothScore ? 'active' : ''}`}
+                                        onClick={() => setBothScoreResult(item.match.id, 'yes')}
+                                        disabled={!item.canEdit}
+                                        title="Ambas marcam: Sim"
+                                      >
+                                        Ambas Sim
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className={`matches-quick-btn ${hasNoBothScore ? 'active' : ''}`}
+                                        onClick={() => setBothScoreResult(item.match.id, 'no')}
+                                        disabled={!item.canEdit}
+                                        title="Ambas marcam: Não"
+                                      >
+                                        Ambas Não
+                                      </button>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
                           <TeamMark
                             name={item.match.awayTeam}

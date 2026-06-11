@@ -434,7 +434,18 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                     </span>
                     <div className="teams-result">
                       <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
-                      <span className="score-pill border-danger text-danger bg-danger bg-opacity-5 notranslate" translate="no" style={{ fontWeight: 800 }}>
+                      <span 
+                        className="score-pill notranslate" 
+                        translate="no" 
+                        style={{ 
+                          fontWeight: 800,
+                          color: '#ef4444', 
+                          backgroundColor: 'rgba(239, 68, 68, 0.12)', 
+                          borderColor: 'rgba(239, 68, 68, 0.35)',
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                      >
                         {match.homeScore} x {match.awayScore}
                       </span>
                       <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
