@@ -637,6 +637,50 @@ body {
   padding: 20px;
 }
 
+.player-hero-command {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  align-items: stretch;
+  gap: 22px;
+  padding: clamp(22px, 3vw, 30px);
+  background:
+    linear-gradient(135deg, rgba(16, 185, 129, 0.1), transparent 28%),
+    linear-gradient(225deg, rgba(14, 165, 233, 0.13), transparent 32%),
+    rgba(15, 23, 42, 0.72);
+}
+
+.player-hero-command::after {
+  content: '';
+  position: absolute;
+  inset: auto -14% -46% 42%;
+  height: 220px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.13), transparent 62%);
+}
+
+.player-hero-copy,
+.player-hero-focus {
+  position: relative;
+  z-index: 1;
+}
+
+.player-hero-copy {
+  min-width: 0;
+}
+
+.player-hero-copy h2 {
+  max-width: 760px;
+  font-size: clamp(1.75rem, 4vw, 3rem);
+  line-height: 1.06;
+}
+
+.player-hero-focus {
+  display: grid;
+  gap: 12px;
+}
+
 .player-hero-panel,
 .player-stat-grid,
 .player-page-header-panel,
@@ -692,6 +736,140 @@ body {
   max-width: 720px;
 }
 
+.player-hero-progress {
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+  margin-top: 16px;
+}
+
+.player-hero-progress > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.player-hero-progress strong {
+  color: #7dd3fc;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.player-hero-match-card,
+.player-hero-league-card {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  background: rgba(8, 12, 20, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.player-hero-match-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.player-hero-match-card.empty {
+  min-height: 166px;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.player-hero-match-card.empty i {
+  color: #38bdf8;
+  font-size: 1.5rem;
+}
+
+.player-hero-match-card.empty strong {
+  color: #fff;
+  font-family: var(--font-display);
+}
+
+.player-hero-match-card.empty span {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.player-hero-match-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.player-hero-match-head strong {
+  color: #e0f2fe;
+  font-size: 0.84rem;
+}
+
+.player-hero-match-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.player-hero-match-teams .player-team-mark {
+  min-width: 0;
+}
+
+.player-hero-match-teams .player-team-name {
+  max-width: 130px;
+  font-size: 0.86rem;
+}
+
+.player-hero-vs {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 50%;
+  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.1);
+  font-family: var(--font-display);
+  font-weight: 900;
+}
+
+.player-hero-league-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.player-hero-league-card .player-league-switcher {
+  width: 100%;
+  min-width: 0;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.player-hero-league-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.player-hero-league-meta span {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.45);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
 .player-hero-actions .btn {
   display: inline-flex;
   align-items: center;
@@ -705,7 +883,18 @@ body {
 }
 
 .player-stat-card {
+  position: relative;
+  overflow: hidden;
   padding: 16px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.08), transparent 48%),
+    rgba(15, 23, 42, 0.62);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.player-stat-card:hover {
+  border-color: rgba(56, 189, 248, 0.28);
+  transform: translateY(-2px);
 }
 
 .player-stat-card span,
@@ -920,19 +1109,22 @@ body {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
   border-radius: 50%;
   background: #0b1220;
   color: #e2e8f0;
   font-size: 0.72rem;
   font-weight: 900;
   overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 0 4px rgba(255, 255, 255, 0.08);
+  transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .player-team-badge img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  display: block;
 }
 
 .player-team-name {
@@ -2236,6 +2428,18 @@ body {
     flex-direction: column;
   }
 
+  .player-hero-command {
+    grid-template-columns: 1fr;
+  }
+
+  .player-hero-copy h2 {
+    max-width: none;
+  }
+
+  .player-hero-focus {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .player-league-switcher,
   .player-league-switcher.compact {
     width: 100%;
@@ -2330,6 +2534,54 @@ body {
 @media (max-width: 640px) {
   .player-main {
     padding-inline: 14px;
+  }
+
+  .player-hero-command {
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .player-hero-copy h2 {
+    font-size: 1.7rem;
+  }
+
+  .player-hero-score {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-hero-score span {
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 8px;
+  }
+
+  .player-hero-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .player-hero-match-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .player-hero-match-teams {
+    gap: 8px;
+  }
+
+  .player-hero-match-teams .player-team-badge {
+    width: 34px;
+    height: 34px;
+  }
+
+  .player-hero-match-teams .player-team-name {
+    max-width: 94px;
+    font-size: 0.78rem;
+  }
+
+  .player-hero-league-meta {
+    grid-template-columns: 1fr;
   }
 
   .player-stat-grid,

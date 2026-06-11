@@ -1,7 +1,9 @@
 // src/lib/matches-service.ts
 // Serviço de dados do bolão - 100% Prisma, sem mock, sem fallback em memória
 import { prisma } from './prisma';
-import { fetchGames, fetchTeams, type ApiGame, type ApiTeam } from './football-api';
+import type { Prisma } from '@prisma/client';
+import { fetchGames, fetchTeams, type ApiTeam } from './football-api';
+import { translateTeamName } from './team-translation';
 
 // ─── Tipos Exportados ────────────────────────────────────────────────
 
@@ -179,8 +181,8 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
   return dbMatches.map(m => ({
     id: m.id,
     externalId: m.externalId,
-    homeTeam: m.homeTeam,
-    awayTeam: m.awayTeam,
+    homeTeam: translateTeamName(m.homeTeam),
+    awayTeam: translateTeamName(m.awayTeam),
     homeFlag: m.homeFlag,
     awayFlag: m.awayFlag,
     homeTeamLogo: m.homeTeamLogo,
@@ -224,7 +226,7 @@ export async function getUsers(): Promise<UserProfile[]> {
  */
 export async function getPredictions(userId: string, leagueId?: string): Promise<PredictionData[]> {
   await ensureUserExists(userId);
-  const where: any = { userId };
+  const where: Prisma.PredictionWhereInput = { userId };
   if (leagueId) {
     where.leagueId = leagueId;
   }
@@ -257,16 +259,30 @@ export async function savePrediction(
 ): Promise<PredictionData> {
   await ensureUserExists(userId);
 
+  if (
+    !Number.isInteger(homeGuess) ||
+    !Number.isInteger(awayGuess) ||
+    homeGuess < 0 ||
+    awayGuess < 0 ||
+    homeGuess > 99 ||
+    awayGuess > 99
+  ) {
+    throw new Error('O placar deve conter números inteiros entre 0 e 99.');
+  }
+
   // Buscar as regras do bolão correspondente, criando a global se não existir
   let league = await prisma.league.findUnique({ where: { id: leagueId } });
   if (!league && leagueId === 'global') {
     league = await prisma.league.create({
       data: {
         id: 'global',
+        slug: 'global',
         name: 'Bolão Global da Copa',
         description: 'O bolão oficial da plataforma para todos os torcedores.',
         inviteCode: 'COPA-GLOBAL',
         ownerId: userId,
+        visibility: 'public',
+        joinPolicy: 'open',
         expiresAt: new Date('2026-08-01T00:00:00Z'),
         windowHours: 48,
         maxEdits: 3,
@@ -276,10 +292,17 @@ export async function savePrediction(
   if (!league) throw new Error('Bolão não encontrado.');
 
   // Garantir filiação do usuário ao bolão correspondente
+  if (league.status !== 'active' || league.expiresAt <= new Date()) {
+    throw new Error('Este bolão não está aceitando novos palpites.');
+  }
+
   const membership = await prisma.leagueMember.findUnique({
     where: { leagueId_userId: { leagueId, userId } }
   });
   if (!membership) {
+    if (leagueId !== 'global') {
+      throw new Error('Você precisa participar deste bolão antes de palpitar.');
+    }
     await prisma.leagueMember.create({
       data: {
         leagueId,
@@ -288,6 +311,8 @@ export async function savePrediction(
         points: 0,
       }
     });
+  } else if (membership.status !== 'active') {
+    throw new Error('Sua participação neste bolão não está ativa.');
   }
 
   const windowHours = league.windowHours;
@@ -362,14 +387,15 @@ export async function updateMatchScore(
 
   // Se finalizado, rodar o Score Engine
   if (status === 'finished') {
-    await processScoringForMatch(matchId);
+    const { processLeagueScoringForMatch } = await import('./scoring-service');
+    await processLeagueScoringForMatch(matchId);
   }
 
   return {
     id: updated.id,
     externalId: updated.externalId,
-    homeTeam: updated.homeTeam,
-    awayTeam: updated.awayTeam,
+    homeTeam: translateTeamName(updated.homeTeam),
+    awayTeam: translateTeamName(updated.awayTeam),
     homeFlag: updated.homeFlag,
     awayFlag: updated.awayFlag,
     homeTeamLogo: updated.homeTeamLogo,
@@ -460,7 +486,7 @@ export async function processScoringForMatch(matchId: string): Promise<void> {
  * Calcula a porcentagem de palpites (casa/empate/fora) de uma partida para um bolão específico.
  */
 export async function getMatchStats(matchId: string, leagueId?: string): Promise<MatchStats> {
-  const where: any = { matchId };
+  const where: Prisma.PredictionWhereInput = { matchId };
   if (leagueId) {
     where.leagueId = leagueId;
   }
@@ -489,6 +515,57 @@ export async function getMatchStats(matchId: string, leagueId?: string): Promise
     away: Math.round((away / total) * 100),
     total,
   };
+}
+
+export async function getMatchStatsBatch(
+  matchIds: string[],
+  leagueId?: string
+): Promise<Record<string, MatchStats>> {
+  const uniqueMatchIds = [...new Set(matchIds)].filter(Boolean);
+  if (uniqueMatchIds.length === 0) {
+    return {};
+  }
+
+  const predictions = await prisma.prediction.findMany({
+    where: {
+      matchId: { in: uniqueMatchIds },
+      ...(leagueId ? { leagueId } : {}),
+    },
+    select: {
+      matchId: true,
+      homeGuess: true,
+      awayGuess: true,
+    },
+  });
+
+  const counters = new Map<string, { home: number; draw: number; away: number; total: number }>();
+  for (const matchId of uniqueMatchIds) {
+    counters.set(matchId, { home: 0, draw: 0, away: 0, total: 0 });
+  }
+
+  for (const prediction of predictions) {
+    const stats = counters.get(prediction.matchId);
+    if (!stats) continue;
+    stats.total++;
+    if (prediction.homeGuess > prediction.awayGuess) stats.home++;
+    else if (prediction.homeGuess < prediction.awayGuess) stats.away++;
+    else stats.draw++;
+  }
+
+  const result: Record<string, MatchStats> = {};
+  for (const [matchId, stats] of counters) {
+    result[matchId] =
+      stats.total === 0
+        ? { home: 0, draw: 0, away: 0, total: 0 }
+        : {
+            home: Math.round((stats.home / stats.total) * 100),
+            draw: Math.round((stats.draw / stats.total) * 100),
+            away: Math.round((stats.away / stats.total) * 100),
+            total: stats.total,
+          };
+  }
+
+  return result;
 }
 
 // ─── Sincronização com API Externa ──────────────────────────────────
@@ -592,7 +669,8 @@ export async function syncFromApi(): Promise<SyncReport> {
     }
 
     if (matchData.status === 'finished') {
-      await processScoringForMatch(matchId);
+      const { processLeagueScoringForMatch } = await import('./scoring-service');
+      await processLeagueScoringForMatch(matchId);
     }
   }
 
@@ -616,6 +694,16 @@ export async function syncFromApi(): Promise<SyncReport> {
  * Zera placares, status, pontos de usuários e palpites.
  */
 export async function resetSimulation(): Promise<void> {
+  await prisma.leagueRankingSnapshot.deleteMany();
+  await prisma.leagueRankingCycle.deleteMany();
+  await prisma.leaguePointEntry.deleteMany();
+  await prisma.leagueMember.updateMany({
+    data: { points: 0, pendingPoints: 0 },
+  });
+  await prisma.league.updateMany({
+    data: { lastPublishedAt: null },
+  });
+
   // Resetar todos os palpites (marcar como não processados)
   await prisma.prediction.updateMany({
     data: { processed: false },
