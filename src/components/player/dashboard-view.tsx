@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { SessionUser } from '@/lib/session';
 import type { DashboardData } from '@/lib/player-routes-data';
@@ -17,7 +20,14 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ user, data }: DashboardViewProps) {
-  const { leagueContext, members, predictions, matches, nextMatch, recentResults, upcomingPredictions } = data;
+  const {
+    leagueContext,
+    members,
+    predictions,
+    matches,
+    recentResults,
+    upcomingPredictions,
+  } = data;
   const { activeLeague, options } = leagueContext;
   const leader = members[0] || null;
   const finishedCount = matches.filter((match) => match.status === 'finished').length;
@@ -36,56 +46,220 @@ export function DashboardView({ user, data }: DashboardViewProps) {
   const userRankLabel = formatOrdinalPtBr(activeLeague.userRank);
   const matchHref = activeLeague.slug === 'global' ? '/matches' : `/matches?league=${activeLeague.slug}`;
   const calendarHref = activeLeague.slug === 'global' ? '/calendar' : `/calendar?league=${activeLeague.slug}`;
-  const rankingHref = activeLeague.slug === 'global' ? '/leaderboard' : `/leagues/${activeLeague.slug}`;
+  const rankingHref = activeLeague.slug === 'global' ? '/leaderboard' : `/leaderboard?league=${activeLeague.slug}`;
+  const userRankSummary = activeLeague.userRank ? `${userRankLabel} lugar` : 'sem posição';
+
+  // Lógica do carrossel para os próximos jogos
+  const carouselMatches = matches
+    .filter((match) => match.status === 'scheduled' || match.status === 'live')
+    .sort((a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime());
+
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Rotação automática a cada 5 segundos
+  useEffect(() => {
+    if (carouselMatches.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentMatchIndex((prev) => (prev + 1) % carouselMatches.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [carouselMatches.length]);
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentMatchIndex((prev) => (prev - 1 + carouselMatches.length) % carouselMatches.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentMatchIndex((prev) => (prev + 1) % carouselMatches.length);
+  };
+
+  const currentMatch = carouselMatches[currentMatchIndex] || null;
 
   return (
     <div className="player-dashboard-grid">
-      <section className="player-hero-panel">
-        <div>
+      <section className="player-hero-panel player-hero-command">
+        <div className="player-hero-copy">
           <span className="player-kicker">Olá, {user.name || 'torcedor'}</span>
-          <h2>Seu painel no {activeLeague.name}</h2>
+          <h2>Central do {activeLeague.name}</h2>
+          <div className="player-hero-score" aria-label="Seu desempenho atual">
+            <span><strong>{userRankLabel}</strong> posição</span>
+            <span><strong>{activeLeague.userPoints}</strong> pontos</span>
+            {activeLeague.userPendingPoints > 0 && (
+              <span><strong>{activeLeague.userPendingPoints}</strong> pendentes</span>
+            )}
+          </div>
+          {currentMatch ? (
+            <p className="player-hero-next">
+              O próximo palpite sugerido fecha 30 minutos antes da bola rolar.
+            </p>
+          ) : (
+            <p className="player-hero-next">Nenhuma partida aberta para novos palpites agora.</p>
+          )}
+          <div className="player-hero-progress" aria-label="Progresso dos palpites">
+            <div>
+              <span>{scheduledPredictionCount} salvos</span>
+              <strong>{predictionCoverage}%</strong>
+            </div>
+            <div className="player-progress-track" aria-hidden="true">
+              <span style={{ width: `${predictionCoverage}%` }} />
+            </div>
+          </div>
           <div className="player-hero-actions">
             <Link href={matchHref} className="btn btn-neon-green">
               <i className="bi bi-lightning-charge-fill" aria-hidden="true" />
-              Palpitar
+              Palpitar agora
+            </Link>
+            <Link href={rankingHref} className="btn btn-neon-outline">
+              <i className="bi bi-trophy" aria-hidden="true" />
+              Ver ranking
             </Link>
             <Link href={calendarHref} className="btn btn-neon-outline">
               <i className="bi bi-calendar-event" aria-hidden="true" />
-              Calendário
+              Ver tabela
             </Link>
           </div>
         </div>
-        <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} compact />
+
+        <div className="player-hero-focus">
+          {currentMatch ? (
+            (() => {
+              const userPred = predictions.find((p) => p.matchId === currentMatch.id);
+              const timeLeft = new Date(currentMatch.kickOff).getTime() - 30 * 60_000 - Date.now();
+              const isExpiringSoon = timeLeft > 0 && timeLeft < 2 * 3600 * 1000;
+
+              return (
+                <div className="player-hero-match-card">
+                  <div className="player-hero-match-head d-flex justify-content-between align-items-center w-100">
+                    <button 
+                      onClick={handlePrev} 
+                      className="btn btn-link p-0 text-secondary border-0 d-flex align-items-center" 
+                      style={{ cursor: 'pointer', outline: 'none', textDecoration: 'none' }}
+                      disabled={carouselMatches.length <= 1}
+                    >
+                      <i className="bi bi-chevron-left fs-6" />
+                    </button>
+                    <div className="text-center d-flex flex-column align-items-center">
+                      <span className="text-secondary" style={{ fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: '800' }}>
+                        Próximo jogo ({currentMatchIndex + 1}/{carouselMatches.length})
+                      </span>
+                      <strong className="text-white mt-0.5" style={{ fontSize: '0.8rem' }}>{formatDateTimePtBr(currentMatch.kickOff)}</strong>
+                    </div>
+                    <button 
+                      onClick={handleNext} 
+                      className="btn btn-link p-0 text-secondary border-0 d-flex align-items-center" 
+                      style={{ cursor: 'pointer', outline: 'none', textDecoration: 'none' }}
+                      disabled={carouselMatches.length <= 1}
+                    >
+                      <i className="bi bi-chevron-right fs-6" />
+                    </button>
+                  </div>
+                  <div className="player-hero-match-teams">
+                    <TeamMark
+                      name={currentMatch.homeTeam}
+                      logo={currentMatch.homeTeamLogo}
+                      flag={currentMatch.homeFlag}
+                      align="center"
+                    />
+                    {userPred ? (
+                      <div className="d-flex flex-column align-items-center justify-content-center">
+                        <div className="d-flex align-items-center gap-2 justify-content-center">
+                          <strong className="fs-4 text-success mb-0">{userPred.homeGuess}</strong>
+                          <span className="text-secondary fw-semibold">x</span>
+                          <strong className="fs-4 text-success mb-0">{userPred.awayGuess}</strong>
+                        </div>
+                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20 mt-1" style={{ fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                          ✓ Salvo
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="d-flex flex-column align-items-center justify-content-center">
+                        <div className="d-flex align-items-center gap-2 justify-content-center opacity-60">
+                          <strong className="fs-4 text-secondary mb-0">0</strong>
+                          <span className="text-secondary fw-semibold">x</span>
+                          <strong className="fs-4 text-secondary mb-0">0</strong>
+                        </div>
+                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 mt-1" style={{ fontSize: '0.62rem', textTransform: 'uppercase' }}>
+                          ⚠️ Pendente
+                        </span>
+                      </div>
+                    )}
+                    <TeamMark
+                      name={currentMatch.awayTeam}
+                      logo={currentMatch.awayTeamLogo}
+                      flag={currentMatch.awayFlag}
+                      align="center"
+                    />
+                  </div>
+                  <span className="urgency-badge" style={isExpiringSoon ? { color: '#fb923c', backgroundColor: 'rgba(251, 146, 60, 0.12)', borderColor: 'rgba(251, 146, 60, 0.22)' } : {}}>
+                    <i className={isExpiringSoon ? "bi bi-exclamation-triangle-fill" : "bi bi-clock-fill"} aria-hidden="true" />{' '}
+                    {isExpiringSoon ? 'Expira em breve: ' : 'Expira em '}
+                    {formatRelativeWindowPtBr(new Date(new Date(currentMatch.kickOff).getTime() - 30 * 60_000))}
+                  </span>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="player-hero-match-card empty">
+              <i className="bi bi-calendar-check" aria-hidden="true" />
+              <strong>Rodada em espera</strong>
+              <span>Assim que uma janela abrir, ela aparece aqui.</span>
+            </div>
+          )}
+
+          <div className="player-hero-league-card">
+            <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} compact />
+            <div className="player-hero-league-meta">
+              <span>{activeLeague.memberCount} competidores</span>
+              <span>{formatLeagueStatusPtBr(activeLeague.status)}</span>
+              <span>{activeLeague.windowHours}h de janela</span>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="player-stat-grid" aria-label="Resumo do bolão ativo">
-        <div className="player-stat-card">
-          <span>Posição</span>
-          <strong>{userRankLabel}</strong>
-          <small>de {activeLeague.memberCount} competidores</small>
-        </div>
-        <div className="player-stat-card">
-          <span>Pontos</span>
-          <strong>{activeLeague.userPoints}</strong>
-          <small>{activeLeague.userPendingPoints > 0 ? `${activeLeague.userPendingPoints} pendentes` : ''}</small>
-        </div>
-        <div className="player-stat-card">
-          <span>Palpites</span>
-          <strong>{predictionCount}</strong>
-          <small>{predictionCoverage}% concluído</small>
-        </div>
-        <div className="player-stat-card">
-          <span>Status</span>
-          <strong>{formatLeagueStatusPtBr(activeLeague.status)}</strong>
-          <small>Janela de {activeLeague.windowHours}h</small>
-        </div>
-      </section>
+      <details className="player-summary-dropdown" open>
+        <summary>
+          <div>
+            <span className="player-kicker">Resumo do bolão</span>
+            <strong>{userRankSummary} - {activeLeague.userPoints} pontos - {predictionCoverage}% dos palpites</strong>
+          </div>
+          <i className="bi bi-chevron-down" aria-hidden="true" />
+        </summary>
+
+        <section className="player-stat-grid" aria-label="Resumo do bolão ativo">
+          <div className="player-stat-card">
+            <span>Classificação</span>
+            <strong>{userRankLabel}</strong>
+            <small>{activeLeague.memberCount} competidores no bolão</small>
+          </div>
+          <div className="player-stat-card">
+            <span>Pontuação</span>
+            <strong>{activeLeague.userPoints}</strong>
+            <small>{activeLeague.userPendingPoints > 0 ? `${activeLeague.userPendingPoints} pontos pendentes` : 'pontos publicados'}</small>
+          </div>
+          <div className="player-stat-card">
+            <span>Palpites</span>
+            <strong>{predictionCount}</strong>
+            <small>{predictionCoverage}% concluído</small>
+          </div>
+          <div className="player-stat-card">
+            <span>Situação</span>
+            <strong>{formatLeagueStatusPtBr(activeLeague.status)}</strong>
+            <small>Janela de palpites: {activeLeague.windowHours}h</small>
+          </div>
+        </section>
+      </details>
 
       <section className="player-dashboard-command">
         <div className="player-progress-card">
           <div className="player-panel-heading">
             <div>
-              <h3>Progresso dos palpites</h3>
+              <span className="player-kicker">Progresso</span>
+              <h3>Palpites da rodada</h3>
             </div>
             <strong>{predictionCoverage}%</strong>
           </div>
@@ -109,9 +283,9 @@ export function DashboardView({ user, data }: DashboardViewProps) {
             <i className="bi bi-trophy" aria-hidden="true" />
             <span>Ranking</span>
           </Link>
-          <Link href="/leagues">
-            <i className="bi bi-people" aria-hidden="true" />
-            <span>Bolões</span>
+          <Link href={calendarHref}>
+            <i className="bi bi-table" aria-hidden="true" />
+            <span>Tabela</span>
           </Link>
         </div>
       </section>
@@ -119,35 +293,66 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-next-panel">
         <div className="player-panel-heading">
           <div>
-            <h3>Palpite recomendado</h3>
+            <span className="player-kicker">Ação recomendada</span>
+            <h3>Próximo palpite</h3>
           </div>
           <Link href={matchHref} className="btn btn-neon-green">
             Palpitar
           </Link>
         </div>
 
-        {nextMatch ? (
-          <div className="player-next-match">
-            <TeamMark
-              name={nextMatch.homeTeam}
-              logo={nextMatch.homeTeamLogo}
-              flag={nextMatch.homeFlag}
-              align="end"
-            />
-            <div className="player-versus">
-              <strong>VS</strong>
-              <span>{formatDateTimePtBr(nextMatch.kickOff)}</span>
-              <span className="urgency-badge">
-                <i className="bi bi-clock-fill" aria-hidden="true" /> Expira em {formatRelativeWindowPtBr(new Date(new Date(nextMatch.kickOff).getTime() - 30 * 60_000))}
-              </span>
-            </div>
-            <TeamMark
-              name={nextMatch.awayTeam}
-              logo={nextMatch.awayTeamLogo}
-              flag={nextMatch.awayFlag}
-              align="start"
-            />
-          </div>
+        {currentMatch ? (
+          (() => {
+            const userPred = predictions.find((p) => p.matchId === currentMatch.id);
+            const timeLeft = new Date(currentMatch.kickOff).getTime() - 30 * 60_000 - Date.now();
+            const isExpiringSoon = timeLeft > 0 && timeLeft < 2 * 3600 * 1000;
+
+            return (
+              <div className="player-next-match">
+                <TeamMark
+                  name={currentMatch.homeTeam}
+                  logo={currentMatch.homeTeamLogo}
+                  flag={currentMatch.homeFlag}
+                  align="end"
+                />
+                <div className="player-versus">
+                  {userPred ? (
+                    <div className="d-flex flex-column align-items-center">
+                      <div className="d-flex align-items-center gap-2 justify-content-center">
+                        <strong className="text-success fs-4 mb-0">{userPred.homeGuess}</strong>
+                        <span className="text-secondary fw-semibold">x</span>
+                        <strong className="text-success fs-4 mb-0">{userPred.awayGuess}</strong>
+                      </div>
+                      <small className="text-success mt-1" style={{ fontSize: '0.7rem', fontWeight: '800' }}>✓ PALPITE SALVO</small>
+                    </div>
+                  ) : (
+                    <div className="d-flex flex-column align-items-center">
+                      <div className="d-flex align-items-center gap-2 justify-content-center opacity-60">
+                        <strong className="text-secondary fs-4 mb-0">0</strong>
+                        <span className="text-secondary fw-semibold">x</span>
+                        <strong className="text-secondary fs-4 mb-0">0</strong>
+                      </div>
+                      <small className="text-danger mt-1" style={{ fontSize: '0.7rem', fontWeight: '800' }}>⚠️ PENDENTE</small>
+                    </div>
+                  )}
+                  <span className="mt-2 text-secondary" style={{ fontSize: '0.75rem' }}>
+                    {formatDateTimePtBr(currentMatch.kickOff)}
+                  </span>
+                  <span className="urgency-badge" style={isExpiringSoon ? { color: '#fb923c', backgroundColor: 'rgba(251, 146, 60, 0.12)', borderColor: 'rgba(251, 146, 60, 0.22)' } : {}}>
+                    <i className={isExpiringSoon ? "bi bi-exclamation-triangle-fill" : "bi bi-clock-fill"} aria-hidden="true" />{' '}
+                    {isExpiringSoon ? 'Expira em breve: ' : 'Expira em '}
+                    {formatRelativeWindowPtBr(new Date(new Date(currentMatch.kickOff).getTime() - 30 * 60_000))}
+                  </span>
+                </div>
+                <TeamMark
+                  name={currentMatch.awayTeam}
+                  logo={currentMatch.awayTeamLogo}
+                  flag={currentMatch.awayFlag}
+                  align="start"
+                />
+              </div>
+            );
+          })()
         ) : (
           <p className="player-empty-text">Não há partidas abertas para novos palpites agora.</p>
         )}
@@ -156,8 +361,10 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-side">
         <div className="player-panel-heading">
           <div>
-            <h3>Liderança do bolão</h3>
+            <span className="player-kicker">Topo do bolão</span>
+            <h3>Liderança</h3>
           </div>
+          <Link href={rankingHref} className="leaderboard-updated">Ver tudo</Link>
         </div>
         {leader ? (
           <div className="player-leader-row">
@@ -184,6 +391,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-main">
         <div className="player-panel-heading">
           <div>
+            <span className="player-kicker">Agenda pessoal</span>
             <h3>Seus próximos palpites</h3>
           </div>
         </div>
@@ -193,19 +401,9 @@ export function DashboardView({ user, data }: DashboardViewProps) {
               <div key={prediction.id} className="player-compact-prediction-row">
                 <small className="date-badge">{formatDateTimePtBr(match.kickOff)}</small>
                 <div className="teams-guess">
-                  <TeamMark
-                    name={match.homeTeam}
-                    logo={match.homeTeamLogo}
-                    flag={match.homeFlag}
-                    align="end"
-                  />
+                  <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
                   <span className="guess-pill">{prediction.homeGuess} x {prediction.awayGuess}</span>
-                  <TeamMark
-                    name={match.awayTeam}
-                    logo={match.awayTeamLogo}
-                    flag={match.awayFlag}
-                    align="start"
-                  />
+                  <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
                 </div>
               </div>
             ))}
@@ -218,6 +416,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-main">
         <div className="player-panel-heading">
           <div>
+            <span className="player-kicker">Pontuação recente</span>
             <h3>Últimos resultados</h3>
           </div>
         </div>
@@ -228,19 +427,9 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                 <div className="result-main-info">
                   <span className={`points-badge pts-${points}`}>+{points} pts</span>
                   <div className="teams-result">
-                    <TeamMark
-                      name={match.homeTeam}
-                      logo={match.homeTeamLogo}
-                      flag={match.homeFlag}
-                      align="end"
-                    />
+                    <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
                     <span className="score-pill">{match.homeScore} x {match.awayScore}</span>
-                    <TeamMark
-                      name={match.awayTeam}
-                      logo={match.awayTeamLogo}
-                      flag={match.awayFlag}
-                      align="start"
-                    />
+                    <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
                   </div>
                 </div>
                 <small className="guess-label">Palpite: {prediction.homeGuess} x {prediction.awayGuess}</small>
@@ -255,34 +444,35 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-side">
         <div className="player-panel-heading">
           <div>
-            <h3>Regras de pontuação</h3>
+            <span className="player-kicker">Regras</span>
+            <h3>Pontuação</h3>
           </div>
         </div>
         <div className="player-rule-grid">
           <div>
-            <span className="rule-icon">🎯</span>
+            <span className="rule-icon"><i className="bi bi-bullseye" aria-hidden="true" /></span>
             <span className="rule-label">Exato</span>
             <strong>{activeLeague.pointsExact}</strong>
           </div>
           <div>
-            <span className="rule-icon">⚖️</span>
+            <span className="rule-icon"><i className="bi bi-sliders" aria-hidden="true" /></span>
             <span className="rule-label">Saldo</span>
             <strong>{activeLeague.pointsDiff}</strong>
           </div>
           <div>
-            <span className="rule-icon">🏆</span>
+            <span className="rule-icon"><i className="bi bi-trophy" aria-hidden="true" /></span>
             <span className="rule-label">Vitória</span>
             <strong>{activeLeague.pointsWinner}</strong>
           </div>
           <div>
-            <span className="rule-icon">🤝</span>
+            <span className="rule-icon"><i className="bi bi-shuffle" aria-hidden="true" /></span>
             <span className="rule-label">Empate</span>
             <strong>{activeLeague.pointsDraw}</strong>
           </div>
         </div>
         <div className="player-dashboard-note">
           <i className="bi bi-shield-check" aria-hidden="true" />
-          <span>{formatJoinPolicyPtBr(activeLeague.joinPolicy)} • Máximo de {activeLeague.maxEdits} edições por jogo</span>
+          <span>{formatJoinPolicyPtBr(activeLeague.joinPolicy)} - máximo de {activeLeague.maxEdits} edições por jogo</span>
         </div>
       </section>
     </div>
