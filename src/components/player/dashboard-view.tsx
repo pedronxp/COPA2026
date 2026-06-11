@@ -13,6 +13,7 @@ import {
 } from '@/lib/pt-br-format';
 import { ActiveLeagueSwitcher } from './active-league-switcher';
 import { TeamMark } from './team-mark';
+import { getMatchWindowState } from './matches-view-model';
 
 interface DashboardViewProps {
   user: SessionUser;
@@ -29,6 +30,8 @@ export function DashboardView({ user, data }: DashboardViewProps) {
     upcomingPredictions,
   } = data;
   const { activeLeague, options } = leagueContext;
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const leader = members[0] || null;
   const finishedCount = matches.filter((match) => match.status === 'finished').length;
   const scheduledCount = matches.filter((match) => match.status === 'scheduled').length;
@@ -49,13 +52,22 @@ export function DashboardView({ user, data }: DashboardViewProps) {
   const rankingHref = activeLeague.slug === 'global' ? '/leaderboard' : `/leaderboard?league=${activeLeague.slug}`;
   const userRankSummary = activeLeague.userRank ? `${userRankLabel} lugar` : 'sem posição';
 
-  // Lógica do carrossel para os próximos jogos
+  // Lógica do carrossel para os próximos jogos (apenas confrontos definidos e mercado aberto)
   const carouselMatches = matches
-    .filter((match) => match.status === 'scheduled' || match.status === 'live')
-    .sort((a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime());
+    .filter((match) => {
+      // 1. Confronto definido (se for eliminatória e tiver labels provisórios, verifica se os times foram preenchidos)
+      const isHomeTBD = match.homeLabel && (!match.homeTeam || match.homeTeam === match.homeLabel);
+      const isAwayTBD = match.awayLabel && (!match.awayTeam || match.awayTeam === match.awayLabel);
+      if (match.stage !== 'group' && (isHomeTBD || isAwayTBD)) {
+        return false;
+      }
 
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+      // 2. Mercado de palpites aberto
+      const pred = predictions.find((p) => p.matchId === match.id) ?? null;
+      const windowState = getMatchWindowState(match, activeLeague, pred, nowMs);
+      return windowState.windowStatus === 'open';
+    })
+    .sort((a, b) => new Date(a.kickOff).getTime() - new Date(b.kickOff).getTime());
 
   // Rotação automática a cada 5 segundos
   useEffect(() => {

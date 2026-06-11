@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { LeagueShell } from '@/components/leagues/league-shell';
+import { PlayerAppShell } from '@/components/player/app-shell';
+import { getActiveLeagueContext } from '@/lib/active-league';
 import { requireUser } from '@/lib/session';
 import './leagues.css';
 
@@ -10,6 +11,11 @@ export const metadata: Metadata = {
 
 export default async function LeaguesLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser('/leagues');
+  const leagueContext = await getActiveLeagueContext(user.id);
 
-  return <LeagueShell user={user}>{children}</LeagueShell>;
+  return (
+    <PlayerAppShell activeRoute="leagues" user={user} leagueContext={leagueContext}>
+      {children}
+    </PlayerAppShell>
+  );
 }

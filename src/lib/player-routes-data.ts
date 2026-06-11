@@ -69,6 +69,9 @@ export interface LeaderboardData extends PlayerRouteData {
   podium: PlayerMemberRow[];
 }
 
+export type ResultsData = PlayerRouteData;
+export type HistoryData = PlayerRouteData;
+
 function rankMembers<T extends { id: string; points: number }>(members: T[]) {
   let previousPoints: number | null = null;
   let sharedRank = 0;
@@ -217,6 +220,20 @@ export async function getMatchesPageData(
   userId: string,
   requestedLeague?: string | string[] | null,
 ) {
+  return getBasePlayerRouteData(userId, requestedLeague);
+}
+
+export async function getResultsData(
+  userId: string,
+  requestedLeague?: string | string[] | null,
+): Promise<ResultsData> {
+  return getBasePlayerRouteData(userId, requestedLeague);
+}
+
+export async function getHistoryData(
+  userId: string,
+  requestedLeague?: string | string[] | null,
+): Promise<HistoryData> {
   return getBasePlayerRouteData(userId, requestedLeague);
 }
 
