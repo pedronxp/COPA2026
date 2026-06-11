@@ -156,15 +156,15 @@ export default async function LandingPage() {
               return (
                 <div className="scoreboard-match animate__animated animate__fadeIn" key={match.id}>
                   <div>
-                    <strong>{translateTeamName(match.homeTeam)}</strong>
+                    <strong className="notranslate" translate="no">{translateTeamName(match.homeTeam)}</strong>
                     {isLiveOrFinished ? (
-                      <span className={match.status === 'live' ? 'text-neon-green animate__animated animate__pulse animate__infinite mx-2' : 'text-secondary mx-2'}>
+                      <span className={`${match.status === 'live' ? 'text-neon-green animate__animated animate__pulse animate__infinite mx-2' : 'text-secondary mx-2'} notranslate`} translate="no">
                         {match.homeScore} x {match.awayScore}
                       </span>
                     ) : (
-                      <span>x</span>
+                      <span className="notranslate" translate="no">x</span>
                     )}
-                    <strong>{translateTeamName(match.awayTeam)}</strong>
+                    <strong className="notranslate" translate="no">{translateTeamName(match.awayTeam)}</strong>
                   </div>
                   <div>
                     {match.status === 'live' ? (

@@ -185,7 +185,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                     />
                     {userPred ? (
                       <div className="d-flex flex-column align-items-center justify-content-center">
-                        <div className="d-flex align-items-center gap-2 justify-content-center">
+                        <div className="d-flex align-items-center gap-2 justify-content-center notranslate" translate="no">
                           <strong className="fs-4 text-success mb-0">{userPred.homeGuess}</strong>
                           <span className="text-secondary fw-semibold">x</span>
                           <strong className="fs-4 text-success mb-0">{userPred.awayGuess}</strong>
@@ -196,7 +196,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                       </div>
                     ) : (
                       <div className="d-flex flex-column align-items-center justify-content-center">
-                        <div className="d-flex align-items-center gap-2 justify-content-center opacity-60">
+                        <div className="d-flex align-items-center gap-2 justify-content-center opacity-60 notranslate" translate="no">
                           <strong className="fs-4 text-secondary mb-0">0</strong>
                           <span className="text-secondary fw-semibold">x</span>
                           <strong className="fs-4 text-secondary mb-0">0</strong>
@@ -337,7 +337,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                 <div className="player-versus">
                   {userPred ? (
                     <div className="d-flex flex-column align-items-center">
-                      <div className="d-flex align-items-center gap-2 justify-content-center">
+                      <div className="d-flex align-items-center gap-2 justify-content-center notranslate" translate="no">
                         <strong className="text-success fs-4 mb-0">{userPred.homeGuess}</strong>
                         <span className="text-secondary fw-semibold">x</span>
                         <strong className="text-success fs-4 mb-0">{userPred.awayGuess}</strong>
@@ -346,7 +346,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                     </div>
                   ) : (
                     <div className="d-flex flex-column align-items-center">
-                      <div className="d-flex align-items-center gap-2 justify-content-center opacity-60">
+                      <div className="d-flex align-items-center gap-2 justify-content-center opacity-60 notranslate" translate="no">
                         <strong className="text-secondary fs-4 mb-0">0</strong>
                         <span className="text-secondary fw-semibold">x</span>
                         <strong className="text-secondary fs-4 mb-0">0</strong>
@@ -434,7 +434,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                     </span>
                     <div className="teams-result">
                       <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
-                      <span className="score-pill border-danger text-danger bg-danger bg-opacity-5" style={{ fontWeight: 800 }}>
+                      <span className="score-pill border-danger text-danger bg-danger bg-opacity-5 notranslate" translate="no" style={{ fontWeight: 800 }}>
                         {match.homeScore} x {match.awayScore}
                       </span>
                       <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
@@ -498,7 +498,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                   <span className={`points-badge pts-${points}`}>+{points} pts</span>
                   <div className="teams-result">
                     <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
-                    <span className="score-pill">{match.homeScore} x {match.awayScore}</span>
+                    <span className="score-pill notranslate" translate="no">{match.homeScore} x {match.awayScore}</span>
                     <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
                   </div>
                 </div>

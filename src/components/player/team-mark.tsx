@@ -22,7 +22,7 @@ export function TeamMark({ name, logo, flag, align = 'center' }: TeamMarkProps) 
   const translatedName = translateTeamName(name);
 
   return (
-    <div className={`player-team-mark align-${align}`}>
+    <div className={`player-team-mark align-${align} notranslate`} translate="no">
       <span className="player-team-badge">
         {logo ? (
           <img src={logo} alt="" />
