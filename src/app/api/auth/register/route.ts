@@ -1,74 +1,96 @@
-// src/app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
+import { createSession, getSessionCookieOptions, SESSION_COOKIE_NAME } from '@/lib/session';
+import {
+  isValidEmail,
+  isValidPassword,
+  normalizeEmail,
+  readStringField,
+} from '@/lib/auth-validation';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, password, image } = body;
+    const name = readStringField(body, 'name');
+    const email = readStringField(body, 'email');
+    const password = readStringField(body, 'password');
+    const image = readStringField(body, 'image');
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'E-mail e senha são obrigatórios.' }, { status: 400 });
+      return NextResponse.json({ error: 'E-mail e senha sao obrigatorios.' }, { status: 400 });
     }
 
-    // Normalizar e-mail
-    const emailNorm = email.toLowerCase().trim();
+    if (!isValidEmail(email) || !isValidPassword(password)) {
+      return NextResponse.json(
+        { error: 'Informe um e-mail valido e senha com pelo menos 8 caracteres.' },
+        { status: 400 },
+      );
+    }
 
-    // Verificar se já existe usuário
+    const emailNorm = normalizeEmail(email);
+    const rateLimit = checkRateLimit(`register:${getClientIp(request)}:${emailNorm}`, {
+      limit: 4,
+      windowMs: 60 * 60_000,
+    });
+    if (rateLimit.limited) {
+      return NextResponse.json(
+        { error: 'Muitas tentativas. Tente novamente mais tarde.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } },
+      );
+    }
+
     const existing = await prisma.user.findUnique({
       where: { email: emailNorm },
     });
 
     if (existing) {
-      return NextResponse.json({ error: 'Este e-mail já está cadastrado.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Este e-mail já está cadastrado.', code: 'email_already_registered' },
+        { status: 400 },
+      );
     }
 
-    const passwordHash = hashPassword(password);
-
-    // Criar o usuário no banco de dados
     const user = await prisma.user.create({
       data: {
         name: name || 'Torcedor',
         email: emailNorm,
-        passwordHash,
-        image: image || '⚽',
+        passwordHash: hashPassword(password),
+        image: image || 'CDC',
         points: 0,
       },
     });
 
-    // Inserir automaticamente o usuário como membro do bolão global
-    // Primeiro verifica se o bolão global existe (caso contrário o seed não rodou)
     let globalLeague = await prisma.league.findUnique({ where: { id: 'global' } });
     if (!globalLeague) {
-      // Se não existir por algum motivo, cria
       globalLeague = await prisma.league.create({
         data: {
           id: 'global',
-          name: 'Bolão Global da Copa',
-          description: 'O bolão oficial da plataforma para todos os torcedores.',
+          name: 'Bolao Global da Copa',
+          description: 'O bolao oficial da plataforma para todos os torcedores.',
           inviteCode: 'COPA-GLOBAL',
-          ownerId: user.id, // define temporariamente como dono
+          ownerId: user.id,
           expiresAt: new Date('2026-08-01T00:00:00Z'),
-        }
+        },
       });
     }
 
-    // Vincular usuário ao bolão global
     await prisma.leagueMember.upsert({
       where: {
-        leagueId_userId: { leagueId: 'global', userId: user.id }
+        leagueId_userId: { leagueId: 'global', userId: user.id },
       },
       update: {},
       create: {
-        leagueId: 'global',
+        leagueId: globalLeague.id,
         userId: user.id,
         role: 'member',
         points: 0,
-      }
+      },
     });
 
-    return NextResponse.json({
+    const { sessionToken, expires } = await createSession(user.id);
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -76,9 +98,15 @@ export async function POST(request: Request) {
         email: user.email,
         image: user.image,
         points: user.points,
-      }
+        streak: user.streak,
+        misses: user.misses,
+      },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Erro no cadastro.' }, { status: 500 });
+
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, getSessionCookieOptions(expires));
+    return response;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro no cadastro.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
