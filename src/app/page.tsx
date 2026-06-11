@@ -44,7 +44,7 @@ export default async function LandingPage() {
   // Buscar partidas futuras (não terminadas) que começam a partir de agora ou começaram há até 3h
   let activeMatches = await prisma.match.findMany({
     where: {
-      status: { in: ['upcoming', 'live'] },
+      status: { in: ['scheduled', 'live'] },
       kickOff: { gte: new Date(now.getTime() - 3 * 60 * 60 * 1000) },
     },
     orderBy: {
@@ -75,10 +75,32 @@ export default async function LandingPage() {
         },
       },
     });
-    activeMatches = [...activeMatches, ...completedMatches].sort(
-      (a, b) => a.kickOff.getTime() - b.kickOff.getTime()
-    );
+    activeMatches = [...activeMatches, ...completedMatches];
   }
+
+  // Se ainda houver menos de 3 partidas, buscar qualquer outra partida disponível para garantir que não fique em branco
+  if (activeMatches.length < 3) {
+    const existingIds = activeMatches.map((m) => m.id);
+    const fallbackCount = 3 - activeMatches.length;
+    const remainingMatches = await prisma.match.findMany({
+      where: {
+        id: { notIn: existingIds },
+      },
+      orderBy: {
+        kickOff: 'asc',
+      },
+      take: fallbackCount,
+      include: {
+        _count: {
+          select: { predictions: true },
+        },
+      },
+    });
+    activeMatches = [...activeMatches, ...remainingMatches];
+  }
+
+  // Ordenar cronologicamente por horário de início
+  activeMatches.sort((a, b) => a.kickOff.getTime() - b.kickOff.getTime());
 
   return (
     <main className="landing-page">
