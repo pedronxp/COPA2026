@@ -1025,21 +1025,38 @@ body {
   margin-top: auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px;
+  justify-content: center;
+  gap: 0;
+  padding: 5px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.6);
   min-width: 0;
   position: relative;
-  transition: border-color 0.25s ease, background-color 0.25s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .player-sidebar:hover .player-sidebar-user,
 .player-sidebar:focus-within .player-sidebar-user {
   border-color: rgba(148, 163, 184, 0.24);
   background: rgba(15, 23, 42, 0.82);
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+}
+
+.player-sidebar-user .user-meta,
+.player-sidebar-user .player-logout-btn {
+  position: absolute;
+  visibility: hidden;
+}
+
+.player-sidebar:hover .player-sidebar-user .user-meta,
+.player-sidebar:focus-within .player-sidebar-user .user-meta,
+.player-sidebar:hover .player-sidebar-user .player-logout-btn,
+.player-sidebar:focus-within .player-sidebar-user .player-logout-btn {
+  position: static;
+  visibility: visible;
 }
 
 .player-sidebar-user .user-avatar {

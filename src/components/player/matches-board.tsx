@@ -313,21 +313,23 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               { key: 'bothYes', label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, title: 'Ambas Marcam Sim' },
               { key: 'bothNo', label: 'Ambas não', points: activeLeague.pointsBothScoreNo, title: 'Ambas Marcam Não' },
             ] as const
-          ).map((rule) => (
-            <button
-              key={rule.key}
-              type="button"
-              className={`matches-rule-btn-item ${activeRuleHelp === rule.key ? 'active' : ''}`}
-              onClick={() => setActiveRuleHelp(activeRuleHelp === rule.key ? null : rule.key)}
-              title={`Clique para ver detalhes sobre a regra de ${rule.title}`}
-            >
-              <span className="matches-rule-btn-content">
-                {renderRuleIcon(rule.key)}
-                <span className="matches-rule-label">{rule.label}</span>
-              </span>
-              <strong>{rule.points}</strong>
-            </button>
-          ))}
+          )
+            .filter((rule) => rule.points > 0)
+            .map((rule) => (
+              <button
+                key={rule.key}
+                type="button"
+                className={`matches-rule-btn-item ${activeRuleHelp === rule.key ? 'active' : ''}`}
+                onClick={() => setActiveRuleHelp(activeRuleHelp === rule.key ? null : rule.key)}
+                title={`Clique para ver detalhes sobre a regra de ${rule.title}`}
+              >
+                <span className="matches-rule-btn-content">
+                  {renderRuleIcon(rule.key)}
+                  <span className="matches-rule-label">{rule.label}</span>
+                </span>
+                <strong>{rule.points}</strong>
+              </button>
+            ))}
         </div>
       </section>
 

@@ -461,15 +461,22 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-main">
         <div className="player-panel-heading">
           <div>
-            <span className="player-kicker">Agenda pessoal</span>
-            <h3>Seus próximos palpites</h3>
+            <h3>Seus palpites</h3>
           </div>
         </div>
         {upcomingPredictions.length > 0 ? (
           <div className="player-compact-list flex-list">
             {upcomingPredictions.map(({ prediction, match }) => (
               <div key={prediction.id} className="player-compact-prediction-row">
-                <small className="date-badge">{formatDateTimePtBr(match.kickOff)}</small>
+                <div className="d-flex align-items-center gap-2 mb-1.5 flex-wrap">
+                  <small className="date-badge mb-0">{formatDateTimePtBr(match.kickOff)}</small>
+                  {match.status === 'live' && (
+                    <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20 d-inline-flex align-items-center gap-1.5" style={{ fontSize: '0.65rem', padding: '0.2rem 0.45rem', fontWeight: 800 }}>
+                      <span className="live-pulse" />
+                      Ao vivo
+                    </span>
+                  )}
+                </div>
                 <div className="teams-guess">
                   <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
                   <span className="guess-pill">{prediction.homeGuess} x {prediction.awayGuess}</span>
@@ -519,41 +526,25 @@ export function DashboardView({ user, data }: DashboardViewProps) {
           </div>
         </div>
         <div className="player-rule-grid">
-          <div>
-            <span className="rule-icon"><i className="bi bi-bullseye" aria-hidden="true" /></span>
-            <span className="rule-label">Exato</span>
-            <strong>{activeLeague.pointsExact}</strong>
-          </div>
-          <div>
-            <span className="rule-icon"><i className="bi bi-sliders" aria-hidden="true" /></span>
-            <span className="rule-label">Saldo</span>
-            <strong>{activeLeague.pointsDiff}</strong>
-          </div>
-          <div>
-            <span className="rule-icon"><i className="bi bi-house-door" aria-hidden="true" /></span>
-            <span className="rule-label">Casa</span>
-            <strong>{activeLeague.pointsWinnerHome}</strong>
-          </div>
-          <div>
-            <span className="rule-icon"><i className="bi bi-shuffle" aria-hidden="true" /></span>
-            <span className="rule-label">Empate</span>
-            <strong>{activeLeague.pointsDraw}</strong>
-          </div>
-          <div>
-            <span className="rule-icon"><i className="bi bi-airplane" aria-hidden="true" /></span>
-            <span className="rule-label">Fora</span>
-            <strong>{activeLeague.pointsWinnerAway}</strong>
-          </div>
-          <div>
-            <span className="rule-icon"><i className="bi bi-check2-circle" aria-hidden="true" /></span>
-            <span className="rule-label">Ambas sim</span>
-            <strong>{activeLeague.pointsBothScoreYes}</strong>
-          </div>
-          <div>
-            <span className="rule-icon"><i className="bi bi-x-circle" aria-hidden="true" /></span>
-            <span className="rule-label">Ambas nao</span>
-            <strong>{activeLeague.pointsBothScoreNo}</strong>
-          </div>
+          {[
+            { label: 'Exato', points: activeLeague.pointsExact, icon: 'bi-bullseye' },
+            { label: 'Saldo', points: activeLeague.pointsDiff, icon: 'bi-sliders' },
+            { label: 'Casa', points: activeLeague.pointsWinnerHome, icon: 'bi-house-door' },
+            { label: 'Empate', points: activeLeague.pointsDraw, icon: 'bi-shuffle' },
+            { label: 'Fora', points: activeLeague.pointsWinnerAway, icon: 'bi-airplane' },
+            { label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, icon: 'bi-check2-circle' },
+            { label: 'Ambas nao', points: activeLeague.pointsBothScoreNo, icon: 'bi-x-circle' },
+          ]
+            .filter((rule) => rule.points > 0)
+            .map((rule, idx) => (
+              <div key={idx}>
+                <span className="rule-icon">
+                  <i className={`bi ${rule.icon}`} aria-hidden="true" />
+                </span>
+                <span className="rule-label">{rule.label}</span>
+                <strong>{rule.points}</strong>
+              </div>
+            ))}
         </div>
         <div className="player-dashboard-note">
           <i className="bi bi-shield-check" aria-hidden="true" />
