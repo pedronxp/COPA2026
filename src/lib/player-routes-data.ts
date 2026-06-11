@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import {
   type ActiveLeagueContext,
   getActiveLeagueContext,
@@ -83,7 +83,7 @@ function rankMembers<T extends { id: string; points: number }>(members: T[]) {
 
 async function getMembersForLeague(leagueId: string): Promise<PlayerMemberRow[]> {
   if (leagueId === 'global') {
-    const users = await prisma.user.findMany({
+    const users = await withRetry(() => prisma.user.findMany({
       where: { NOT: { id: 'system' } },
       orderBy: [{ points: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
       select: {
@@ -94,7 +94,7 @@ async function getMembersForLeague(leagueId: string): Promise<PlayerMemberRow[]>
         streak: true,
         misses: true,
       },
-    });
+    }));
     return rankMembers(
       users.map((user) => ({
         id: user.id,
@@ -109,7 +109,7 @@ async function getMembersForLeague(leagueId: string): Promise<PlayerMemberRow[]>
     );
   }
 
-  const members = await prisma.leagueMember.findMany({
+  const members = await withRetry(() => prisma.leagueMember.findMany({
     where: { leagueId, status: 'active' },
     orderBy: [{ points: 'desc' }, { joinedAt: 'asc' }, { userId: 'asc' }],
     select: {
@@ -126,7 +126,7 @@ async function getMembersForLeague(leagueId: string): Promise<PlayerMemberRow[]>
         },
       },
     },
-  });
+  }));
 
   return rankMembers(
     members.map((member) => ({

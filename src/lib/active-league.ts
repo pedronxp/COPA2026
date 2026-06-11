@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
+import { prisma, withRetry } from '@/lib/prisma';
 import { ACTIVE_LEAGUE_COOKIE } from '@/lib/active-league-cookie';
 
 export { ACTIVE_LEAGUE_COOKIE };
@@ -56,7 +56,7 @@ function matchesLeagueReference(league: ActiveLeagueOption, reference: string) {
 }
 
 async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption> {
-  const [league, user, memberCount, rankedRows] = await Promise.all([
+  const league = await withRetry(() =>
     prisma.league.findUnique({
       where: { id: 'global' },
       select: {
@@ -78,17 +78,14 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
         lastPublishedAt: true,
       },
     }),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { points: true },
-    }),
-    prisma.user.count({ where: { NOT: { id: 'system' } } }),
+  );
+  const rankedRows = await withRetry(() =>
     prisma.user.findMany({
       where: { NOT: { id: 'system' } },
       orderBy: [{ points: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
       select: { id: true, points: true, createdAt: true },
     }),
-  ]);
+  );
 
   const ranking = rankRows(
     rankedRows.map((row) => ({
@@ -98,6 +95,7 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
     })),
   );
   const currentRank = ranking.find((row) => row.userId === userId)?.rank ?? null;
+  const currentUser = rankedRows.find((row) => row.id === userId);
 
   return {
     id: 'global',
@@ -109,10 +107,10 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
     joinPolicy: league?.joinPolicy || 'open',
     status: league?.status || 'active',
     userRole: 'member',
-    userPoints: user?.points ?? 0,
+    userPoints: currentUser?.points ?? 0,
     userPendingPoints: 0,
     userRank: currentRank,
-    memberCount,
+    memberCount: rankedRows.length,
     windowHours: league?.windowHours ?? 48,
     maxEdits: league?.maxEdits ?? 3,
     pointsExact: league?.pointsExact ?? 5,
@@ -126,42 +124,46 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
 }
 
 async function getMemberLeagueOptions(userId: string): Promise<ActiveLeagueOption[]> {
-  const memberships = await prisma.leagueMember.findMany({
-    where: {
-      userId,
-      status: 'active',
-      leagueId: { not: 'global' },
-    },
-    include: {
-      league: {
-        include: {
-          _count: {
-            select: { members: { where: { status: 'active' } } },
+  const memberships = await withRetry(() =>
+    prisma.leagueMember.findMany({
+      where: {
+        userId,
+        status: 'active',
+        leagueId: { not: 'global' },
+      },
+      include: {
+        league: {
+          include: {
+            _count: {
+              select: { members: { where: { status: 'active' } } },
+            },
           },
         },
       },
-    },
-    orderBy: { league: { createdAt: 'desc' } },
-  });
+      orderBy: { league: { createdAt: 'desc' } },
+    }),
+  );
 
   if (memberships.length === 0) return [];
 
   const leagueIds = memberships.map((membership) => membership.leagueId);
-  const rankedRows = await prisma.leagueMember.findMany({
-    where: { leagueId: { in: leagueIds }, status: 'active' },
-    orderBy: [
-      { leagueId: 'asc' },
-      { points: 'desc' },
-      { joinedAt: 'asc' },
-      { userId: 'asc' },
-    ],
-    select: {
-      leagueId: true,
-      userId: true,
-      points: true,
-      joinedAt: true,
-    },
-  });
+  const rankedRows = await withRetry(() =>
+    prisma.leagueMember.findMany({
+      where: { leagueId: { in: leagueIds }, status: 'active' },
+      orderBy: [
+        { leagueId: 'asc' },
+        { points: 'desc' },
+        { joinedAt: 'asc' },
+        { userId: 'asc' },
+      ],
+      select: {
+        leagueId: true,
+        userId: true,
+        points: true,
+        joinedAt: true,
+      },
+    }),
+  );
 
   const ranksByLeague = new Map<string, { userId: string; rank: number }[]>();
   for (const leagueId of leagueIds) {
@@ -214,10 +216,8 @@ export async function getActiveLeagueContext(
   const remembered = cookieStore.get(ACTIVE_LEAGUE_COOKIE)?.value?.trim() || null;
   const preferred = requested || remembered || 'global';
 
-  const [globalLeague, memberLeagues] = await Promise.all([
-    getGlobalLeagueOption(userId),
-    getMemberLeagueOptions(userId),
-  ]);
+  const globalLeague = await getGlobalLeagueOption(userId);
+  const memberLeagues = await getMemberLeagueOptions(userId);
   const options = [globalLeague, ...memberLeagues];
   const activeLeague =
     options.find((league) => matchesLeagueReference(league, preferred)) || globalLeague;

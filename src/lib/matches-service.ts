@@ -1,6 +1,6 @@
 // src/lib/matches-service.ts
 // Serviço de dados do bolão - 100% Prisma, sem mock, sem fallback em memória
-import { prisma } from './prisma';
+import { prisma, withRetry } from './prisma';
 import type { Prisma } from '@prisma/client';
 import { fetchGames, fetchTeams, type ApiTeam } from './football-api';
 import { translateTeamName } from './team-translation';
@@ -125,10 +125,10 @@ export function calculatePredictionPoints(
  * Garante que o usuário existe no banco de dados para evitar violações de integridade.
  */
 export async function ensureUserExists(userId: string): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await withRetry(() => prisma.user.findUnique({ where: { id: userId } }));
   if (!user) {
     if (userId === 'currentUser') {
-      await prisma.user.create({
+      await withRetry(() => prisma.user.create({
         data: {
           id: 'currentUser',
           name: 'Você (Torcedor)',
@@ -138,9 +138,9 @@ export async function ensureUserExists(userId: string): Promise<void> {
           streak: 0,
           misses: 0,
         },
-      });
+      }));
     } else {
-      await prisma.user.create({
+      await withRetry(() => prisma.user.create({
         data: {
           id: userId,
           name: `Competidor ${userId.substring(0, 5)}`,
@@ -150,7 +150,7 @@ export async function ensureUserExists(userId: string): Promise<void> {
           streak: 0,
           misses: 0,
         },
-      });
+      }));
     }
   }
 }
@@ -175,7 +175,7 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
     }
   }
 
-  const dbMatches = await prisma.match.findMany({
+  const dbMatches = await withRetry(() => prisma.match.findMany({
     where,
     orderBy: { kickOff: 'asc' },
     include: {
@@ -183,7 +183,7 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
         select: { predictions: true },
       },
     },
-  });
+  }));
 
   return dbMatches.map(m => ({
     id: m.id,
@@ -213,9 +213,9 @@ export async function getMatches(filter?: { stage?: string; group?: string }): P
  */
 export async function getUsers(): Promise<UserProfile[]> {
   await ensureUserExists('currentUser');
-  const dbUsers = await prisma.user.findMany({
+  const dbUsers = await withRetry(() => prisma.user.findMany({
     orderBy: { points: 'desc' },
-  });
+  }));
 
   return dbUsers.map(u => ({
     id: u.id,
@@ -237,9 +237,9 @@ export async function getPredictions(userId: string, leagueId?: string): Promise
   if (leagueId) {
     where.leagueId = leagueId;
   }
-  const dbPreds = await prisma.prediction.findMany({
+  const dbPreds = await withRetry(() => prisma.prediction.findMany({
     where,
-  });
+  }));
 
   return dbPreds.map(p => ({
     id: p.id,

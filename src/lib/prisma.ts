@@ -24,7 +24,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 function isConnectionError(error: unknown): boolean {
   // Erros conhecidos do Prisma: P1001 = não conseguiu conectar, P1017 = servidor fechou conexão
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return ['P1001', 'P1017'].includes(error.code);
+    return ['P1001', 'P1017', 'P2024'].includes(error.code);
   }
   // Erros de inicialização: timeout de connection pool, SSL, etc.
   if (error instanceof Prisma.PrismaClientInitializationError) {
