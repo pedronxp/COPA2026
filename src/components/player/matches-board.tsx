@@ -34,23 +34,6 @@ function buildInitialGuesses(data: PlayerRouteData) {
   ) as Record<string, { home: string; away: string }>;
 }
 
-function StatCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone?: 'green' | 'cyan' | 'yellow' | 'red';
-}) {
-  return (
-    <div className={`matches-summary-card ${tone || ''}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 function MatchStatsBar({ item }: { item: MatchViewModel }) {
   const stats = item.stats;
   if (!stats || stats.total === 0) {
@@ -79,6 +62,34 @@ function MatchStatsBar({ item }: { item: MatchViewModel }) {
   );
 }
 
+const RULE_EXPLANATIONS = {
+  exact: {
+    title: 'Placar Exato',
+    desc: 'Você ganha estes pontos se acertar o placar cheio do jogo. Exemplo: seu palpite foi 2x1 e o jogo terminou 2x1.',
+    icon: 'bi-bullseye'
+  },
+  diff: {
+    title: 'Saldo Correto',
+    desc: 'Você ganha estes pontos se acertar o vencedor da partida e a diferença exata de gols, mas errar o número de gols. Exemplo: seu palpite foi 2x0 e o jogo terminou 3x1.',
+    icon: 'bi-sliders'
+  },
+  winnerHome: {
+    title: 'Vitória do Mandante (Casa)',
+    desc: 'Você ganha estes pontos se acertar apenas o vencedor (time da casa), sem acertar o placar exato ou o saldo correto de gols. Exemplo: seu palpite foi 2x1 e o jogo terminou 1x0.',
+    icon: 'bi-house-door'
+  },
+  draw: {
+    title: 'Empate Correto',
+    desc: 'Você ganha estes pontos se acertar que a partida terminará empatada, mas com número de gols diferente do seu palpite. Exemplo: seu palpite foi 1x1 e o jogo terminou 2x2.',
+    icon: 'bi-shuffle'
+  },
+  winnerAway: {
+    title: 'Vitória do Visitante',
+    desc: 'Você ganha estes pontos se acertar apenas o vencedor (time visitante), sem acertar o placar exato ou o saldo correto de gols. Exemplo: seu palpite foi 1x2 e o jogo terminou 0x3.',
+    icon: 'bi-airplane'
+  }
+} as const;
+
 export function MatchesBoard({ data }: MatchesBoardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -96,6 +107,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     editCount: number;
     maxEdits: number;
   } | null>(null);
+  const [activeRuleHelp, setActiveRuleHelp] = useState<keyof typeof RULE_EXPLANATIONS | null>(null);
   const activeLeague = data.leagueContext.activeLeague;
 
   const viewModels = useMemo(
@@ -120,8 +132,6 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     [filter, viewModels],
   );
   const sections = useMemo(() => groupMatchViewModels(visibleMatches), [visibleMatches]);
-  const completion =
-    counts.total === 0 ? 0 : Math.round((counts.saved / counts.total) * 100);
 
   function setGuess(matchId: string, side: 'home' | 'away', value: string) {
     if (value !== '' && !/^\d{0,2}$/.test(value)) return;
@@ -212,28 +222,86 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
         </div>
 
         <div className="matches-rules-grid" aria-label="Regras de pontuacao">
-          <span>Exato <strong>{activeLeague.pointsExact}</strong></span>
-          <span>Saldo <strong>{activeLeague.pointsDiff}</strong></span>
-          <span>Casa <strong>{activeLeague.pointsWinnerHome}</strong></span>
-          <span>Empate <strong>{activeLeague.pointsDraw}</strong></span>
-          <span>Visitante <strong>{activeLeague.pointsWinnerAway}</strong></span>
+          <button
+            type="button"
+            className={`matches-rule-btn-item ${activeRuleHelp === 'exact' ? 'active' : ''}`}
+            onClick={() => setActiveRuleHelp(activeRuleHelp === 'exact' ? null : 'exact')}
+            title="Clique para ver detalhes sobre a regra de Placar Exato"
+          >
+            <span>Exato</span>
+            <strong>{activeLeague.pointsExact}</strong>
+          </button>
+          <button
+            type="button"
+            className={`matches-rule-btn-item ${activeRuleHelp === 'diff' ? 'active' : ''}`}
+            onClick={() => setActiveRuleHelp(activeRuleHelp === 'diff' ? null : 'diff')}
+            title="Clique para ver detalhes sobre a regra de Saldo de Gols"
+          >
+            <span>Saldo</span>
+            <strong>{activeLeague.pointsDiff}</strong>
+          </button>
+          <button
+            type="button"
+            className={`matches-rule-btn-item ${activeRuleHelp === 'winnerHome' ? 'active' : ''}`}
+            onClick={() => setActiveRuleHelp(activeRuleHelp === 'winnerHome' ? null : 'winnerHome')}
+            title="Clique para ver detalhes sobre a regra de Vitória do Mandante (Casa)"
+          >
+            <span>Casa</span>
+            <strong>{activeLeague.pointsWinnerHome}</strong>
+          </button>
+          <button
+            type="button"
+            className={`matches-rule-btn-item ${activeRuleHelp === 'draw' ? 'active' : ''}`}
+            onClick={() => setActiveRuleHelp(activeRuleHelp === 'draw' ? null : 'draw')}
+            title="Clique para ver detalhes sobre a regra de Empate"
+          >
+            <span>Empate</span>
+            <strong>{activeLeague.pointsDraw}</strong>
+          </button>
+          <button
+            type="button"
+            className={`matches-rule-btn-item ${activeRuleHelp === 'winnerAway' ? 'active' : ''}`}
+            onClick={() => setActiveRuleHelp(activeRuleHelp === 'winnerAway' ? null : 'winnerAway')}
+            title="Clique para ver detalhes sobre a regra de Vitória do Visitante"
+          >
+            <span>Visitante</span>
+            <strong>{activeLeague.pointsWinnerAway}</strong>
+          </button>
         </div>
       </section>
 
-      <section className="matches-summary-grid" aria-label="Resumo dos palpites">
-        <StatCard label="Abertos" value={counts.open} tone="green" />
-        <StatCard label="Sem palpite" value={counts.unsaved} tone="yellow" />
-        <StatCard label="Salvos" value={counts.saved} tone="cyan" />
-        <StatCard label="Em breve" value={counts.upcoming} />
-        <StatCard label="Bloqueados" value={counts.locked + counts.live + counts.finished} tone="red" />
-        <div className="matches-progress-card">
-          <span>Progresso</span>
-          <strong>{completion}%</strong>
-          <div className="matches-progress-track">
-            <span style={{ width: `${completion}%` }} />
+      {activeRuleHelp && (
+        <div className="matches-rule-explanation-box animate__animated animate__fadeIn">
+          <div className="explanation-header">
+            <div className="explanation-title-group">
+              <i className={`bi ${RULE_EXPLANATIONS[activeRuleHelp].icon} explanation-icon`} aria-hidden="true" />
+              <div>
+                <h3>{RULE_EXPLANATIONS[activeRuleHelp].title}</h3>
+                <span className="explanation-points">
+                  Esta regra vale <strong>{
+                    activeRuleHelp === 'exact' ? activeLeague.pointsExact :
+                    activeRuleHelp === 'diff' ? activeLeague.pointsDiff :
+                    activeRuleHelp === 'winnerHome' ? activeLeague.pointsWinnerHome :
+                    activeRuleHelp === 'draw' ? activeLeague.pointsDraw :
+                    activeLeague.pointsWinnerAway
+                  } pontos</strong> nesta liga
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="explanation-close-btn"
+              onClick={() => setActiveRuleHelp(null)}
+              aria-label="Fechar ajuda"
+            >
+              <i className="bi bi-x-lg" aria-hidden="true" />
+            </button>
           </div>
+          <p className="explanation-desc">
+            {RULE_EXPLANATIONS[activeRuleHelp].desc}
+          </p>
         </div>
-      </section>
+      )}
 
       {message && (
         <div className={`player-alert ${message.type}`} role="status">
