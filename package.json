@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "admin:role": "node scripts/manage-admin.js"
+    "admin:role": "node scripts/manage-admin.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

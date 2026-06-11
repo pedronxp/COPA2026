@@ -4,6 +4,7 @@ import { prisma, withRetry } from './prisma';
 import type { Prisma } from '@prisma/client';
 import { fetchGames, fetchTeams, type ApiTeam } from './football-api';
 import { translateTeamName } from './team-translation';
+import { parseMatchLocalDate } from './match-time';
 
 // ─── Tipos Exportados ────────────────────────────────────────────────
 
@@ -584,6 +585,8 @@ export async function getMatchStatsBatch(
  * usando a região correspondente do fuso horário do estádio na Copa de 2026.
  */
 function parseLocalDateWithOffset(dateStr: string, stadiumId: string): Date {
+  return parseMatchLocalDate(dateStr, stadiumId);
+  /*
   // Formato: "06/11/2026 17:00"
   const [datePart, timePart] = dateStr.split(' ');
   const [month, day, year] = datePart.split('/');
@@ -602,6 +605,7 @@ function parseLocalDateWithOffset(dateStr: string, stadiumId: string): Date {
 
   const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00${offset}`;
   return new Date(isoString);
+  */
 }
 
 /**

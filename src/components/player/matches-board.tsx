@@ -348,7 +348,8 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                       disabled={!item.canEdit}
                                       title="Vitória do time da casa (Palpita 1x0)"
                                     >
-                                      C
+                                      <span className="d-md-none">Casa</span>
+                                      <span className="d-none d-md-inline">C</span>
                                     </button>
                                     <button
                                       type="button"
@@ -357,7 +358,8 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                       disabled={!item.canEdit}
                                       title="Empate (Palpita 1x1)"
                                     >
-                                      X
+                                      <span className="d-md-none">Empate</span>
+                                      <span className="d-none d-md-inline">X</span>
                                     </button>
                                     <button
                                       type="button"
@@ -366,7 +368,8 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                       disabled={!item.canEdit}
                                       title="Vitória do time visitante (Palpita 0x1)"
                                     >
-                                      V
+                                      <span className="d-md-none">Fora</span>
+                                      <span className="d-none d-md-inline">V</span>
                                     </button>
                                   </>
                                 );

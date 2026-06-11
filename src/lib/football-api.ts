@@ -1,11 +1,7 @@
-// src/lib/football-api.ts
-// Cliente HTTP para a API WorldCup26.ir (dados abertos da Copa do Mundo 2026)
 import backupData from './backup-data.json';
 
 const API_BASE = process.env.WORLDCUP_API_BASE || 'https://worldcup26.ir';
 const TIMEOUT_MS = 10_000;
-
-// ─── Tipos da API Externa ────────────────────────────────────────────
 
 export interface ApiGame {
   id: string;
@@ -15,20 +11,20 @@ export interface ApiGame {
   away_score: string;
   group: string;
   matchday: string;
-  local_date: string;        // Formato: "MM/DD/YYYY HH:mm"
+  local_date: string;
   stadium_id: string;
-  finished: string;           // "TRUE" | "FALSE"
-  time_elapsed: string;       // "notstarted" | "45" | "halftime" | "finished" etc.
-  type: string;               // "group" | "r32" | "r16" | "qf" | "sf" | "third" | "final"
+  finished: string;
+  time_elapsed: string;
+  type: string;
   home_team_name_en: string;
   away_team_name_en: string;
-  home_team_label?: string;   // Para eliminatórias: ex "Winner Match 73"
-  away_team_label?: string;   // Para eliminatórias: ex "Runner-up Group A"
+  home_team_label?: string;
+  away_team_label?: string;
 }
 
 export interface ApiTeam {
   name_en: string;
-  flag: string;               // URL da bandeira: "https://flagcdn.com/w80/mx.png"
+  flag: string;
   fifa_code: string;
   iso2: string;
   groups: string;
@@ -45,80 +41,104 @@ export interface ApiStadium {
   lng?: string;
 }
 
-// ─── Funções de Fetch ────────────────────────────────────────────────
+export interface FootballFetchResult<T> {
+  data: T;
+  source: 'api' | 'backup';
+  error: string | null;
+}
 
 async function fetchWithTimeout(url: string): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    return response;
+    return await fetch(url, {
+      signal: controller.signal,
+      cache: 'no-store',
+    });
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-/**
- * Busca todas as partidas da Copa do Mundo 2026.
- * GET https://worldcup26.ir/get/games
- */
-export async function fetchGames(): Promise<ApiGame[]> {
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Erro desconhecido';
+}
+
+export async function fetchGamesResult(): Promise<FootballFetchResult<ApiGame[]>> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/get/games`);
     if (!response.ok) {
-      console.warn(`[football-api] Erro ao buscar games (HTTP ${response.status}). Usando backup local.`);
-      return backupData.games as ApiGame[];
+      return {
+        data: backupData.games as ApiGame[],
+        source: 'backup',
+        error: `Games respondeu HTTP ${response.status}.`,
+      };
     }
-    const data = await response.json();
-    if (data && Array.isArray(data.games) && data.games.length > 0) {
-      return data.games;
+
+    const payload = await response.json();
+    if (payload && Array.isArray(payload.games) && payload.games.length > 0) {
+      return { data: payload.games, source: 'api', error: null };
     }
-    console.warn('[football-api] API retornou lista de jogos vazia ou inválida. Usando backup local.');
-    return backupData.games as ApiGame[];
+
+    return {
+      data: backupData.games as ApiGame[],
+      source: 'backup',
+      error: 'Games retornou uma lista vazia ou invalida.',
+    };
   } catch (error) {
-    console.error('[football-api] Erro de rede ao buscar games. Usando backup local:', error);
-    return backupData.games as ApiGame[];
+    return {
+      data: backupData.games as ApiGame[],
+      source: 'backup',
+      error: `Falha de rede em games: ${errorMessage(error)}`,
+    };
   }
 }
 
-/**
- * Busca todos os times participantes da Copa.
- * GET https://worldcup26.ir/get/teams
- */
-export async function fetchTeams(): Promise<ApiTeam[]> {
+export async function fetchTeamsResult(): Promise<FootballFetchResult<ApiTeam[]>> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/get/teams`);
     if (!response.ok) {
-      console.warn(`[football-api] Erro ao buscar teams (HTTP ${response.status}). Usando backup local.`);
-      return backupData.teams as ApiTeam[];
+      return {
+        data: backupData.teams as ApiTeam[],
+        source: 'backup',
+        error: `Teams respondeu HTTP ${response.status}.`,
+      };
     }
-    const data = await response.json();
-    if (data && Array.isArray(data.teams) && data.teams.length > 0) {
-      return data.teams;
+
+    const payload = await response.json();
+    if (payload && Array.isArray(payload.teams) && payload.teams.length > 0) {
+      return { data: payload.teams, source: 'api', error: null };
     }
-    console.warn('[football-api] API retornou lista de times vazia ou inválida. Usando backup local.');
-    return backupData.teams as ApiTeam[];
+
+    return {
+      data: backupData.teams as ApiTeam[],
+      source: 'backup',
+      error: 'Teams retornou uma lista vazia ou invalida.',
+    };
   } catch (error) {
-    console.error('[football-api] Erro de rede ao buscar teams. Usando backup local:', error);
-    return backupData.teams as ApiTeam[];
+    return {
+      data: backupData.teams as ApiTeam[],
+      source: 'backup',
+      error: `Falha de rede em teams: ${errorMessage(error)}`,
+    };
   }
 }
 
-/**
- * Busca todos os estádios da Copa.
- * GET https://worldcup26.ir/get/stadiums
- */
+export async function fetchGames(): Promise<ApiGame[]> {
+  return (await fetchGamesResult()).data;
+}
+
+export async function fetchTeams(): Promise<ApiTeam[]> {
+  return (await fetchTeamsResult()).data;
+}
+
 export async function fetchStadiums(): Promise<ApiStadium[]> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/get/stadiums`);
-    if (!response.ok) {
-      console.error(`[football-api] Erro ao buscar stadiums: HTTP ${response.status}`);
-      return [];
-    }
-    const data = await response.json();
-    return data.stadiums ?? [];
-  } catch (error) {
-    console.error('[football-api] Erro ao buscar stadiums:', error);
+    if (!response.ok) return [];
+    const payload = await response.json();
+    return payload.stadiums ?? [];
+  } catch {
     return [];
   }
 }

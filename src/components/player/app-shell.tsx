@@ -10,6 +10,7 @@ import {
   playerNavHref,
   type PlayerRoute,
 } from '@/lib/player-navigation';
+import { isAdminRole } from '@/lib/admin-domain';
 import { ActiveLeagueSwitcher } from './active-league-switcher';
 
 interface PlayerAppShellProps {
@@ -30,6 +31,7 @@ export function PlayerAppShell({
   const primaryMobileItems = playerNavigationItems.filter((item) => item.mobilePrimary);
   const secondaryMobileItems = playerNavigationItems.filter((item) => !item.mobilePrimary);
   const hasActiveSecondaryItem = secondaryMobileItems.some((item) => item.route === activeRoute);
+  const canAccessAdmin = isAdminRole(user.adminRole);
 
   const handleLogout = async () => {
     try {
@@ -84,6 +86,12 @@ export function PlayerAppShell({
             <i className="bi bi-box-arrow-right" aria-hidden="true" />
           </button>
         </div>
+        {canAccessAdmin && (
+          <Link className="player-admin-link" href="/admin" title="Painel administrativo">
+            <i className="bi bi-shield-lock-fill" aria-hidden="true" />
+            <span>Admin</span>
+          </Link>
+        )}
       </aside>
 
       <div className="player-main">
@@ -123,6 +131,12 @@ export function PlayerAppShell({
             <span>Mais</span>
           </summary>
           <div className="player-mobile-more-menu">
+            {canAccessAdmin && (
+              <Link href="/admin">
+                <i className="bi bi-shield-lock-fill" aria-hidden="true" />
+                <span>Admin</span>
+              </Link>
+            )}
             {secondaryMobileItems.map((item) => (
               <Link
                 key={item.route}
