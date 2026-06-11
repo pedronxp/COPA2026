@@ -1804,7 +1804,8 @@ body {
 }
 
 .player-team-mark.align-end {
-  justify-content: flex-end;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
   text-align: right;
 }
 
@@ -3494,7 +3495,7 @@ body {
   }
 
   .player-calendar-list article .player-team-mark.align-end {
-    justify-content: flex-end;
+    justify-content: flex-start;
     text-align: right;
     flex-direction: row-reverse;
   }
@@ -3590,7 +3591,7 @@ body {
   }
 
   .player-knockout-versus .player-team-mark.align-end {
-    justify-content: flex-end;
+    justify-content: flex-start;
     text-align: right;
     flex-direction: row-reverse;
   }
@@ -4731,6 +4732,11 @@ body {
 .player-history-match > strong {
   font-size: 1.2rem;
   white-space: nowrap;
+}
+
+.player-history-match .player-team-name,
+.player-result-score .player-team-name {
+  max-width: 220px;
 }
 
 .player-history-result {

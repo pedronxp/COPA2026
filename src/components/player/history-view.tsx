@@ -76,7 +76,11 @@ export function HistoryView({ data }: { data: HistoryData }) {
                     <strong className={points && points > 0 ? 'positive' : ''}>+{points} pts</strong>
                   </>
                 ) : (
-                  <span>{prediction.editCount} edições usadas</span>
+                  <span>
+                    {prediction.editCount === 1
+                      ? '1 edição usada'
+                      : `${prediction.editCount} edições usadas`}
+                  </span>
                 )}
               </div>
             </article>
