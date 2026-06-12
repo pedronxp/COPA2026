@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { LeaderboardData, PlayerMemberRow } from '@/lib/player-routes-data';
 import { formatDateTimePtBr } from '@/lib/pt-br-format';
+import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
 
 interface LeaderboardViewProps {
   data: LeaderboardData;
@@ -29,25 +30,44 @@ function PodiumCard({
 }) {
   const avatarStyle = getAvatarStyle(member.name);
   const isGold = tone === 'gold';
+  const isSuperCombo = member.streak >= 3;
+
+  const avatarVal = memberInitial(member);
+  const flagIso = member.image ? getFlagIsoCode(member.image) : null;
+  const emojiOnly = member.image ? isEmoji(member.image) : false;
 
   return (
     <article 
-      className={`leaderboard-podium-card ${tone}`}
+      className={`leaderboard-podium-card ${tone} ${isSuperCombo ? 'super-combo' : ''}`}
       role="group" 
       aria-label={`Pódio ${member.rank}º lugar: ${member.name}`}
     >
       <span className="leaderboard-rank-badge" aria-hidden="true">
         {isGold ? <i className="bi bi-crown-fill" /> : `#${member.rank}`}
       </span>
-      <div className="leaderboard-avatar" style={avatarStyle}>
-        {memberInitial(member)}
-      </div>
+      {flagIso ? (
+        <div className="leaderboard-avatar has-flag" aria-hidden="true">
+          <img
+            src={`https://flagcdn.com/w80/${flagIso}.png`}
+            alt={member.name}
+            className="avatar-flag-image"
+          />
+        </div>
+      ) : (
+        <div 
+          className={`leaderboard-avatar ${emojiOnly ? 'is-emoji' : ''}`} 
+          style={emojiOnly ? undefined : avatarStyle}
+          aria-hidden="true"
+        >
+          {avatarVal}
+        </div>
+      )}
       <h3>{member.name}</h3>
       <strong>{member.points} pts</strong>
       
       <div className="leaderboard-podium-meta" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
         {member.streak > 0 && (
-          <span className="leaderboard-streak-badge" title={`Sequência de ${member.streak} acertos`}>
+          <span className={`leaderboard-streak-badge ${isSuperCombo ? 'super-combo' : ''}`} title={`Sequência de ${member.streak} acertos`}>
             <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
           </span>
         )}
@@ -153,11 +173,12 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                 const isCurrent = member.id === data.currentMember?.id;
                 const avatarStyle = getAvatarStyle(member.name);
                 const rankClass = member.rank <= 3 ? `rank-${member.rank}` : '';
+                const isSuperCombo = member.streak >= 3;
 
                 return (
                   <div
                     key={member.id}
-                    className={`leaderboard-row ${isCurrent ? 'current' : ''} ${rankClass}`}
+                    className={`leaderboard-row ${isCurrent ? 'current' : ''} ${rankClass} ${isSuperCombo ? 'combo-active' : ''}`}
                     role="row"
                   >
                     <strong>
@@ -173,13 +194,35 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                     </strong>
 
                     <div className="leaderboard-player-cell">
-                      <span 
-                        className="leaderboard-avatar small" 
-                        style={avatarStyle}
-                        aria-hidden="true"
-                      >
-                        {memberInitial(member)}
-                      </span>
+                      {(() => {
+                        const avatarVal = memberInitial(member);
+                        const flagIso = member.image ? getFlagIsoCode(member.image) : null;
+                        const emojiOnly = member.image ? isEmoji(member.image) : false;
+
+                        if (flagIso) {
+                          return (
+                            <span 
+                              className="leaderboard-avatar small has-flag" 
+                              aria-hidden="true"
+                            >
+                              <img
+                                src={`https://flagcdn.com/w80/${flagIso}.png`}
+                                alt={member.name}
+                                className="avatar-flag-image"
+                              />
+                            </span>
+                          );
+                        }
+                        return (
+                          <span 
+                            className={`leaderboard-avatar small ${emojiOnly ? 'is-emoji' : ''}`} 
+                            style={emojiOnly ? undefined : avatarStyle}
+                            aria-hidden="true"
+                          >
+                            {avatarVal}
+                          </span>
+                        );
+                      })()}
                       <div>
                         <div className="leaderboard-player-name-wrapper">
                           <b>
@@ -187,7 +230,7 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                             {isCurrent && <span style={{ color: 'var(--neon-green)', fontWeight: 600, fontSize: '0.75rem', marginLeft: '4px' }}>(Você)</span>}
                           </b>
                           {member.streak > 0 && (
-                            <span className="leaderboard-streak-inline-mobile" title={`Sequência de ${member.streak} acertos`}>
+                            <span className={`leaderboard-streak-inline-mobile ${isSuperCombo ? 'super-combo' : ''}`} title={`Sequência de ${member.streak} acertos`}>
                               <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
                             </span>
                           )}
@@ -212,7 +255,7 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
 
                     <span style={{ display: 'flex', alignItems: 'center' }}>
                       {member.streak > 0 ? (
-                        <span className="leaderboard-streak-badge" title={`Sequência de ${member.streak} acertos`}>
+                        <span className={`leaderboard-streak-badge ${isSuperCombo ? 'super-combo' : ''}`} title={`Sequência de ${member.streak} acertos`}>
                           <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
                         </span>
                       ) : (

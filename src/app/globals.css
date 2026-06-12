@@ -3989,8 +3989,116 @@ body {
   font-weight: 800;
 }
 
-.leaderboard-streak-badge i {
+/* --- Gamificação e Efeitos de Combo de Fogo --- */
+
+/* Animação para o ícone de fogo comum */
+@keyframes flame-glow {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4));
+  }
+  50% {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.4));
+  }
+}
+
+.leaderboard-streak-badge i,
+.leaderboard-streak-inline-mobile i {
+  display: inline-block;
+  animation: flame-glow 1.6s infinite ease-in-out;
   font-size: 0.8rem;
+}
+
+/* Animação intensa de tremor de chama para o super-combo */
+@keyframes flame-flicker {
+  0% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 4px #f97316); }
+  20% { transform: scale(1.2) rotate(4deg); filter: drop-shadow(0 0 10px #ef4444); }
+  40% { transform: scale(1.05) rotate(-4deg); filter: drop-shadow(0 0 6px #fbbf24); }
+  60% { transform: scale(1.25) rotate(3deg); filter: drop-shadow(0 0 12px #f97316); }
+  80% { transform: scale(1.1) rotate(-2deg); filter: drop-shadow(0 0 8px #ef4444); }
+  100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 4px #fbbf24); }
+}
+
+/* Animação de gradiente de fogo fluindo */
+@keyframes combo-bg-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.leaderboard-streak-badge.super-combo,
+.leaderboard-streak-inline-mobile.super-combo {
+  background: linear-gradient(-45deg, #ef4444, #f97316, #fbbf24, #ef4444);
+  background-size: 300% 300%;
+  animation: combo-bg-flow 3s ease infinite;
+  border-color: rgba(251, 191, 36, 0.6) !important;
+  color: #0b1220 !important;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+  font-weight: 900;
+}
+
+.leaderboard-streak-badge.super-combo i,
+.leaderboard-streak-inline-mobile.super-combo i {
+  color: #0b1220 !important;
+  animation: flame-flicker 0.5s infinite ease-in-out;
+}
+
+/* Efeito na linha do ranking com combo ativo */
+@keyframes combo-row-glow {
+  0% {
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.08), inset 0 0 4px rgba(251, 191, 36, 0.03);
+    border-color: rgba(239, 68, 68, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(249, 115, 22, 0.22), inset 0 0 8px rgba(251, 191, 36, 0.08);
+    border-color: rgba(251, 191, 36, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.08), inset 0 0 4px rgba(251, 191, 36, 0.03);
+    border-color: rgba(239, 68, 68, 0.12);
+  }
+}
+
+.leaderboard-row.combo-active {
+  animation: combo-row-glow 2.5s infinite ease-in-out;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.04), rgba(15, 23, 42, 0.4));
+  position: relative;
+}
+
+/* Detalhe de chama vertical na esquerda para o combo ativo */
+.leaderboard-row.combo-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 3px;
+  background: linear-gradient(180deg, #ef4444, #fbbf24);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 8px #f97316;
+}
+
+/* Jogador logado com combo ativo: mesclamos neon verde com o calor do fogo */
+.leaderboard-row.current.combo-active {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.06), rgba(239, 68, 68, 0.03), rgba(15, 23, 42, 0.5));
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* Pulsar do anel de fogo no avatar do pódio */
+@keyframes avatar-combo-pulse {
+  0% { box-shadow: 0 0 8px #f97316, 0 0 0 2px rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 16px #fbbf24, 0 0 0 4px rgba(251, 191, 36, 0.35); }
+  100% { box-shadow: 0 0 8px #f97316, 0 0 0 2px rgba(239, 68, 68, 0.2); }
+}
+
+.leaderboard-podium-card.super-combo .leaderboard-avatar {
+  border-color: #f97316 !important;
+  animation: avatar-combo-pulse 1.8s infinite ease-in-out;
 }
 
 /* Actions Section */
@@ -6393,4 +6501,82 @@ body {
     width: 100%;
   }
 }
+
+/* --- ESTILOS CUSTOMIZADOS DE AVATAR --- */
+
+/* Imagem de bandeira como avatar preenchendo o círculo completo */
+.avatar-flag-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Ajustes para quando o botão de seleção contém bandeira */
+.profile-avatar-options button:has(.avatar-flag-image),
+.profile-avatar-options button.has-flag {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+/* Tamanhos maiores de fontes para emojis normais (is-emoji) */
+.profile-avatar-options button.is-emoji {
+  font-size: 2.1rem;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar-large.is-emoji {
+  font-size: 4.2rem !important;
+  line-height: 1 !important;
+}
+
+.profile-avatar-large.has-flag {
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.profile-ranking-list > div > span.is-emoji {
+  font-size: 1.6rem !important;
+}
+
+.profile-ranking-list > div > span.has-flag {
+  overflow: hidden;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.leaderboard-avatar.is-emoji {
+  font-size: 2.7rem !important;
+}
+
+.leaderboard-avatar.small.is-emoji {
+  font-size: 1.7rem !important;
+}
+
+.leaderboard-avatar.has-flag,
+.leaderboard-avatar.small.has-flag {
+  overflow: hidden;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.user-avatar.is-emoji {
+  font-size: 1.6rem !important;
+}
+
+.user-avatar.has-flag {
+  overflow: hidden;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.player-sidebar:hover .player-sidebar-user .user-avatar.is-emoji,
+.player-sidebar:focus-within .player-sidebar-user .user-avatar.is-emoji {
+  font-size: 1.85rem !important;
+}
+
 
