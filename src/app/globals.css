@@ -6513,16 +6513,25 @@ body {
   display: block;
 }
 
+/* Garante que nenhum avatar com emoji ou bandeira vaze das bordas circulares */
+.profile-avatar-large,
+.profile-avatar-options button,
+.profile-ranking-list > div > span,
+.leaderboard-avatar,
+.leaderboard-avatar.small,
+.user-avatar {
+  overflow: hidden !important;
+}
+
 /* Ajustes para quando o botão de seleção contém bandeira */
 .profile-avatar-options button:has(.avatar-flag-image),
 .profile-avatar-options button.has-flag {
   padding: 0 !important;
-  overflow: hidden;
 }
 
 /* Tamanhos maiores de fontes para emojis normais (is-emoji) */
 .profile-avatar-options button.is-emoji {
-  font-size: 2.1rem;
+  font-size: 3.1rem !important;
   line-height: 1.1;
   display: inline-flex;
   align-items: center;
@@ -6530,53 +6539,68 @@ body {
 }
 
 .profile-avatar-large.is-emoji {
-  font-size: 4.2rem !important;
+  font-size: 5.8rem !important;
   line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .profile-avatar-large.has-flag {
-  overflow: hidden;
   padding: 0 !important;
 }
 
 .profile-ranking-list > div > span.is-emoji {
-  font-size: 1.6rem !important;
+  font-size: 2.2rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .profile-ranking-list > div > span.has-flag {
-  overflow: hidden;
   padding: 0 !important;
   background: transparent !important;
 }
 
 .leaderboard-avatar.is-emoji {
-  font-size: 2.7rem !important;
+  font-size: 4.0rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
 }
 
 .leaderboard-avatar.small.is-emoji {
-  font-size: 1.7rem !important;
+  font-size: 2.6rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
 }
 
 .leaderboard-avatar.has-flag,
 .leaderboard-avatar.small.has-flag {
-  overflow: hidden;
   padding: 0 !important;
   background: transparent !important;
 }
 
 .user-avatar.is-emoji {
-  font-size: 1.6rem !important;
+  font-size: 2.5rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
 }
 
 .user-avatar.has-flag {
-  overflow: hidden;
   padding: 0 !important;
   background: transparent !important;
 }
 
 .player-sidebar:hover .player-sidebar-user .user-avatar.is-emoji,
 .player-sidebar:focus-within .player-sidebar-user .user-avatar.is-emoji {
-  font-size: 1.85rem !important;
+  font-size: 2.8rem !important;
 }
+
 
 
