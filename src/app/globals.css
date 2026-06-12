@@ -726,6 +726,110 @@
   font-weight: 800;
 }
 
+/* --- INICIO ESTILOS SIDEBAR COLAPSAVEL DESKTOP --- */
+.admin-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.admin-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: #8b98a8;
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-collapse-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8c547;
+}
+
+/* Transições suaves no grid e na sidebar */
+.admin-shell {
+  transition: grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-sidebar {
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Regras quando colapsada (Desktop) */
+@media (min-width: 1101px) {
+  .admin-shell.collapsed {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+
+  .admin-sidebar.collapsed {
+    width: 68px;
+    padding: 22px 10px;
+    align-items: center;
+  }
+
+  .admin-sidebar.collapsed .admin-sidebar-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .admin-sidebar.collapsed .admin-brand strong {
+    display: none !important;
+  }
+
+  .admin-sidebar.collapsed .admin-brand {
+    padding: 6px;
+    justify-content: center;
+    min-height: auto;
+  }
+
+  .admin-sidebar.collapsed .admin-nav a {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+  }
+
+  .admin-sidebar.collapsed .admin-nav a span {
+    display: none !important;
+  }
+
+  .admin-sidebar.collapsed .admin-identity {
+    padding: 8px;
+    background: transparent;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .admin-sidebar.collapsed .admin-identity small,
+  .admin-sidebar.collapsed .admin-identity strong,
+  .admin-sidebar.collapsed .admin-identity span {
+    display: none !important;
+  }
+
+  .admin-sidebar.collapsed .admin-identity a {
+    margin-top: 0;
+    padding: 8px;
+    justify-content: center;
+    color: #7dd3fc;
+  }
+
+  .admin-sidebar.collapsed .admin-identity a span {
+    display: none !important;
+  }
+}
+/* --- FIM ESTILOS SIDEBAR COLAPSAVEL DESKTOP --- */
+
 .admin-main {
   padding: 30px;
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface AdminShellUser {
   name: string | null;
@@ -63,6 +63,21 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Carrega o estado de recolhimento inicial do localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('admin_sidebar_collapsed');
+    if (saved === 'true') {
+      setIsCollapsed(true);
+    }
+  }, []);
+
+  const handleToggleCollapse = () => {
+    const newVal = !isCollapsed;
+    setIsCollapsed(newVal);
+    localStorage.setItem('admin_sidebar_collapsed', String(newVal));
+  };
 
   // Fecha a sidebar ao clicar em um link no mobile
   const handleLinkClick = () => {
@@ -70,7 +85,7 @@ export function AdminShell({
   };
 
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell ${isCollapsed ? 'collapsed' : ''}`}>
       {/* Header fixo no celular */}
       <header className="admin-mobile-header">
         <button
@@ -102,7 +117,7 @@ export function AdminShell({
       )}
 
       <aside
-        className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}
+        className={`admin-sidebar ${sidebarOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
         aria-label="Navegação administrativa"
         style={
           sidebarOpen
@@ -129,13 +144,23 @@ export function AdminShell({
           <i className="bi bi-x-lg" aria-hidden="true" />
         </button>
 
-        <Link className="admin-brand" href="/admin" onClick={handleLinkClick}>
-          <span>CDC</span>
-          <strong>
-            Operações
-            <small>Copa dos Crias</small>
-          </strong>
-        </Link>
+        <div className="admin-sidebar-header">
+          <Link className="admin-brand" href="/admin" onClick={handleLinkClick}>
+            <span>CDC</span>
+            <strong>
+              Operações
+              <small>Copa dos Crias</small>
+            </strong>
+          </Link>
+          <button
+            type="button"
+            className="admin-collapse-toggle"
+            onClick={handleToggleCollapse}
+            aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          >
+            <i className={`bi ${isCollapsed ? 'bi-chevron-right' : 'bi-chevron-left'}`} aria-hidden="true" />
+          </button>
+        </div>
 
         <nav className="admin-nav">
           {navItems.map((item) => (
