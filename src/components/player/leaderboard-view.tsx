@@ -10,6 +10,16 @@ function memberInitial(member: PlayerMemberRow) {
   return member.image || member.name.slice(0, 1).toUpperCase();
 }
 
+function getAvatarStyle(name: string) {
+  const charCode = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = charCode % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+    color: '#ffffff',
+    textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+  };
+}
+
 function PodiumCard({
   member,
   tone,
@@ -17,13 +27,32 @@ function PodiumCard({
   member: PlayerMemberRow;
   tone: 'gold' | 'silver' | 'bronze';
 }) {
+  const avatarStyle = getAvatarStyle(member.name);
+  const isGold = tone === 'gold';
+
   return (
-    <article className={`leaderboard-podium-card ${tone}`}>
-      <span className="leaderboard-rank-badge">#{member.rank}</span>
-      <div className="leaderboard-avatar">{memberInitial(member)}</div>
+    <article 
+      className={`leaderboard-podium-card ${tone}`}
+      role="group" 
+      aria-label={`Pódio ${member.rank}º lugar: ${member.name}`}
+    >
+      <span className="leaderboard-rank-badge" aria-hidden="true">
+        {isGold ? <i className="bi bi-crown-fill" /> : `#${member.rank}`}
+      </span>
+      <div className="leaderboard-avatar" style={avatarStyle}>
+        {memberInitial(member)}
+      </div>
       <h3>{member.name}</h3>
       <strong>{member.points} pts</strong>
-      {member.pendingPoints > 0 && <small>+{member.pendingPoints} pendentes</small>}
+      
+      <div className="leaderboard-podium-meta" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
+        {member.streak > 0 && (
+          <span className="leaderboard-streak-badge" title={`Sequência de ${member.streak} acertos`}>
+            <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
+          </span>
+        )}
+        {member.pendingPoints > 0 && <small>+{member.pendingPoints} pendentes</small>}
+      </div>
     </article>
   );
 }
@@ -35,7 +64,7 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
 
   return (
     <div className="player-page-stack leaderboard-page">
-      <section className="leaderboard-hero">
+      <section className="leaderboard-hero" aria-label="Introdução do Ranking">
         <div>
           <span className="player-kicker">{isGlobal ? 'Ranking global' : 'Ranking do bolão'}</span>
           <h2>{isGlobal ? 'Classificação geral dos jogadores' : `Disputa do ${activeLeague.name}`}</h2>
@@ -53,7 +82,7 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
       </section>
 
       {!isGlobal && (
-        <section className="leaderboard-current-card leaderboard-global-card">
+        <section className="leaderboard-current-card leaderboard-global-card" aria-label="Ranking Global de Referência">
           <div>
             <span className="player-kicker">Rank global</span>
             <h3>Desempenho em toda a plataforma</h3>
@@ -80,13 +109,13 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
         </section>
       ) : (
         <>
-          <section className="leaderboard-podium" aria-label="Podio do ranking">
+          <section className="leaderboard-podium" aria-label="Pódio dos líderes">
             {second && <PodiumCard member={second} tone="silver" />}
             {leader && <PodiumCard member={leader} tone="gold" />}
             {third && <PodiumCard member={third} tone="bronze" />}
           </section>
 
-          <section className="leaderboard-current-card">
+          <section className="leaderboard-current-card" aria-label="Seu Desempenho">
             <div>
               <span className="player-kicker">Sua campanha</span>
               <h3>{data.currentMember?.name || 'Você ainda não aparece no ranking'}</h3>
@@ -120,25 +149,79 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                 <span>Pend.</span>
                 <span>Seq.</span>
               </div>
-              {data.members.map((member) => (
-                <div
-                  key={member.id}
-                  className={`leaderboard-row ${member.id === data.currentMember?.id ? 'current' : ''}`}
-                  role="row"
-                >
-                  <strong>#{member.rank}</strong>
-                  <div className="leaderboard-player-cell">
-                    <span className="leaderboard-avatar small">{memberInitial(member)}</span>
-                    <div>
-                      <b>{member.name}</b>
-                      <small>{member.role}</small>
+              {data.members.map((member) => {
+                const isCurrent = member.id === data.currentMember?.id;
+                const avatarStyle = getAvatarStyle(member.name);
+                const rankClass = member.rank <= 3 ? `rank-${member.rank}` : '';
+
+                return (
+                  <div
+                    key={member.id}
+                    className={`leaderboard-row ${isCurrent ? 'current' : ''} ${rankClass}`}
+                    role="row"
+                  >
+                    <strong>
+                      {member.rank === 1 ? (
+                        <i className="bi bi-trophy-fill" title="1º Lugar" style={{ color: '#fbbf24' }} aria-hidden="true" />
+                      ) : member.rank === 2 ? (
+                        <i className="bi bi-award-fill" title="2º Lugar" style={{ color: '#cbd5e1' }} aria-hidden="true" />
+                      ) : member.rank === 3 ? (
+                        <i className="bi bi-award-fill" title="3º Lugar" style={{ color: '#d97706' }} aria-hidden="true" />
+                      ) : (
+                        `#${member.rank}`
+                      )}
+                    </strong>
+
+                    <div className="leaderboard-player-cell">
+                      <span 
+                        className="leaderboard-avatar small" 
+                        style={avatarStyle}
+                        aria-hidden="true"
+                      >
+                        {memberInitial(member)}
+                      </span>
+                      <div>
+                        <div className="leaderboard-player-name-wrapper">
+                          <b>
+                            {member.name}
+                            {isCurrent && <span style={{ color: 'var(--neon-green)', fontWeight: 600, fontSize: '0.75rem', marginLeft: '4px' }}>(Você)</span>}
+                          </b>
+                          {member.streak > 0 && (
+                            <span className="leaderboard-streak-inline-mobile" title={`Sequência de ${member.streak} acertos`}>
+                              <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
+                            </span>
+                          )}
+                        </div>
+                        <small>{member.role === 'admin' ? 'Organizador' : 'Competidor'}</small>
+                      </div>
                     </div>
+
+                    <div className="leaderboard-points-cell">
+                      <span>
+                        {member.points}
+                        <span className="pts-label"> pts</span>
+                      </span>
+                      {member.pendingPoints > 0 && (
+                        <span className="leaderboard-pending-inline-mobile" title={`${member.pendingPoints} pontos pendentes`}>
+                          +{member.pendingPoints} pend.
+                        </span>
+                      )}
+                    </div>
+
+                    <span>{member.pendingPoints}</span>
+
+                    <span style={{ display: 'flex', alignItems: 'center' }}>
+                      {member.streak > 0 ? (
+                        <span className="leaderboard-streak-badge" title={`Sequência de ${member.streak} acertos`}>
+                          <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
+                        </span>
+                      ) : (
+                        '--'
+                      )}
+                    </span>
                   </div>
-                  <span>{member.points}</span>
-                  <span>{member.pendingPoints}</span>
-                  <span>{member.streak}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
