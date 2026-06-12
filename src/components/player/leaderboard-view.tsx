@@ -66,8 +66,8 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
     <div className="player-page-stack leaderboard-page">
       <section className="leaderboard-hero" aria-label="Introdução do Ranking">
         <div>
-          <span className="player-kicker">{isGlobal ? 'Ranking global' : 'Ranking do bolão'}</span>
-          <h2>{isGlobal ? 'Classificação geral dos jogadores' : `Disputa do ${activeLeague.name}`}</h2>
+          <span className="player-kicker">{isGlobal ? 'Plataforma' : 'Competição'}</span>
+          <h2>{isGlobal ? 'Classificação Geral' : 'Classificação do Bolão'}</h2>
           <p>
             {isGlobal
               ? 'Acompanhe sua posição entre todos os jogadores da plataforma.'
