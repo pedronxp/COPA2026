@@ -110,6 +110,12 @@ export async function triggerSyncAction() {
 
   revalidatePath('/admin');
   revalidatePath('/admin/matches');
+  revalidatePath('/dashboard');
+  revalidatePath('/matches');
+  revalidatePath('/');
+  revalidatePath('/results');
+  revalidatePath('/calendar');
+  revalidatePath('/leaderboard');
 }
 
 export async function configureSyncAction(formData: FormData) {
@@ -139,4 +145,10 @@ export async function correctMatchAction(formData: FormData) {
 
   revalidatePath('/admin');
   revalidatePath('/admin/matches');
+  revalidatePath('/dashboard');
+  revalidatePath('/matches');
+  revalidatePath('/');
+  revalidatePath('/results');
+  revalidatePath('/calendar');
+  revalidatePath('/leaderboard');
 }

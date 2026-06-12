@@ -64,6 +64,23 @@ async function completeSync(
         lastSuccessAt: report.status === 'success' ? new Date() : schedule.lastSuccessAt,
       },
     });
+
+    // Revalidar caminhos do Next.js para refletir novos status e placares no site
+    if (report.created > 0 || report.updated > 0) {
+      try {
+        const { revalidatePath } = await import('next/cache');
+        revalidatePath('/dashboard');
+        revalidatePath('/matches');
+        revalidatePath('/');
+        revalidatePath('/results');
+        revalidatePath('/calendar');
+        revalidatePath('/leaderboard');
+        revalidatePath('/admin/matches');
+      } catch (err) {
+        console.error('Falha ao revalidar caminhos na sincronização:', err);
+      }
+    }
+
     return report;
   } catch (error) {
     const detail = message(error);

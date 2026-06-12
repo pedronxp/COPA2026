@@ -37,6 +37,21 @@ export async function POST(request: Request) {
     }
 
     const updatedMatch = await updateMatchScore(matchId, homeScore, awayScore, status);
+
+    // Revalidar caminhos do Next.js para garantir atualização imediata das telas do jogador e do admin
+    try {
+      const { revalidatePath } = await import('next/cache');
+      revalidatePath('/dashboard');
+      revalidatePath('/matches');
+      revalidatePath('/');
+      revalidatePath('/results');
+      revalidatePath('/calendar');
+      revalidatePath('/leaderboard');
+      revalidatePath('/admin/matches');
+    } catch (err) {
+      console.error('Falha ao revalidar caminhos via API de matches:', err);
+    }
+
     return NextResponse.json(updatedMatch);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
