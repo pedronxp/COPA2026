@@ -6602,5 +6602,242 @@ body {
   font-size: 2.8rem !important;
 }
 
+/* --- INÍCIO ESTILOS REDESENHO DASHBOARD --- */
 
+/* Dashboard Ranking Podium */
+.ranking-podium-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 12px;
+  height: 120px;
+  margin-top: 10px;
+}
 
+.ranking-podium-step {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 4px;
+  transition: all 0.3s ease;
+}
+
+.ranking-podium-step:hover {
+  transform: translateY(-4px);
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.ranking-podium-step.step-1 {
+  height: 105px;
+  border-color: rgba(251, 191, 36, 0.3);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.1);
+}
+
+.ranking-podium-step.step-2 {
+  height: 90px;
+  border-color: rgba(203, 213, 225, 0.2);
+}
+
+.ranking-podium-step.step-3 {
+  height: 80px;
+  border-color: rgba(217, 119, 6, 0.2);
+}
+
+.podium-avatar-container {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.podium-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.podium-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.podium-avatar.is-emoji {
+  font-size: 2.2rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.podium-avatar.has-flag {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.podium-avatar.has-flag img {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
+.podium-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.podium-badge.tone-gold {
+  background: #fbbf24;
+  color: #1e1b4b;
+}
+
+.podium-badge.tone-silver {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
+.podium-badge.tone-bronze {
+  background: #d97706;
+}
+
+.podium-name {
+  font-size: 0.72rem;
+  color: #e2e8f0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: center;
+}
+
+.podium-name.is-user {
+  color: #38bdf8 !important;
+  font-weight: 800 !important;
+}
+
+.podium-points {
+  font-size: 0.68rem;
+  color: #38bdf8;
+  font-family: var(--font-display);
+}
+
+/* Pulsação lenta para ícone de sincronização */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+/* Animação de pulsação para card de palpite pendente */
+.player-next-panel.needs-guess-pulse {
+  border-color: rgba(245, 158, 11, 0.3);
+  animation: next-panel-pulse 2.5s infinite ease-in-out;
+}
+
+@keyframes next-panel-pulse {
+  0%, 100% {
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    border-color: rgba(245, 158, 11, 0.14);
+  }
+  50% {
+    box-shadow: 0 16px 36px rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.55);
+  }
+}
+
+/* Responsividade Mobile - Manter Próximo Jogo Horizontal */
+@media (max-width: 767px) {
+  .player-next-match {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .player-next-match .player-team-mark {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  .player-next-match .player-team-mark.align-end {
+    flex-direction: row-reverse !important;
+    text-align: right !important;
+    justify-content: flex-end !important;
+  }
+
+  .player-next-match .player-team-mark.align-start {
+    flex-direction: row !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+
+  .player-next-match .player-team-badge {
+    width: 32px !important;
+    height: 32px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .player-next-match .player-team-name {
+    font-size: clamp(0.72rem, 2.5vw, 0.82rem) !important;
+    max-width: 80px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .player-next-match .player-versus {
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-width: 100px !important;
+  }
+
+  .player-next-match .player-versus strong {
+    font-size: 1.1rem !important;
+  }
+
+  .player-next-match .player-versus span,
+  .player-next-match .player-versus small {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* --- FIM ESTILOS REDESENHO DASHBOARD --- */

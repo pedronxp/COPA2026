@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { SessionUser } from '@/lib/session';
-import type { DashboardData } from '@/lib/player-routes-data';
+import type { DashboardData, PlayerMemberRow } from '@/lib/player-routes-data';
+import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
 import {
   formatDateTimePtBr,
   formatJoinPolicyPtBr,
@@ -14,6 +15,45 @@ import {
 import { ActiveLeagueSwitcher } from './active-league-switcher';
 import { TeamMark } from './team-mark';
 import { getMatchWindowState } from './matches-view-model';
+
+function getAvatarStyle(name: string) {
+  const charCode = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = charCode % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+    color: '#ffffff',
+    textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+  };
+}
+
+function renderAvatar(member: PlayerMemberRow) {
+  const avatarVal = member.image || member.name.slice(0, 1).toUpperCase();
+  const flagIso = member.image ? getFlagIsoCode(member.image) : null;
+  const emojiOnly = member.image ? isEmoji(member.image) : false;
+  const avatarStyle = getAvatarStyle(member.name);
+
+  if (flagIso) {
+    return (
+      <div className="podium-avatar has-flag" aria-hidden="true">
+        <img
+          src={`https://flagcdn.com/w80/${flagIso}.png`}
+          alt={member.name}
+          className="avatar-flag-image"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`podium-avatar ${emojiOnly ? 'is-emoji' : ''}`}
+      style={emojiOnly ? undefined : avatarStyle}
+      aria-hidden="true"
+    >
+      {avatarVal}
+    </div>
+  );
+}
 
 interface DashboardViewProps {
   user: SessionUser;
@@ -32,6 +72,41 @@ export function DashboardView({ user, data }: DashboardViewProps) {
   const { activeLeague, options } = leagueContext;
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [displayLeagueIndex, setDisplayLeagueIndex] = useState(0);
+  const [rankings, setRankings] = useState<Record<string, PlayerMemberRow[]>>(() => ({
+    [activeLeague.id]: members,
+  }));
+
+  useEffect(() => {
+    const fetchRankings = async () => {
+      for (const option of options) {
+        if (option.id === activeLeague.id) continue;
+        try {
+          const res = await fetch(`/api/leagues/${option.slug}/ranking`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.ranking) {
+              setRankings((prev) => ({
+                ...prev,
+                [option.id]: json.ranking,
+              }));
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao buscar ranking para o grupo', option.name, err);
+        }
+      }
+    };
+    fetchRankings();
+  }, [options, activeLeague.id]);
+
+  useEffect(() => {
+    if (options.length <= 1) return;
+    const interval = setInterval(() => {
+      setDisplayLeagueIndex((prev) => (prev + 1) % options.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [options.length]);
   const leader = members[0] || null;
   const finishedCount = matches.filter((match) => match.status === 'finished').length;
   const scheduledCount = matches.filter((match) => match.status === 'scheduled').length;
@@ -97,6 +172,8 @@ export function DashboardView({ user, data }: DashboardViewProps) {
   };
 
   const currentMatch = carouselMatches[currentMatchIndex] || null;
+  const nextMatchPred = currentMatch ? predictions.find((p) => p.matchId === currentMatch.id) : null;
+  const isNextMatchPending = currentMatch && !nextMatchPred;
 
   return (
     <div className="player-dashboard-grid">
@@ -229,36 +306,71 @@ export function DashboardView({ user, data }: DashboardViewProps) {
             </div>
           )}
 
-          <div className="player-hero-league-card">
-            <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} compact />
-            <div className="player-hero-league-meta">
-              <span>{activeLeague.memberCount} competidores</span>
-              <span>{formatLeagueStatusPtBr(activeLeague.status)}</span>
-              <span>{activeLeague.windowHours}h de janela</span>
-            </div>
-          </div>
         </div>
       </section>
 
       <section className="player-dashboard-command">
-        <div className="player-progress-card">
-          <div className="player-panel-heading">
-            <div>
-              <span className="player-kicker">Progresso</span>
-              <h3>Palpites da rodada</h3>
+        {(() => {
+          const currentOption = options[displayLeagueIndex] || activeLeague;
+          const groupMembers = rankings[currentOption.id] || [];
+          const [leader, second, third] = groupMembers;
+
+          return (
+            <div className="player-progress-card">
+              <div className="player-panel-heading d-flex justify-content-between align-items-center w-100 mb-2">
+                <div>
+                  <span className="player-kicker">Classificação</span>
+                  <h3 className="d-flex align-items-center gap-1.5" style={{ margin: 0 }}>
+                    Ranking
+                    {options.length > 1 && (
+                      <i className="bi bi-arrow-repeat text-secondary animate-spin-slow" style={{ fontSize: '0.85rem' }} />
+                    )}
+                  </h3>
+                </div>
+                <span className="badge bg-neon-green bg-opacity-10 text-neon-green border border-neon-green border-opacity-20 px-2 py-0.5 text-uppercase" style={{ fontSize: '0.65rem', fontWeight: 800 }}>
+                  {currentOption.name}
+                </span>
+              </div>
+
+              {groupMembers.length === 0 ? (
+                <p className="player-empty-text text-center my-3" style={{ fontSize: '0.75rem' }}>Carregando classificação...</p>
+              ) : (
+                <div key={currentOption.id} className="ranking-podium-container">
+                  {second && (
+                    <div className="ranking-podium-step step-2 animate__animated animate__fadeInUp">
+                      <div className="podium-avatar-container">
+                        {renderAvatar(second)}
+                        <span className="podium-badge tone-silver">2</span>
+                      </div>
+                      <span className="podium-name">{second.name}</span>
+                      <strong className="podium-points">{second.points} pts</strong>
+                    </div>
+                  )}
+                  {leader && (
+                    <div className="ranking-podium-step step-1 animate__animated animate__fadeInUp">
+                      <div className="podium-avatar-container">
+                        {renderAvatar(leader)}
+                        <span className="podium-badge tone-gold"><i className="bi bi-crown-fill" /></span>
+                      </div>
+                      <span className="podium-name">{leader.name}</span>
+                      <strong className="podium-points">{leader.points} pts</strong>
+                    </div>
+                  )}
+                  {third && (
+                    <div className="ranking-podium-step step-3 animate__animated animate__fadeInUp">
+                      <div className="podium-avatar-container">
+                        {renderAvatar(third)}
+                        <span className="podium-badge tone-bronze">3</span>
+                      </div>
+                      <span className="podium-name">{third.name}</span>
+                      <strong className="podium-points">{third.points} pts</strong>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <strong>{predictionCoverage}%</strong>
-          </div>
-          <div className="player-progress-track" aria-hidden="true">
-            <span style={{ width: `${predictionCoverage}%` }} />
-          </div>
-          <div className="player-progress-meta">
-            <span>{scheduledPredictionCount} salvos</span>
-            <span>{scheduledCount} jogos</span>
-            <span>{finishedCount} finalizados</span>
-            {liveCount > 0 && <span>{liveCount} ao vivo</span>}
-          </div>
-        </div>
+          );
+        })()}
 
         <div className="player-action-grid" aria-label="Atalhos do dashboard">
           <Link href={matchHref}>
@@ -276,7 +388,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
         </div>
       </section>
 
-      <section className="player-panel player-next-panel">
+      <section className={`player-panel player-next-panel ${isNextMatchPending ? 'needs-guess-pulse' : ''}`}>
         <div className="player-panel-heading">
           <div>
             <span className="player-kicker">Ação recomendada</span>
@@ -324,7 +436,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
                   <span className="mt-2 text-secondary" style={{ fontSize: '0.75rem' }}>
                     {formatDateTimePtBr(currentMatch.kickOff)}
                   </span>
-                  <span className="urgency-badge" style={isExpiringSoon ? { color: '#fb923c', backgroundColor: 'rgba(251, 146, 60, 0.12)', borderColor: 'rgba(251, 146, 60, 0.22)' } : {}}>
+                  <span className={`urgency-badge ${isNextMatchPending ? 'animate__animated animate__pulse animate__infinite' : ''}`} style={isExpiringSoon ? { color: '#fb923c', backgroundColor: 'rgba(251, 146, 60, 0.12)', borderColor: 'rgba(251, 146, 60, 0.22)' } : {}}>
                     <i className={isExpiringSoon ? "bi bi-exclamation-triangle-fill" : "bi bi-clock-fill"} aria-hidden="true" />{' '}
                     {isExpiringSoon ? 'Expira em breve: ' : 'Expira em '}
                     {formatRelativeWindowPtBr(new Date(new Date(currentMatch.kickOff).getTime() - 30 * 60_000))}
