@@ -28,9 +28,24 @@ export async function POST(request: Request) {
     if (auth.response) return auth.response;
 
     const body = await request.json();
-    const { matchId, homeGuess, awayGuess, leagueId = 'global' } = body;
+    const {
+      matchId,
+      homeGuess,
+      awayGuess,
+      resultPick,
+      totalGoalsPick,
+      bothTeamsScorePick,
+      leagueId = 'global',
+    } = body;
 
-    if (!matchId || homeGuess === undefined || awayGuess === undefined) {
+    if (
+      !matchId ||
+      homeGuess === undefined ||
+      awayGuess === undefined ||
+      resultPick === undefined ||
+      totalGoalsPick === undefined ||
+      bothTeamsScorePick === undefined
+    ) {
       return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
     }
 
@@ -39,6 +54,9 @@ export async function POST(request: Request) {
       matchId,
       homeGuess,
       awayGuess,
+      resultPick,
+      totalGoalsPick,
+      bothTeamsScorePick,
       leagueId,
     });
     return NextResponse.json(prediction);

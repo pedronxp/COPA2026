@@ -12,6 +12,13 @@ import {
   updateAdminLeague,
   deleteAdminLeague,
 } from '@/lib/admin-service';
+import {
+  deleteAdminOptionalScoringRules,
+  recomputeAdminLeagueScoring,
+  removeAdminLeagueMember,
+  resetAdminUserPoolScore,
+  updateAdminLeagueRules,
+} from '@/lib/admin-pool-governance-service';
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -22,6 +29,18 @@ function intValue(formData: FormData, key: string) {
   const value = Number(text(formData, key));
   if (!Number.isInteger(value)) throw new Error(`Valor invalido para ${key}.`);
   return value;
+}
+
+function revalidateLeagueGovernance(leagueId: string, slug?: string) {
+  revalidatePath('/admin');
+  revalidatePath('/admin/leagues');
+  revalidatePath(`/admin/leagues/${leagueId}`);
+  revalidatePath('/leaderboard');
+  revalidatePath('/dashboard');
+  revalidatePath('/profile');
+  revalidatePath('/leagues');
+  revalidatePath('/leagues/[slug]', 'page');
+  if (slug) revalidatePath(`/leagues/${slug}`);
 }
 
 export async function decideResetAction(formData: FormData) {
@@ -102,6 +121,106 @@ export async function deleteLeagueAction(formData: FormData) {
 
   revalidatePath('/admin');
   revalidatePath('/admin/leagues');
+}
+
+function leagueRuleValues(formData: FormData) {
+  return {
+    scoringPreset: text(formData, 'scoringPreset'),
+    scoringStartMatchday: intValue(formData, 'scoringStartMatchday'),
+    groupPublicationMode: text(formData, 'groupPublicationMode'),
+    knockoutPublicationMode: text(formData, 'knockoutPublicationMode'),
+    windowHours: intValue(formData, 'windowHours'),
+    maxEdits: intValue(formData, 'maxEdits'),
+    pointsExact: intValue(formData, 'pointsExact'),
+    pointsDiff: intValue(formData, 'pointsDiff'),
+    pointsWinner: intValue(formData, 'pointsWinner'),
+    pointsWinnerHome: intValue(formData, 'pointsWinnerHome'),
+    pointsWinnerAway: intValue(formData, 'pointsWinnerAway'),
+    pointsDraw: intValue(formData, 'pointsDraw'),
+    pointsBothScoreYes: intValue(formData, 'pointsBothScoreYes'),
+    pointsBothScoreNo: intValue(formData, 'pointsBothScoreNo'),
+  };
+}
+
+export async function updateLeagueRulesAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+  const leagueId = text(formData, 'leagueId');
+  const slug = text(formData, 'slug');
+
+  await updateAdminLeagueRules({
+    actor,
+    leagueId,
+    values: leagueRuleValues(formData),
+    impactMode:
+      text(formData, 'impactMode') === 'recompute_scored'
+        ? 'recompute_scored'
+        : 'future_only',
+    reason: text(formData, 'reason'),
+  });
+
+  revalidateLeagueGovernance(leagueId, slug);
+}
+
+export async function deleteOptionalScoringRulesAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+  const leagueId = text(formData, 'leagueId');
+  const slug = text(formData, 'slug');
+
+  await deleteAdminOptionalScoringRules({
+    actor,
+    leagueId,
+    impactMode:
+      text(formData, 'impactMode') === 'recompute_scored'
+        ? 'recompute_scored'
+        : 'future_only',
+    reason: text(formData, 'reason'),
+  });
+
+  revalidateLeagueGovernance(leagueId, slug);
+}
+
+export async function recomputeLeagueScoringAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+  const leagueId = text(formData, 'leagueId');
+  const slug = text(formData, 'slug');
+
+  await recomputeAdminLeagueScoring({
+    actor,
+    leagueId,
+    reason: text(formData, 'reason'),
+  });
+
+  revalidateLeagueGovernance(leagueId, slug);
+}
+
+export async function resetPoolScoreAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+  const leagueId = text(formData, 'leagueId');
+  const slug = text(formData, 'slug');
+
+  await resetAdminUserPoolScore({
+    actor,
+    leagueId,
+    targetUserId: text(formData, 'targetUserId'),
+    reason: text(formData, 'reason'),
+  });
+
+  revalidateLeagueGovernance(leagueId, slug);
+}
+
+export async function removeLeagueMemberAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+  const leagueId = text(formData, 'leagueId');
+  const slug = text(formData, 'slug');
+
+  await removeAdminLeagueMember({
+    actor,
+    leagueId,
+    targetUserId: text(formData, 'targetUserId'),
+    reason: text(formData, 'reason'),
+  });
+
+  revalidateLeagueGovernance(leagueId, slug);
 }
 
 export async function triggerSyncAction() {
