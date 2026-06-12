@@ -275,7 +275,7 @@ export function CreateLeagueWizard() {
             <div className="league-score-grid">
               {[
                 ['pointsExact', 'Placar exato'],
-                ['pointsDiff', 'Saldo correto'],
+                ['pointsDiff', 'Total de gols'],
                 ['pointsWinnerHome', 'Vitória Casa'],
                 ['pointsWinnerAway', 'Vitória Fora'],
                 ['pointsDraw', 'Empate correto'],
@@ -290,7 +290,7 @@ export function CreateLeagueWizard() {
             </div>
             <p className="league-score-note">
               <i className="bi bi-info-circle" aria-hidden="true"></i>
-              Placar exato, saldo ou resultado usam apenas o nivel mais preciso. O bonus de ambas marcam soma ao nivel obtido.
+              Placar exato, resultado, total de gols e ambas marcam pontuam como mercados separados.
             </p>
             <div className="league-field-grid">
               <label className="league-field">
@@ -357,8 +357,8 @@ export function CreateLeagueWizard() {
                 <div><dt>Placar exato</dt><dd>+{data.pointsExact} pontos</dd></div>
                 <div><dt>Vitória Casa / Fora</dt><dd>+{data.pointsWinnerHome} / +{data.pointsWinnerAway} pts</dd></div>
                 <div><dt>Empate</dt><dd>+{data.pointsDraw} pontos</dd></div>
-                <div><dt>Ambas marcam</dt><dd>Sim +{data.pointsBothScoreYes} / Nao +{data.pointsBothScoreNo}</dd></div>
-                <div><dt>Visual</dt><dd>{data.visualTheme === 'pulse' ? 'Pulso' : data.visualTheme === 'stadium' ? 'Estadio' : 'Classico'}</dd></div>
+                <div><dt>Ambas marcam</dt><dd>Sim +{data.pointsBothScoreYes} / Não +{data.pointsBothScoreNo}</dd></div>
+                <div><dt>Visual</dt><dd>{data.visualTheme === 'pulse' ? 'Pulso' : data.visualTheme === 'stadium' ? 'Estádio' : 'Clássico'}</dd></div>
                 <div><dt>Grupos</dt><dd>{data.groupPublicationMode.replaceAll('_', ' ')}</dd></div>
                 <div><dt>Mata-mata</dt><dd>{data.knockoutPublicationMode.replaceAll('_', ' ')}</dd></div>
               </dl>

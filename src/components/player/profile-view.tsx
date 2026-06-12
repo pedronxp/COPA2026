@@ -5,6 +5,12 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProfileData } from '@/lib/profile-service';
 import { PROFILE_AVATARS } from '@/lib/profile-domain';
+import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
+import {
+  formatBothTeamsScorePick,
+  formatResultPick,
+  formatTotalGoalsPick,
+} from '@/lib/prediction-markets';
 import { formatDateTimePtBr, formatOrdinalPtBr } from '@/lib/pt-br-format';
 
 interface ProfileViewProps {
@@ -53,7 +59,7 @@ export function ProfileView({ initialData }: ProfileViewProps) {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel atualizar o perfil.');
+        throw new Error(data.error || 'Não foi possível atualizar o perfil.');
       }
 
       setProfile((current) => ({
@@ -79,7 +85,27 @@ export function ProfileView({ initialData }: ProfileViewProps) {
   return (
     <div className="player-page-stack profile-page">
       <section className="profile-hero player-panel">
-        <div className="profile-avatar-large" aria-hidden="true">{profile.user.image}</div>
+        {(() => {
+          const imageValue = profile.user.image || 'CDC';
+          const flagIso = getFlagIsoCode(imageValue);
+          const emojiOnly = isEmoji(imageValue);
+          if (flagIso) {
+            return (
+              <div className="profile-avatar-large has-flag" aria-hidden="true">
+                <img
+                  src={`https://flagcdn.com/w80/${flagIso}.png`}
+                  alt={imageValue}
+                  className="avatar-flag-image"
+                />
+              </div>
+            );
+          }
+          return (
+            <div className={`profile-avatar-large ${emojiOnly ? 'is-emoji' : ''}`} aria-hidden="true">
+              {imageValue}
+            </div>
+          );
+        })()}
         <div className="profile-hero-copy">
           <span className="player-kicker">Conta do jogador</span>
           <h2>{profile.user.name}</h2>
@@ -146,18 +172,36 @@ export function ProfileView({ initialData }: ProfileViewProps) {
           <fieldset>
             <legend>Avatar</legend>
             <div className="profile-avatar-options">
-              {PROFILE_AVATARS.map((avatar) => (
-                <button
-                  key={avatar.value}
-                  type="button"
-                  className={image === avatar.value ? 'active' : ''}
-                  onClick={() => setImage(avatar.value)}
-                  aria-pressed={image === avatar.value}
-                  title={avatar.label}
-                >
-                  {avatar.value}
-                </button>
-              ))}
+              {PROFILE_AVATARS.map((avatar) => {
+                const flagIso = getFlagIsoCode(avatar.value);
+                const emojiOnly = isEmoji(avatar.value);
+                const classes = [
+                  image === avatar.value ? 'active' : '',
+                  flagIso ? 'has-flag' : '',
+                  emojiOnly && !flagIso ? 'is-emoji' : '',
+                ].filter(Boolean).join(' ');
+
+                return (
+                  <button
+                    key={avatar.value}
+                    type="button"
+                    className={classes}
+                    onClick={() => setImage(avatar.value)}
+                    aria-pressed={image === avatar.value}
+                    title={avatar.label}
+                  >
+                    {flagIso ? (
+                      <img
+                        src={`https://flagcdn.com/w80/${flagIso}.png`}
+                        alt={avatar.label}
+                        className="avatar-flag-image"
+                      />
+                    ) : (
+                      avatar.value
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </fieldset>
           <div className="profile-form-actions">
@@ -178,14 +222,32 @@ export function ProfileView({ initialData }: ProfileViewProps) {
           <Link href="/leaderboard?league=global" className="leaderboard-updated">Ver ranking</Link>
         </div>
         <div className="profile-ranking-list">
-          {profile.globalRanking.topFive.map((member) => (
-            <div key={member.id} className={member.id === profile.user.id ? 'current' : ''}>
-              <strong>#{member.rank}</strong>
-              <span>{member.image || member.name.slice(0, 1)}</span>
-              <b>{member.name}</b>
-              <small>{member.points} pts</small>
-            </div>
-          ))}
+          {profile.globalRanking.topFive.map((member) => {
+            const avatarVal = member.image || member.name.slice(0, 1);
+            const flagIso = member.image ? getFlagIsoCode(member.image) : null;
+            const emojiOnly = member.image ? isEmoji(member.image) : false;
+
+            return (
+              <div key={member.id} className={member.id === profile.user.id ? 'current' : ''}>
+                <strong>#{member.rank}</strong>
+                {flagIso ? (
+                  <span className="has-flag">
+                    <img
+                      src={`https://flagcdn.com/w80/${flagIso}.png`}
+                      alt={member.name}
+                      className="avatar-flag-image"
+                    />
+                  </span>
+                ) : (
+                  <span className={emojiOnly ? 'is-emoji' : ''}>
+                    {avatarVal}
+                  </span>
+                )}
+                <b>{member.name}</b>
+                <small>{member.points} pts</small>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -238,7 +300,11 @@ export function ProfileView({ initialData }: ProfileViewProps) {
                     <div>
                       <strong>{prediction.homeTeam} x {prediction.awayTeam}</strong>
                       <small>
-                        Seu palpite: {prediction.homeGuess} x {prediction.awayGuess} - {prediction.leagueName}
+                        Seu palpite: {prediction.homeGuess} x {prediction.awayGuess} -{' '}
+                        {formatResultPick(prediction.resultPick)} -{' '}
+                        {formatTotalGoalsPick(prediction.totalGoalsPick)} - Ambas:{' '}
+                        {formatBothTeamsScorePick(prediction.bothTeamsScorePick)} -{' '}
+                        {prediction.leagueName}
                       </small>
                     </div>
                   </div>

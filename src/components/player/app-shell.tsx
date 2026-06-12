@@ -12,6 +12,7 @@ import {
 } from '@/lib/player-navigation';
 import { isAdminRole } from '@/lib/admin-domain';
 import { ActiveLeagueSwitcher } from './active-league-switcher';
+import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
 
 interface PlayerAppShellProps {
   activeRoute: PlayerRoute;
@@ -75,7 +76,28 @@ export function PlayerAppShell({
 
         <div className="player-sidebar-user">
           <Link href="/profile" className="player-sidebar-profile" aria-label="Abrir perfil">
-            <span className="user-avatar">{user.image || user.name?.slice(0, 1) || 'U'}</span>
+            {(() => {
+              const avatarVal = user.image || user.name?.slice(0, 1) || 'U';
+              const flagIso = user.image ? getFlagIsoCode(user.image) : null;
+              const emojiOnly = user.image ? isEmoji(user.image) : false;
+
+              if (flagIso) {
+                return (
+                  <span className="user-avatar has-flag" aria-hidden="true">
+                    <img
+                      src={`https://flagcdn.com/w80/${flagIso}.png`}
+                      alt={user.name || ''}
+                      className="avatar-flag-image"
+                    />
+                  </span>
+                );
+              }
+              return (
+                <span className={`user-avatar ${emojiOnly ? 'is-emoji' : ''}`} aria-hidden="true">
+                  {avatarVal}
+                </span>
+              );
+            })()}
             <div className="user-meta">
               <strong>{user.name || 'Torcedor'}</strong>
               <small>{user.email}</small>

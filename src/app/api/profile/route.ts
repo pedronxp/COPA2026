@@ -7,7 +7,7 @@ import { prisma, withRetry } from '@/lib/prisma';
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
+    return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
   }
 
   return NextResponse.json({ profile: await getProfileData(user.id) });
@@ -16,11 +16,11 @@ export async function GET() {
 export async function PUT(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: 'Nao autenticado.' }, { status: 401 });
+    return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
   }
   if (user.accountStatus !== 'active') {
     return NextResponse.json(
-      { error: 'Conta sem permissao para atualizar o perfil.' },
+      { error: 'Conta sem permissão para atualizar o perfil.' },
       { status: 403 },
     );
   }

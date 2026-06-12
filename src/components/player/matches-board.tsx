@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PlayerRouteData } from '@/lib/player-routes-data';
+import type { PredictionData } from '@/lib/matches-service';
 import {
   formatDateTimePtBr,
   formatTimePtBr,
@@ -17,9 +18,29 @@ import {
   type MatchFilterValue,
   type MatchViewModel,
 } from './matches-view-model';
+import {
+  BOTH_TEAMS_SCORE_LABELS,
+  RESULT_PICK_LABELS,
+  TOTAL_GOALS_OPTIONS,
+  formatBothTeamsScorePick,
+  formatResultPick,
+  formatTotalGoalsPick,
+  type BothTeamsScorePick,
+  type ResultPick,
+  type TotalGoalsPick,
+} from '@/lib/prediction-markets';
 
 interface MatchesBoardProps {
   data: PlayerRouteData;
+}
+
+function formatMatchday(matchday: string | null | undefined) {
+  if (!matchday) return '';
+  const num = parseInt(matchday, 10);
+  if (!isNaN(num)) {
+    return `${num}ª rodada`;
+  }
+  return matchday;
 }
 
 function buildInitialGuesses(data: PlayerRouteData) {
@@ -32,6 +53,26 @@ function buildInitialGuesses(data: PlayerRouteData) {
       },
     ]),
   ) as Record<string, { home: string; away: string }>;
+}
+
+function buildInitialMarketPicks(data: PlayerRouteData) {
+  return Object.fromEntries(
+    data.predictions.map((prediction) => [
+      prediction.matchId,
+      {
+        resultPick: prediction.resultPick,
+        totalGoalsPick: prediction.totalGoalsPick,
+        bothTeamsScorePick: prediction.bothTeamsScorePick,
+      },
+    ]),
+  ) as Record<
+    string,
+    {
+      resultPick: ResultPick | '';
+      totalGoalsPick: TotalGoalsPick | '';
+      bothTeamsScorePick: BothTeamsScorePick | '';
+    }
+  >;
 }
 
 function MatchStatsBar({ item }: { item: MatchViewModel }) {
@@ -52,11 +93,8 @@ function MatchStatsBar({ item }: { item: MatchViewModel }) {
         <span className="draw" style={{ width: `${stats.draw}%` }} />
         <span className="away" style={{ width: `${stats.away}%` }} />
       </div>
-      <div className="matches-stats-legend">
-        <span>{stats.total} palpites</span>
-        <span>Casa {stats.home}%</span>
-        <span>Empate {stats.draw}%</span>
-        <span>Fora {stats.away}%</span>
+      <div className="matches-stats-legend" style={{ justifyContent: 'center' }}>
+        <span>{stats.total} {stats.total === 1 ? 'palpite' : 'palpites'}</span>
       </div>
     </div>
   );
@@ -69,13 +107,13 @@ const RULE_EXPLANATIONS = {
     icon: 'bi-bullseye'
   },
   diff: {
-    title: 'Saldo de gols',
-    desc: 'Você ganha estes pontos quando acerta quem vence e a diferença de gols, mesmo sem acertar o placar. Exemplo: palpite 2x0 e resultado 3x1.',
+    title: 'Total de gols',
+    desc: 'Voce ganha estes pontos quando acerta a faixa de gols escolhida no mercado Over/Under. Over 5.5+ vale para 6 ou mais gols, sem limite maximo.',
     icon: 'bi-sliders'
   },
   winnerHome: {
     title: 'Resultado da partida: casa',
-    desc: 'Você ganha estes pontos quando acerta apenas que o time da casa vence, sem acertar o placar exato nem o saldo de gols.',
+    desc: 'Voce ganha estes pontos quando escolhe casa vence e o time da casa vence.',
     icon: 'bi-house-door'
   },
   draw: {
@@ -85,7 +123,7 @@ const RULE_EXPLANATIONS = {
   },
   winnerAway: {
     title: 'Resultado da partida: visitante',
-    desc: 'Você ganha estes pontos quando acerta apenas que o visitante vence, sem acertar o placar exato nem o saldo de gols.',
+    desc: 'Voce ganha estes pontos quando escolhe fora vence e o visitante vence.',
     icon: 'bi-airplane'
   },
   bothYes: {
@@ -177,6 +215,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
   const [filter, setFilter] = useState<MatchFilterValue>('all');
   const [initialNow] = useState(data.generatedAt);
   const [guesses, setGuesses] = useState(buildInitialGuesses(data));
+  const [marketPicks, setMarketPicks] = useState(buildInitialMarketPicks(data));
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(
     null,
@@ -185,6 +224,12 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     match: MatchViewModel['match'];
     homeGuess: number;
     awayGuess: number;
+    editCount: number;
+    maxEdits: number;
+  } | null>(null);
+  const [viewPredictionModal, setViewPredictionModal] = useState<{
+    match: MatchViewModel['match'];
+    prediction: PredictionData;
     editCount: number;
     maxEdits: number;
   } | null>(null);
@@ -225,90 +270,34 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     }));
   }
 
-  function setQuickResult(matchId: string, result: 'home' | 'draw' | 'away') {
-    setGuesses((current) => {
-      const prev = current[matchId];
-      const prevHome = prev?.home !== '' ? parseInt(prev?.home || '', 10) : NaN;
-      const prevAway = prev?.away !== '' ? parseInt(prev?.away || '', 10) : NaN;
-      const prevBoth = !isNaN(prevHome) && !isNaN(prevAway) && prevHome > 0 && prevAway > 0;
-
-      const shouldBoth = (activeLeague.pointsBothScoreYes > 0 || activeLeague.pointsBothScoreNo > 0) && prevBoth;
-
-      let home = '1';
-      let away = '0';
-
-      if (result === 'draw') {
-        const isBothActive = activeLeague.pointsBothScoreYes > 0 || activeLeague.pointsBothScoreNo > 0;
-        if (isBothActive) {
-          home = shouldBoth ? '1' : '0';
-          away = shouldBoth ? '1' : '0';
-        } else {
-          home = '1';
-          away = '1';
-        }
-      } else if (result === 'away') {
-        home = shouldBoth ? '1' : '0';
-        away = shouldBoth ? '2' : '1';
-      } else {
-        // 'home'
-        home = shouldBoth ? '2' : '1';
-        away = shouldBoth ? '1' : '0';
-      }
-
-      return {
-        ...current,
-        [matchId]: { home, away },
-      };
-    });
-  }
-
-  function setBothScoreResult(matchId: string, value: 'yes' | 'no') {
-    setGuesses((current) => {
-      const prev = current[matchId] || { home: '', away: '' };
-      let homeVal = prev.home !== '' ? parseInt(prev.home, 10) : NaN;
-      let awayVal = prev.away !== '' ? parseInt(prev.away, 10) : NaN;
-
-      if (isNaN(homeVal) && isNaN(awayVal)) {
-        if (value === 'yes') {
-          return { ...current, [matchId]: { home: '1', away: '1' } };
-        } else {
-          return { ...current, [matchId]: { home: '1', away: '0' } };
-        }
-      }
-
-      if (isNaN(homeVal)) homeVal = 0;
-      if (isNaN(awayVal)) awayVal = 0;
-
-      if (value === 'yes') {
-        if (homeVal === 0) homeVal = 1;
-        if (awayVal === 0) awayVal = 1;
-      } else {
-        if (homeVal > 0 && awayVal > 0) {
-          if (homeVal > awayVal) {
-            awayVal = 0;
-          } else if (awayVal > homeVal) {
-            homeVal = 0;
-          } else {
-            homeVal = 0;
-            awayVal = 0;
-          }
-        }
-      }
-
-      return {
-        ...current,
-        [matchId]: {
-          home: String(homeVal),
-          away: String(awayVal),
-        },
-      };
-    });
+  function setMarketPick(
+    matchId: string,
+    field: 'resultPick' | 'totalGoalsPick' | 'bothTeamsScorePick',
+    value: string,
+  ) {
+    setMarketPicks((current) => ({
+      ...current,
+      [matchId]: {
+        resultPick: current[matchId]?.resultPick || '',
+        totalGoalsPick: current[matchId]?.totalGoalsPick || '',
+        bothTeamsScorePick: current[matchId]?.bothTeamsScorePick || '',
+        [field]: value as ResultPick & TotalGoalsPick & BothTeamsScorePick,
+      },
+    }));
   }
 
   async function savePrediction(item: MatchViewModel) {
     const guess = guesses[item.match.id];
+    const picks = marketPicks[item.match.id];
     if (!guess || guess.home === '' || guess.away === '') {
       setMessage({ type: 'danger', text: 'Preencha os dois placares antes de salvar.' });
+      return;
+    }
+    if (!picks?.resultPick || !picks.totalGoalsPick || !picks.bothTeamsScorePick) {
+      setMessage({
+        type: 'danger',
+        text: 'Escolha resultado, total de gols e ambas marcam antes de salvar.',
+      });
       return;
     }
 
@@ -322,6 +311,9 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           matchId: item.match.id,
           homeGuess: Number(guess.home),
           awayGuess: Number(guess.away),
+          resultPick: picks.resultPick,
+          totalGoalsPick: picks.totalGoalsPick,
+          bothTeamsScorePick: picks.bothTeamsScorePick,
           leagueId: activeLeague.id,
         }),
       });
@@ -363,7 +355,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           </p>
           <div className="matches-score-guide" aria-label="Guia rápido de pontuação">
             <span><i className="bi bi-bullseye" aria-hidden="true" /> Placar exato: gols iguais ao jogo</span>
-            <span><i className="bi bi-arrows-expand" aria-hidden="true" /> Saldo: diferença de gols correta</span>
+            <span><i className="bi bi-arrows-expand" aria-hidden="true" /> Total: Over/Under de gols</span>
             <span><i className="bi bi-flag" aria-hidden="true" /> Resultado: casa, empate ou visitante</span>
           </div>
         </div>
@@ -372,7 +364,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           {(
             [
               { key: 'exact', label: 'Placar', points: activeLeague.pointsExact, title: 'Placar exato' },
-              { key: 'diff', label: 'Saldo', points: activeLeague.pointsDiff, title: 'Saldo de gols' },
+              { key: 'diff', label: 'Total gols', points: activeLeague.pointsDiff, title: 'Total de gols' },
               { key: 'winnerHome', label: 'Casa vence', points: activeLeague.pointsWinnerHome, title: 'Resultado: casa vence' },
               { key: 'draw', label: 'Empate', points: activeLeague.pointsDraw, title: 'Resultado: empate' },
               { key: 'winnerAway', label: 'Fora vence', points: activeLeague.pointsWinnerAway, title: 'Resultado: visitante vence' },
@@ -480,10 +472,18 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               <div className="matches-list">
                 {section.matches.map((item) => {
                   const guess = guesses[item.match.id] || { home: '', away: '' };
+                  const picks = marketPicks[item.match.id] || {
+                    resultPick: '',
+                    totalGoalsPick: '',
+                    bothTeamsScorePick: '',
+                  };
                   const isSaved =
                     item.prediction &&
                     guess.home === String(item.prediction.homeGuess) &&
-                    guess.away === String(item.prediction.awayGuess);
+                    guess.away === String(item.prediction.awayGuess) &&
+                    picks.resultPick === item.prediction.resultPick &&
+                    picks.totalGoalsPick === item.prediction.totalGoalsPick &&
+                    picks.bothTeamsScorePick === item.prediction.bothTeamsScorePick;
                   const isSaving = savingMatchId === item.match.id;
                   const disabled = !item.canEdit || isSaving || isPending || Boolean(isSaved);
 
@@ -494,143 +494,122 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                     >
                       <div className="matches-row-main">
                         <div className="matches-row-time">
-                          <span>{formatTimePtBr(item.match.kickOff)}</span>
-                          <strong>{item.contextLabel}</strong>
+                          <strong>
+                            {item.contextLabel}
+                            {item.match.matchday && ` • ${formatMatchday(item.match.matchday)}`}
+                          </strong>
                           <small>{formatDateTimePtBr(item.match.kickOff)}</small>
                         </div>
 
-                        <div className="matches-teams">
-                          <TeamMark
-                            name={item.match.homeTeam}
-                            logo={item.match.homeTeamLogo}
-                            flag={item.match.homeFlag}
-                            align="end"
-                          />
-                          <div className="matches-prediction-center">
-                            {activeLeague.pointsExact > 0 || activeLeague.pointsDiff > 0 ? (
-                              <div className="matches-score-editor">
-                                <input
-                                  aria-label={`Palpite para ${item.match.homeTeam}`}
-                                  inputMode="numeric"
-                                  value={guess.home}
-                                  onChange={(event) =>
-                                    setGuess(item.match.id, 'home', event.target.value)
-                                  }
-                                  disabled={!item.canEdit}
-                                  placeholder="-"
-                                />
-                                <span>x</span>
-                                <input
-                                  aria-label={`Palpite para ${item.match.awayTeam}`}
-                                  inputMode="numeric"
-                                  value={guess.away}
-                                  onChange={(event) =>
-                                    setGuess(item.match.id, 'away', event.target.value)
-                                  }
-                                  disabled={!item.canEdit}
-                                  placeholder="-"
-                                />
-                              </div>
-                            ) : (
-                              <div className="matches-score-display">
-                                <span>{guess.home !== '' ? guess.home : '-'}</span>
-                                <span>x</span>
-                                <span>{guess.away !== '' ? guess.away : '-'}</span>
-                              </div>
-                            )}
-
-                            {Boolean(
-                              activeLeague.pointsWinnerHome > 0 ||
-                              activeLeague.pointsWinnerAway > 0 ||
-                              activeLeague.pointsDraw > 0 ||
-                              activeLeague.pointsDiff > 0
-                            ) && (
-                              <div className="matches-quick-1x2">
-                                {(() => {
-                                  const homeVal = guess.home !== '' ? parseInt(guess.home, 10) : NaN;
-                                  const awayVal = guess.away !== '' ? parseInt(guess.away, 10) : NaN;
-                                  const isHomeActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal > awayVal;
-                                  const isDrawActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal === awayVal;
-                                  const isAwayActive = !isNaN(homeVal) && !isNaN(awayVal) && homeVal < awayVal;
-
-                                  return (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className={`matches-quick-btn ${isHomeActive ? 'active' : ''}`}
-                                        onClick={() => setQuickResult(item.match.id, 'home')}
-                                        disabled={!item.canEdit}
-                                        title="Vitória do time da casa (C)"
-                                      >
-                                        <span className="d-md-none">Casa</span>
-                                        <span className="d-none d-md-inline">C</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={`matches-quick-btn ${isDrawActive ? 'active' : ''}`}
-                                        onClick={() => setQuickResult(item.match.id, 'draw')}
-                                        disabled={!item.canEdit}
-                                        title="Empate (X)"
-                                      >
-                                        <span className="d-md-none">Empate</span>
-                                        <span className="d-none d-md-inline">X</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={`matches-quick-btn ${isAwayActive ? 'active' : ''}`}
-                                        onClick={() => setQuickResult(item.match.id, 'away')}
-                                        disabled={!item.canEdit}
-                                        title="Vitória do time visitante (F)"
-                                      >
-                                        <span className="d-md-none">Fora</span>
-                                        <span className="d-none d-md-inline">F</span>
-                                      </button>
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            )}
-
-                            {Boolean(activeLeague.pointsBothScoreYes > 0 || activeLeague.pointsBothScoreNo > 0) && (
-                              <div className="matches-quick-both">
-                                {(() => {
-                                  const homeVal = guess.home !== '' ? parseInt(guess.home, 10) : NaN;
-                                  const awayVal = guess.away !== '' ? parseInt(guess.away, 10) : NaN;
-                                  const hasBothScore = !isNaN(homeVal) && !isNaN(awayVal) && homeVal > 0 && awayVal > 0;
-                                  const hasNoBothScore = !isNaN(homeVal) && !isNaN(awayVal) && (homeVal === 0 || awayVal === 0);
-
-                                  return (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className={`matches-quick-btn ${hasBothScore ? 'active' : ''}`}
-                                        onClick={() => setBothScoreResult(item.match.id, 'yes')}
-                                        disabled={!item.canEdit}
-                                        title="Ambas marcam: Sim"
-                                      >
-                                        Ambas Sim
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={`matches-quick-btn ${hasNoBothScore ? 'active' : ''}`}
-                                        onClick={() => setBothScoreResult(item.match.id, 'no')}
-                                        disabled={!item.canEdit}
-                                        title="Ambas marcam: Não"
-                                      >
-                                        Ambas Não
-                                      </button>
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            )}
+                        <div className="matches-row-content">
+                          <div className="matches-teams">
+                            <TeamMark
+                              name={item.match.homeTeam}
+                              logo={item.match.homeTeamLogo}
+                              flag={item.match.homeFlag}
+                              align="end"
+                            />
+                            <div className="matches-prediction-center">
+                              {activeLeague.pointsExact > 0 || activeLeague.pointsDiff > 0 ? (
+                                <div className="matches-score-editor">
+                                  <input
+                                    aria-label={`Palpite para ${item.match.homeTeam}`}
+                                    inputMode="numeric"
+                                    value={guess.home}
+                                    onChange={(event) =>
+                                      setGuess(item.match.id, 'home', event.target.value)
+                                    }
+                                    disabled={!item.canEdit}
+                                    placeholder="-"
+                                  />
+                                  <span>x</span>
+                                  <input
+                                    aria-label={`Palpite para ${item.match.awayTeam}`}
+                                    inputMode="numeric"
+                                    value={guess.away}
+                                    onChange={(event) =>
+                                      setGuess(item.match.id, 'away', event.target.value)
+                                    }
+                                    disabled={!item.canEdit}
+                                    placeholder="-"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="matches-score-display">
+                                  <span>{guess.home !== '' ? guess.home : '-'}</span>
+                                  <span>x</span>
+                                  <span>{guess.away !== '' ? guess.away : '-'}</span>
+                                </div>
+                              )}
+                            </div>
+                            <TeamMark
+                              name={item.match.awayTeam}
+                              logo={item.match.awayTeamLogo}
+                              flag={item.match.awayFlag}
+                              align="start"
+                            />
                           </div>
-                          <TeamMark
-                            name={item.match.awayTeam}
-                            logo={item.match.awayTeamLogo}
-                            flag={item.match.awayFlag}
-                            align="start"
-                          />
+
+                          <div className="matches-market-selectors">
+                            <label>
+                              <span>Resultado</span>
+                              <select
+                                value={picks.resultPick}
+                                onChange={(event) =>
+                                  setMarketPick(item.match.id, 'resultPick', event.target.value)
+                                }
+                                disabled={!item.canEdit}
+                                aria-label={`Resultado para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                              >
+                                <option value="">Escolha</option>
+                                {(['home', 'draw', 'away'] as const).map((value) => (
+                                  <option key={value} value={value}>
+                                    {RESULT_PICK_LABELS[value]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Total de gols</span>
+                              <select
+                                value={picks.totalGoalsPick}
+                                onChange={(event) =>
+                                  setMarketPick(item.match.id, 'totalGoalsPick', event.target.value)
+                                }
+                                disabled={!item.canEdit}
+                                aria-label={`Total de gols para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                              >
+                                <option value="">Escolha</option>
+                                {TOTAL_GOALS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label} - {option.description}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Ambas marcam</span>
+                              <select
+                                value={picks.bothTeamsScorePick}
+                                onChange={(event) =>
+                                  setMarketPick(
+                                    item.match.id,
+                                    'bothTeamsScorePick',
+                                    event.target.value,
+                                  )
+                                }
+                                disabled={!item.canEdit}
+                                aria-label={`Ambas marcam para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                              >
+                                <option value="">Escolha</option>
+                                {(['yes', 'no'] as const).map((value) => (
+                                  <option key={value} value={value}>
+                                    {BOTH_TEAMS_SCORE_LABELS[value]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
                         </div>
                       </div>
 
@@ -645,13 +624,36 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                         <MatchStatsBar item={item} />
 
                         <footer className="matches-row-footer">
-                          <span className={item.reachedLimit ? 'danger' : ''}>
-                            {item.reachedLimit
-                              ? 'Limite de alterações atingido'
-                              : item.prediction
-                                ? `Seu palpite atual: ${item.prediction.homeGuess} x ${item.prediction.awayGuess}`
-                                : 'Você ainda não palpitou'}
-                          </span>
+                          {item.prediction ? (
+                            <div className="matches-row-prediction-badge">
+                              <div className="prediction-label-group">
+                                <span className="prediction-glow-dot" />
+                                <span className="prediction-score-text">
+                                  Seu palpite: <strong>{item.prediction.homeGuess} x {item.prediction.awayGuess}</strong>
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn-view-prediction"
+                                onClick={() =>
+                                  setViewPredictionModal({
+                                    match: item.match,
+                                    prediction: item.prediction!,
+                                    editCount: item.prediction!.editCount,
+                                    maxEdits: activeLeague.maxEdits,
+                                  })
+                                }
+                                title="Ver detalhes do palpite"
+                              >
+                                <i className="bi bi-eye" aria-hidden="true" />
+                                <span>Visualizar</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className={item.reachedLimit ? 'danger' : 'text-secondary'} style={{ fontSize: '0.85rem' }}>
+                              {item.reachedLimit ? 'Limite de alterações atingido' : 'Você ainda não palpitou'}
+                            </span>
+                          )}
                           <button
                             type="button"
                             className={isSaved ? 'btn btn-neon-outline' : 'btn btn-neon-green'}
@@ -757,6 +759,148 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               style={{ borderRadius: '6px' }}
             >
               Entendido!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewPredictionModal && (
+        <div 
+          className="fixed-overlay d-flex align-items-center justify-content-center animate__animated animate__fadeIn"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 9999,
+            backdropFilter: 'blur(4px)',
+            padding: '20px'
+          }}
+        >
+          <div 
+            className="glass-card p-4 border-info animate__animated animate__zoomIn"
+            style={{
+              maxWidth: '440px',
+              width: '100%',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(15, 23, 42, 0.98) 100%)',
+              border: '1px solid rgba(14, 165, 233, 0.3)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            {/* Header */}
+            <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary border-opacity-10">
+              <div className="d-flex align-items-center gap-2">
+                <div 
+                  className="d-flex align-items-center justify-content-center bg-info bg-opacity-10 text-info rounded-circle"
+                  style={{ width: '32px', height: '32px', border: '1px solid rgba(14, 165, 233, 0.2)' }}
+                >
+                  <svg className="football-rule-icon text-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1rem', height: '1rem' }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 7.5L16 10.5L14.5 15.5H9.5L8 10.5L12 7.5Z" fill="currentColor" fillOpacity="0.15" />
+                    <path d="M12 2v5.5M12 16.5V22M2 12h5.5M16.5 12H22M4.5 4.5l3.5 3M16 7.5l3.5-3M4.5 19.5l3.5-3M16 16.5l3.5 3" />
+                  </svg>
+                </div>
+                <h4 className="text-white fw-bold m-0" style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>Seu Palpite</h4>
+              </div>
+              <button
+                type="button"
+                className="border-0 bg-transparent text-secondary hover-text-white d-flex align-items-center justify-content-center"
+                onClick={() => setViewPredictionModal(null)}
+                style={{ cursor: 'pointer', transition: 'color 0.2s', fontSize: '1.2rem', padding: '4px' }}
+                aria-label="Fechar modal"
+              >
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Match Heading */}
+            <div className="text-center mb-3">
+              <span className="text-secondary text-uppercase fw-semibold" style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}>
+                {viewPredictionModal.match.stage} • {viewPredictionModal.match.group ? `Grupo ${viewPredictionModal.match.group}` : 'Fase Final'}
+              </span>
+            </div>
+
+            {/* Scoreboard Preview */}
+            <div 
+              className="p-3 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-10 d-flex justify-content-around align-items-center mb-4"
+              style={{ background: 'rgba(8, 12, 20, 0.4)' }}
+            >
+              <div className="d-flex flex-column align-items-center text-center" style={{ width: '38%' }}>
+                <TeamMark
+                  name={viewPredictionModal.match.homeTeam}
+                  logo={viewPredictionModal.match.homeTeamLogo}
+                  flag={viewPredictionModal.match.homeFlag}
+                  align="center"
+                />
+              </div>
+              <div className="text-center" style={{ width: '24%' }}>
+                <div className="fs-2 fw-black text-info animate__animated animate__pulse" style={{ fontFamily: 'var(--font-display)', textShadow: '0 0 15px rgba(14, 165, 233, 0.4)' }}>
+                  {viewPredictionModal.prediction.homeGuess} x {viewPredictionModal.prediction.awayGuess}
+                </div>
+              </div>
+              <div className="d-flex flex-column align-items-center text-center" style={{ width: '38%' }}>
+                <TeamMark
+                  name={viewPredictionModal.match.awayTeam}
+                  logo={viewPredictionModal.match.awayTeamLogo}
+                  flag={viewPredictionModal.match.awayFlag}
+                  align="center"
+                />
+              </div>
+            </div>
+
+            {/* Markets details */}
+            <div className="d-flex flex-column gap-2 mb-4">
+              <div className="prediction-detail-market-card">
+                <div className="market-card-left">
+                  <div className="market-card-icon">
+                    <i className="bi bi-flag" aria-hidden="true" />
+                  </div>
+                  <span>Resultado</span>
+                </div>
+                <div className="market-card-value">
+                  {formatResultPick(viewPredictionModal.prediction.resultPick)}
+                </div>
+              </div>
+
+              <div className="prediction-detail-market-card">
+                <div className="market-card-left">
+                  <div className="market-card-icon">
+                    <i className="bi bi-arrows-expand" aria-hidden="true" />
+                  </div>
+                  <span>Total de Gols</span>
+                </div>
+                <div className="market-card-value">
+                  {formatTotalGoalsPick(viewPredictionModal.prediction.totalGoalsPick)}
+                </div>
+              </div>
+
+              <div className="prediction-detail-market-card">
+                <div className="market-card-left">
+                  <div className="market-card-icon">
+                    <i className="bi bi-check2-circle" aria-hidden="true" />
+                  </div>
+                  <span>Ambas Marcam</span>
+                </div>
+                <div className="market-card-value">
+                  {formatBothTeamsScorePick(viewPredictionModal.prediction.bothTeamsScorePick)}
+                </div>
+              </div>
+            </div>
+
+            {/* Info footer */}
+            <div className="mb-4 text-center text-secondary" style={{ fontSize: '0.78rem' }}>
+              <i className="bi bi-info-circle me-1 text-info" aria-hidden="true" />
+              <span>
+                Palpite editado <strong>{viewPredictionModal.editCount}</strong> de <strong>{viewPredictionModal.maxEdits}</strong> vezes permitidas.
+              </span>
+            </div>
+
+            <button 
+              type="button" 
+              className="btn btn-neon-outline w-100 py-2.5 fw-bold"
+              onClick={() => setViewPredictionModal(null)}
+              style={{ borderRadius: '6px' }}
+            >
+              Fechar
             </button>
           </div>
         </div>
