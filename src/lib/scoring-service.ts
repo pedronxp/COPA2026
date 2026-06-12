@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { calculatePredictionScore } from '@/lib/scoring-domain';
+import { normalizePredictionMarketPicks } from '@/lib/prediction-markets';
 import { prisma } from '@/lib/prisma';
 import {
   getCycleKey,
@@ -122,12 +123,14 @@ export async function processLeagueScoringForMatch(matchId: string) {
       pointsBothScoreYes: prediction.league.pointsBothScoreYes,
       pointsBothScoreNo: prediction.league.pointsBothScoreNo,
     };
+    const marketPicks = normalizePredictionMarketPicks(prediction);
     const score = calculatePredictionScore(
       prediction.homeGuess,
       prediction.awayGuess,
       match.homeScore,
       match.awayScore,
       rules,
+      marketPicks,
     );
     const newPoints = score.total;
     const cycleKey = getCycleKey(prediction.league, match);
@@ -156,6 +159,9 @@ export async function processLeagueScoringForMatch(matchId: string) {
                   prediction: {
                     home: prediction.homeGuess,
                     away: prediction.awayGuess,
+                    resultPick: marketPicks.resultPick,
+                    totalGoalsPick: marketPicks.totalGoalsPick,
+                    bothTeamsScorePick: marketPicks.bothTeamsScorePick,
                   },
                   result: { home: match.homeScore, away: match.awayScore },
                 },
@@ -241,6 +247,9 @@ export async function processLeagueScoringForMatch(matchId: string) {
                 prediction: {
                   home: prediction.homeGuess,
                   away: prediction.awayGuess,
+                  resultPick: marketPicks.resultPick,
+                  totalGoalsPick: marketPicks.totalGoalsPick,
+                  bothTeamsScorePick: marketPicks.bothTeamsScorePick,
                 },
                 result: { home: match.homeScore, away: match.awayScore },
               },

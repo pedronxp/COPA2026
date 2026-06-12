@@ -44,6 +44,9 @@ function prediction(overrides: Partial<PredictionData>): PredictionData {
     leagueId: 'global',
     homeGuess: overrides.homeGuess ?? 1,
     awayGuess: overrides.awayGuess ?? 0,
+    resultPick: overrides.resultPick ?? 'home',
+    totalGoalsPick: overrides.totalGoalsPick ?? 'over_1_5',
+    bothTeamsScorePick: overrides.bothTeamsScorePick ?? 'no',
     editCount: overrides.editCount ?? 0,
     processed: false,
   };

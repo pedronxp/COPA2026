@@ -1,6 +1,12 @@
 import 'server-only';
 
 import { prisma, withRetry } from '@/lib/prisma';
+import type {
+  BothTeamsScorePick,
+  ResultPick,
+  TotalGoalsPick,
+} from '@/lib/prediction-markets';
+import { normalizePredictionMarketPicks } from '@/lib/prediction-markets';
 
 export interface ProfileData {
   user: {
@@ -44,6 +50,9 @@ export interface ProfileData {
     leagueSlug: string;
     homeGuess: number;
     awayGuess: number;
+    resultPick: ResultPick;
+    totalGoalsPick: TotalGoalsPick;
+    bothTeamsScorePick: BothTeamsScorePick;
     processed: boolean;
     points: number | null;
     kickOff: string;
@@ -132,6 +141,9 @@ export async function getProfileData(userId: string): Promise<ProfileData> {
           id: true,
           homeGuess: true,
           awayGuess: true,
+          resultPick: true,
+          totalGoalsPick: true,
+          bothTeamsScorePick: true,
           processed: true,
           pointEntry: { select: { points: true } },
           league: { select: { name: true, slug: true, id: true } },
@@ -216,6 +228,7 @@ export async function getProfileData(userId: string): Promise<ProfileData> {
       status: membership.league.status,
     })),
     recentPredictions: recentPredictions.map((prediction) => ({
+      ...normalizePredictionMarketPicks(prediction),
       id: prediction.id,
       leagueName: prediction.league.name,
       leagueSlug: prediction.league.slug || prediction.league.id,

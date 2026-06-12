@@ -215,6 +215,11 @@ export async function getDashboardData(
                 match.homeScore,
                 match.awayScore,
                 base.leagueContext.activeLeague,
+                {
+                  resultPick: prediction.resultPick,
+                  totalGoalsPick: prediction.totalGoalsPick,
+                  bothTeamsScorePick: prediction.bothTeamsScorePick,
+                },
               )
             : null,
       };

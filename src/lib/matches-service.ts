@@ -7,6 +7,12 @@ import { translateTeamName } from './team-translation';
 import { parseMatchLocalDate } from './match-time';
 import { calculatePredictionScore } from './scoring-domain';
 import { mergeMatchSyncState, normalizeMatchStatus } from './match-sync-domain';
+import type {
+  BothTeamsScorePick,
+  ResultPick,
+  TotalGoalsPick,
+} from './prediction-markets';
+import { normalizePredictionMarketPicks } from './prediction-markets';
 
 export { calculatePredictionScore } from './scoring-domain';
 
@@ -51,6 +57,9 @@ export interface PredictionData {
   leagueId: string;
   homeGuess: number;
   awayGuess: number;
+  resultPick: ResultPick;
+  totalGoalsPick: TotalGoalsPick;
+  bothTeamsScorePick: BothTeamsScorePick;
   editCount: number;
   processed: boolean;
 }
@@ -87,49 +96,15 @@ export function calculatePredictionPoints(
     pointsDraw: number;
     pointsBothScoreYes?: number;
     pointsBothScoreNo?: number;
-  }
+  },
+  markets?: {
+    resultPick?: ResultPick | null;
+    totalGoalsPick?: TotalGoalsPick | null;
+    bothTeamsScorePick?: BothTeamsScorePick | null;
+  },
 ): number {
-  return calculatePredictionScore(homeGuess, awayGuess, homeScore, awayScore, rules).total;
-  /*
-  const pointsExact = rules?.pointsExact ?? 5;
-  const pointsDiff = rules?.pointsDiff ?? 3;
-  const pointsWinner = rules?.pointsWinner ?? 2;
-  const pointsWinnerHome = rules?.pointsWinnerHome ?? pointsWinner;
-  const pointsWinnerAway = rules?.pointsWinnerAway ?? pointsWinner;
-  const pointsDraw = rules?.pointsDraw ?? 2;
+  return calculatePredictionScore(homeGuess, awayGuess, homeScore, awayScore, rules, markets).total;
 
-  const guessWinner = homeGuess > awayGuess ? '1' : homeGuess < awayGuess ? '2' : 'X';
-  const realWinner = homeScore > awayScore ? '1' : homeScore < awayScore ? '2' : 'X';
-
-  // 1. Acerto do Placar Exato
-  if (homeGuess === homeScore && awayGuess === awayScore) {
-    return pointsExact;
-  }
-
-  // Se errou o placar, mas acertou o vencedor/empate
-  if (guessWinner === realWinner) {
-    // 2. Acerto de Empate Não Exato
-    if (realWinner === 'X') {
-      return pointsDraw;
-    }
-
-    // 3. Acerto do Vencedor e Saldo/Diferença de Gols
-    const guessDiff = homeGuess - awayGuess;
-    const realDiff = homeScore - awayScore;
-    if (guessDiff === realDiff) {
-      return pointsDiff;
-    }
-
-    // 4. Acerto de Apenas o Vencedor
-    if (realWinner === '1') {
-      return pointsWinnerHome;
-    }
-    return pointsWinnerAway;
-  }
-
-  // 5. Erro Total
-  return 0;
-  */
 }
 
 // ─── Funções de Dados (Prisma direto) ────────────────────────────────
@@ -255,6 +230,7 @@ export async function getPredictions(userId: string, leagueId?: string): Promise
   }));
 
   return dbPreds.map(p => ({
+    ...normalizePredictionMarketPicks(p),
     id: p.id,
     userId: p.userId,
     matchId: p.matchId,
@@ -275,7 +251,12 @@ export async function savePrediction(
   matchId: string,
   homeGuess: number,
   awayGuess: number,
-  leagueId: string = 'global'
+  leagueId: string = 'global',
+  markets?: {
+    resultPick?: ResultPick | null;
+    totalGoalsPick?: TotalGoalsPick | null;
+    bothTeamsScorePick?: BothTeamsScorePick | null;
+  },
 ): Promise<PredictionData> {
   await ensureUserExists(userId);
 
@@ -291,6 +272,14 @@ export async function savePrediction(
   }
 
   // Buscar as regras do bolão correspondente, criando a global se não existir
+  const marketPicks = normalizePredictionMarketPicks({
+    homeGuess,
+    awayGuess,
+    resultPick: markets?.resultPick,
+    totalGoalsPick: markets?.totalGoalsPick,
+    bothTeamsScorePick: markets?.bothTeamsScorePick,
+  });
+
   let league = await prisma.league.findUnique({ where: { id: leagueId } });
   if (!league && leagueId === 'global') {
     league = await prisma.league.create({
@@ -373,11 +362,12 @@ export async function savePrediction(
     where: {
       userId_matchId_leagueId: { userId, matchId, leagueId },
     },
-    update: { homeGuess, awayGuess, editCount },
-    create: { userId, matchId, leagueId, homeGuess, awayGuess, editCount: 0 },
+    update: { homeGuess, awayGuess, ...marketPicks, editCount },
+    create: { userId, matchId, leagueId, homeGuess, awayGuess, ...marketPicks, editCount: 0 },
   });
 
   return {
+    ...normalizePredictionMarketPicks(prediction),
     id: prediction.id,
     userId: prediction.userId,
     matchId: prediction.matchId,
@@ -455,8 +445,9 @@ export async function getMatchStats(matchId: string, leagueId?: string): Promise
   let away = 0;
 
   for (const p of predictions) {
-    if (p.homeGuess > p.awayGuess) home++;
-    else if (p.homeGuess < p.awayGuess) away++;
+    const resultPick = normalizePredictionMarketPicks(p).resultPick;
+    if (resultPick === 'home') home++;
+    else if (resultPick === 'away') away++;
     else draw++;
   }
 
@@ -486,6 +477,9 @@ export async function getMatchStatsBatch(
       matchId: true,
       homeGuess: true,
       awayGuess: true,
+      resultPick: true,
+      totalGoalsPick: true,
+      bothTeamsScorePick: true,
     },
   });
 
@@ -498,8 +492,9 @@ export async function getMatchStatsBatch(
     const stats = counters.get(prediction.matchId);
     if (!stats) continue;
     stats.total++;
-    if (prediction.homeGuess > prediction.awayGuess) stats.home++;
-    else if (prediction.homeGuess < prediction.awayGuess) stats.away++;
+    const resultPick = normalizePredictionMarketPicks(prediction).resultPick;
+    if (resultPick === 'home') stats.home++;
+    else if (resultPick === 'away') stats.away++;
     else stats.draw++;
   }
 
