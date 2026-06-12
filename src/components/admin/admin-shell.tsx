@@ -90,10 +90,34 @@ export function AdminShell({
           className="admin-sidebar-overlay"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9998,
+          }}
         />
       )}
 
-      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Navegação administrativa">
+      <aside
+        className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}
+        aria-label="Navegação administrativa"
+        style={
+          sidebarOpen
+            ? {
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '292px',
+                height: '100vh',
+                zIndex: 9999,
+                background: '#111418',
+              }
+            : undefined
+        }
+      >
         {/* Botão de fechar no mobile */}
         <button
           type="button"
@@ -141,7 +165,19 @@ export function AdminShell({
           </Link>
         </div>
       </aside>
-      <main className="admin-main">{children}</main>
+      <main
+        className="admin-main"
+        style={
+          sidebarOpen
+            ? {
+                position: 'relative',
+                zIndex: 1,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </main>
     </div>
   );
 }
