@@ -133,12 +133,12 @@ integration('league integration', () => {
         where: { leagueId: league.id, userId: owner.id, matchId: match.id },
       });
 
-      expect(member.points).toBe(6);
+      expect(member.points).toBe(11);
       expect(member.pendingPoints).toBe(0);
       expect(member.exactScoreStreak).toBe(1);
       expect(member.bestExactScoreStreak).toBe(1);
       expect(entries).toHaveLength(1);
-      expect(entries[0].points).toBe(6);
+      expect(entries[0].points).toBe(11);
     } finally {
       await cleanup(prefix, matchIds);
     }
@@ -236,7 +236,7 @@ integration('league integration', () => {
             homeTeam: 'Casa Global 2',
             awayTeam: 'Fora Global 2',
             kickOff: new Date(Date.now() - 60 * 60 * 1000),
-            homeScore: 0,
+            homeScore: 2,
             awayScore: 1,
             status: 'finished',
             stage: 'group',
@@ -260,8 +260,8 @@ integration('league integration', () => {
             userId: user.id,
             leagueId: 'global',
             matchId: matches[1].id,
-            homeGuess: 1,
-            awayGuess: 0,
+            homeGuess: 0,
+            awayGuess: 1,
           },
         }),
       ]);

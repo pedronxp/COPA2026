@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireAdminPage } from '@/lib/admin-auth';
 import { listAdminLeagues } from '@/lib/admin-service';
 import { updateLeagueAction } from '@/app/admin/actions';
@@ -73,6 +74,13 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
                 </small>
               </div>
               <div className="admin-action-group">
+                <Link
+                  className="admin-button secondary"
+                  href={`/admin/leagues/${league.slug || league.id}`}
+                >
+                  <i className="bi bi-sliders" aria-hidden="true" />
+                  Governanca
+                </Link>
                 <form className="admin-action-form league-edit-form" action={updateLeagueAction}>
                   <input type="hidden" name="leagueId" value={league.id} />
                   <input
