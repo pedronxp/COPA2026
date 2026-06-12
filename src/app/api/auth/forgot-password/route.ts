@@ -9,6 +9,8 @@ import {
 } from '@/lib/auth-validation';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic';
+
 const GENERIC_RESET_RESPONSE = {
   success: true,
   message: 'Se o e-mail existir, a solicitacao sera enviada ao administrador.',
