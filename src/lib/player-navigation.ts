@@ -5,7 +5,8 @@ export type PlayerRoute =
   | 'calendar'
   | 'leaderboard'
   | 'leagues'
-  | 'history';
+  | 'history'
+  | 'profile';
 
 export interface PlayerNavigationItem {
   route: PlayerRoute;
@@ -79,6 +80,15 @@ export const playerNavigationItems: PlayerNavigationItem[] = [
     label: 'Histórico',
     mobileLabel: 'Histórico',
     preserveLeague: true,
+    mobilePrimary: false,
+  },
+  {
+    route: 'profile',
+    href: '/profile',
+    icon: 'bi-person-circle',
+    label: 'Perfil',
+    mobileLabel: 'Perfil',
+    preserveLeague: false,
     mobilePrimary: false,
   },
 ];

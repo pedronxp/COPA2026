@@ -11,6 +11,7 @@ describe('player navigation', () => {
       'leaderboard',
       'leagues',
       'history',
+      'profile',
     ]);
   });
 
@@ -26,8 +27,10 @@ describe('player navigation', () => {
   it('preserves league context only for contextual routes', () => {
     const matches = playerNavigationItems.find((item) => item.route === 'matches');
     const leagues = playerNavigationItems.find((item) => item.route === 'leagues');
+    const profile = playerNavigationItems.find((item) => item.route === 'profile');
 
     expect(matches ? playerNavHref(matches, 'amigos') : '').toBe('/matches?league=amigos');
     expect(leagues ? playerNavHref(leagues, 'amigos') : '').toBe('/leagues');
+    expect(profile ? playerNavHref(profile, 'amigos') : '').toBe('/profile');
   });
 });

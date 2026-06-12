@@ -280,7 +280,7 @@ export function CreateLeagueWizard() {
                 ['pointsWinnerAway', 'Vitória Fora'],
                 ['pointsDraw', 'Empate correto'],
                 ['pointsBothScoreYes', 'Ambas marcam: sim'],
-                ['pointsBothScoreNo', 'Ambas marcam: nao'],
+                ['pointsBothScoreNo', 'Ambas marcam: não'],
               ].map(([key, label]) => (
                 <label className="league-score-field" key={key}>
                   <span>{label}</span>

@@ -37,7 +37,7 @@ export function ActiveLeagueSwitcher({
     <label className={`player-league-switcher ${compact ? 'compact' : ''}`}>
       <span>
         <i className="bi bi-trophy-fill" aria-hidden="true" />
-        Bolao ativo
+        Bolão ativo
       </span>
       <select value={activeLeagueId} onChange={(event) => changeLeague(event.target.value)}>
         {options.map((league) => (

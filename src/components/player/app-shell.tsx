@@ -74,11 +74,13 @@ export function PlayerAppShell({
         </nav>
 
         <div className="player-sidebar-user">
-          <span className="user-avatar">{user.image || user.name?.slice(0, 1) || 'U'}</span>
-          <div className="user-meta">
-            <strong>{user.name || 'Torcedor'}</strong>
-            <small>{user.email}</small>
-          </div>
+          <Link href="/profile" className="player-sidebar-profile" aria-label="Abrir perfil">
+            <span className="user-avatar">{user.image || user.name?.slice(0, 1) || 'U'}</span>
+            <div className="user-meta">
+              <strong>{user.name || 'Torcedor'}</strong>
+              <small>{user.email}</small>
+            </div>
+          </Link>
           <button
             onClick={handleLogout}
             className="player-logout-btn"
@@ -101,12 +103,14 @@ export function PlayerAppShell({
           <div>
             {activeRoute !== 'leagues' && (
               <>
-                <span className="player-kicker">Copa do Mundo 2026</span>
-                <h1>{activeLeague.name}</h1>
+                <span className="player-kicker">
+                  {activeRoute === 'profile' ? 'Conta do jogador' : 'Copa do Mundo 2026'}
+                </span>
+                <h1>{activeRoute === 'profile' ? 'Perfil' : activeLeague.name}</h1>
               </>
             )}
           </div>
-          {!isCreatingLeague && (
+          {!isCreatingLeague && activeRoute !== 'profile' && (
             <ActiveLeagueSwitcher options={options} activeLeagueId={activeLeague.id} />
           )}
         </header>

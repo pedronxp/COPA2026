@@ -1,5 +1,12 @@
 // src/lib/auth.ts
 import { scryptSync, randomBytes, timingSafeEqual } from 'crypto';
+import { compareSync } from 'bcryptjs';
+
+const BCRYPT_PREFIXES = ['$2a$', '$2b$', '$2y$'];
+
+export function isLegacyPasswordHash(storedHash: string): boolean {
+  return BCRYPT_PREFIXES.some((prefix) => storedHash.startsWith(prefix));
+}
 
 /**
  * Cria um hash seguro scrypt para uma senha
@@ -16,6 +23,10 @@ export function hashPassword(password: string): string {
  */
 export function verifyPassword(password: string, storedHash: string): boolean {
   try {
+    if (isLegacyPasswordHash(storedHash)) {
+      return compareSync(password, storedHash);
+    }
+
     const [salt, key] = storedHash.split(':');
     if (!salt || !key) return false;
     

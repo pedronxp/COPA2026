@@ -1,10 +1,62 @@
 import { Prisma } from '@prisma/client';
-import { calculatePredictionScore } from '@/lib/matches-service';
+import { calculatePredictionScore } from '@/lib/scoring-domain';
 import { prisma } from '@/lib/prisma';
 import {
   getCycleKey,
   publishReadyCyclesForMatch,
 } from '@/lib/league-ranking-service';
+
+export function summarizeGlobalPerformance(rows: Array<{ points: number }>) {
+  let points = 0;
+  let streak = 0;
+  let misses = 0;
+
+  for (const row of rows) {
+    points += row.points;
+    if (row.points > 0) {
+      streak += 1;
+      misses = 0;
+    } else {
+      streak = 0;
+      misses += 1;
+    }
+  }
+
+  return { points, streak, misses };
+}
+
+async function recomputeGlobalPerformance(
+  tx: Prisma.TransactionClient,
+  userId: string,
+) {
+  const predictions = await tx.prediction.findMany({
+    where: {
+      leagueId: 'global',
+      userId,
+      processed: true,
+      match: {
+        status: 'finished',
+        homeScore: { not: null },
+        awayScore: { not: null },
+      },
+      pointEntry: { isNot: null },
+    },
+    orderBy: { match: { kickOff: 'asc' } },
+    select: {
+      pointEntry: { select: { points: true } },
+    },
+  });
+  const summary = summarizeGlobalPerformance(
+    predictions.map((prediction) => ({
+      points: prediction.pointEntry?.points ?? 0,
+    })),
+  );
+
+  await tx.user.update({
+    where: { id: userId },
+    data: summary,
+  });
+}
 
 async function recomputeExactScoreStreak(
   tx: Prisma.TransactionClient,
@@ -114,6 +166,9 @@ export async function processLeagueScoringForMatch(matchId: string) {
               prediction.leagueId,
               prediction.userId,
             );
+            if (isGlobal) {
+              await recomputeGlobalPerformance(tx, prediction.userId);
+            }
             if (delta === 0) return { changed: false, pending: false };
 
             await tx.leaguePointEntry.create({
@@ -137,31 +192,28 @@ export async function processLeagueScoringForMatch(matchId: string) {
               },
             });
 
-            if (isGlobal) {
-              await tx.user.update({
-                where: { id: prediction.userId },
-                data: { points: { increment: delta } },
-              });
-            } else if (existing.status === 'published') {
-              await tx.leagueMember.update({
-                where: {
-                  leagueId_userId: {
-                    leagueId: prediction.leagueId,
-                    userId: prediction.userId,
+            if (!isGlobal) {
+              if (existing.status === 'published') {
+                await tx.leagueMember.update({
+                  where: {
+                    leagueId_userId: {
+                      leagueId: prediction.leagueId,
+                      userId: prediction.userId,
+                    },
                   },
-                },
-                data: { points: { increment: delta } },
-              });
-            } else {
-              await tx.leagueMember.update({
-                where: {
-                  leagueId_userId: {
-                    leagueId: prediction.leagueId,
-                    userId: prediction.userId,
+                  data: { points: { increment: delta } },
+                });
+              } else {
+                await tx.leagueMember.update({
+                  where: {
+                    leagueId_userId: {
+                      leagueId: prediction.leagueId,
+                      userId: prediction.userId,
+                    },
                   },
-                },
-                data: { pendingPoints: { increment: delta } },
-              });
+                  data: { pendingPoints: { increment: delta } },
+                });
+              }
             }
             return { changed: true, pending: existing.status === 'pending' };
           }
@@ -202,15 +254,7 @@ export async function processLeagueScoringForMatch(matchId: string) {
           );
 
           if (isGlobal) {
-            const isHit = newPoints > 0;
-            await tx.user.update({
-              where: { id: prediction.userId },
-              data: {
-                points: { increment: newPoints },
-                streak: isHit ? { increment: 1 } : 0,
-                misses: isHit ? 0 : { increment: 1 },
-              },
-            });
+            await recomputeGlobalPerformance(tx, prediction.userId);
           } else if (publishImmediately) {
             await tx.leagueMember.update({
               where: {

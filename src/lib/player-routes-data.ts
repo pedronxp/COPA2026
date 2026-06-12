@@ -54,9 +54,9 @@ export interface DashboardData extends PlayerRouteData {
   nextMatch: MatchData | null;
   upcomingPredictions: Array<{ prediction: PredictionData; match: MatchData }>;
   recentResults: Array<{
-    prediction: PredictionData;
+    prediction: PredictionData | null;
     match: MatchData;
-    points: number;
+    points: number | null;
   }>;
 }
 
@@ -67,6 +67,9 @@ export interface CalendarData extends PlayerRouteData {
 export interface LeaderboardData extends PlayerRouteData {
   currentMember: PlayerMemberRow | null;
   podium: PlayerMemberRow[];
+  globalMembers: PlayerMemberRow[];
+  currentGlobalMember: PlayerMemberRow | null;
+  globalPodium: PlayerMemberRow[];
 }
 
 export type ResultsData = PlayerRouteData;
@@ -188,30 +191,34 @@ export async function getDashboardData(
     .sort((a, b) => new Date(a.match.kickOff).getTime() - new Date(b.match.kickOff).getTime())
     .slice(0, 4);
 
-  const recentResults = base.predictions
-    .map((prediction) => ({
-      prediction,
-      match: base.matches.find((match) => match.id === prediction.matchId),
-    }))
-    .filter((item): item is { prediction: PredictionData; match: MatchData } =>
-      Boolean(item.match && item.match.status === 'finished'),
+  const recentResults = base.matches
+    .filter(
+      (match) =>
+        match.status === 'finished' &&
+        match.homeScore !== null &&
+        match.awayScore !== null,
     )
-    .sort((a, b) => new Date(b.match.kickOff).getTime() - new Date(a.match.kickOff).getTime())
+    .sort((a, b) => new Date(b.kickOff).getTime() - new Date(a.kickOff).getTime())
     .slice(0, 4)
-    .map(({ prediction, match }) => ({
-      prediction,
-      match,
-      points:
-        match.homeScore === null || match.awayScore === null
-          ? 0
-          : calculatePredictionPoints(
-              prediction.homeGuess,
-              prediction.awayGuess,
-              match.homeScore,
-              match.awayScore,
-              base.leagueContext.activeLeague,
-            ),
-    }));
+    .map((match) => {
+      const prediction =
+        base.predictions.find((item) => item.matchId === match.id) || null;
+
+      return {
+        prediction,
+        match,
+        points:
+          prediction && match.homeScore !== null && match.awayScore !== null
+            ? calculatePredictionPoints(
+                prediction.homeGuess,
+                prediction.awayGuess,
+                match.homeScore,
+                match.awayScore,
+                base.leagueContext.activeLeague,
+              )
+            : null,
+      };
+    });
 
   return { ...base, nextMatch, upcomingPredictions, recentResults };
 }
@@ -334,9 +341,17 @@ export async function getLeaderboardData(
   requestedLeague?: string | string[] | null,
 ): Promise<LeaderboardData> {
   const base = await getBasePlayerRouteData(userId, requestedLeague);
+  const globalMembers =
+    base.leagueContext.activeLeague.id === 'global'
+      ? base.members
+      : await getMembersForLeague('global');
+
   return {
     ...base,
     currentMember: base.members.find((member) => member.id === userId) || null,
     podium: base.members.slice(0, 3),
+    globalMembers,
+    currentGlobalMember: globalMembers.find((member) => member.id === userId) || null,
+    globalPodium: globalMembers.slice(0, 3),
   };
 }

@@ -64,28 +64,28 @@ function MatchStatsBar({ item }: { item: MatchViewModel }) {
 
 const RULE_EXPLANATIONS = {
   exact: {
-    title: 'Placar Exato',
-    desc: 'Você ganha estes pontos se acertar o placar cheio do jogo. Exemplo: seu palpite foi 2x1 e o jogo terminou 2x1.',
+    title: 'Placar exato',
+    desc: 'Você ganha estes pontos quando acerta os gols dos dois times. Exemplo: seu palpite foi 2x1 e a partida terminou 2x1.',
     icon: 'bi-bullseye'
   },
   diff: {
-    title: 'Saldo Correto',
-    desc: 'Você ganha estes pontos se acertar o vencedor da partida e a diferença exata de gols, mas errar o número de gols. Exemplo: seu palpite foi 2x0 e o jogo terminou 3x1.',
+    title: 'Saldo de gols',
+    desc: 'Você ganha estes pontos quando acerta quem vence e a diferença de gols, mesmo sem acertar o placar. Exemplo: palpite 2x0 e resultado 3x1.',
     icon: 'bi-sliders'
   },
   winnerHome: {
-    title: 'Vitória do Mandante (Casa)',
-    desc: 'Você ganha estes pontos se acertar apenas o vencedor (time da casa), sem acertar o placar exato ou o saldo correto de gols. Exemplo: seu palpite foi 2x1 e o jogo terminou 1x0.',
+    title: 'Resultado da partida: casa',
+    desc: 'Você ganha estes pontos quando acerta apenas que o time da casa vence, sem acertar o placar exato nem o saldo de gols.',
     icon: 'bi-house-door'
   },
   draw: {
-    title: 'Empate Correto',
-    desc: 'Você ganha estes pontos se acertar que a partida terminará empatada, mas com número de gols diferente do seu palpite. Exemplo: seu palpite foi 1x1 e o jogo terminou 2x2.',
+    title: 'Resultado da partida: empate',
+    desc: 'Você ganha estes pontos quando acerta que a partida termina empatada, mas com outro placar. Exemplo: palpite 1x1 e resultado 2x2.',
     icon: 'bi-shuffle'
   },
   winnerAway: {
-    title: 'Vitória do Visitante',
-    desc: 'Você ganha estes pontos se acertar apenas o vencedor (time visitante), sem acertar o placar exato ou o saldo correto de gols. Exemplo: seu palpite foi 1x2 e o jogo terminou 0x3.',
+    title: 'Resultado da partida: visitante',
+    desc: 'Você ganha estes pontos quando acerta apenas que o visitante vence, sem acertar o placar exato nem o saldo de gols.',
     icon: 'bi-airplane'
   },
   bothYes: {
@@ -359,19 +359,23 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           <span className="player-kicker">Palpites</span>
           <h2>Central de partidas</h2>
           <p>
-            {activeLeague.name} tem janela de {activeLeague.windowHours}h, limite de{' '}
-            {activeLeague.maxEdits} edições e {activeLeague.memberCount} participantes.
+            Faça seus palpites no {activeLeague.name}. Toque em uma regra para entender como ela pontua antes de salvar.
           </p>
+          <div className="matches-score-guide" aria-label="Guia rápido de pontuação">
+            <span><i className="bi bi-bullseye" aria-hidden="true" /> Placar exato: gols iguais ao jogo</span>
+            <span><i className="bi bi-arrows-expand" aria-hidden="true" /> Saldo: diferença de gols correta</span>
+            <span><i className="bi bi-flag" aria-hidden="true" /> Resultado: casa, empate ou visitante</span>
+          </div>
         </div>
 
         <div className="matches-rules-grid" aria-label="Regras de pontuação">
           {(
             [
-              { key: 'exact', label: 'Exato', points: activeLeague.pointsExact, title: 'Placar Exato' },
-              { key: 'diff', label: 'Saldo', points: activeLeague.pointsDiff, title: 'Saldo de Gols' },
-              { key: 'winnerHome', label: 'Casa', points: activeLeague.pointsWinnerHome, title: 'Vitória do Mandante (Casa)' },
-              { key: 'draw', label: 'Empate', points: activeLeague.pointsDraw, title: 'Empate' },
-              { key: 'winnerAway', label: 'Visitante', points: activeLeague.pointsWinnerAway, title: 'Vitória do Visitante' },
+              { key: 'exact', label: 'Placar', points: activeLeague.pointsExact, title: 'Placar exato' },
+              { key: 'diff', label: 'Saldo', points: activeLeague.pointsDiff, title: 'Saldo de gols' },
+              { key: 'winnerHome', label: 'Casa vence', points: activeLeague.pointsWinnerHome, title: 'Resultado: casa vence' },
+              { key: 'draw', label: 'Empate', points: activeLeague.pointsDraw, title: 'Resultado: empate' },
+              { key: 'winnerAway', label: 'Fora vence', points: activeLeague.pointsWinnerAway, title: 'Resultado: visitante vence' },
               { key: 'bothYes', label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, title: 'Ambas Marcam Sim' },
               { key: 'bothNo', label: 'Ambas não', points: activeLeague.pointsBothScoreNo, title: 'Ambas Marcam Não' },
             ] as const
@@ -411,7 +415,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                     activeRuleHelp === 'winnerAway' ? activeLeague.pointsWinnerAway :
                     activeRuleHelp === 'bothYes' ? activeLeague.pointsBothScoreYes :
                     activeLeague.pointsBothScoreNo
-                  } pontos</strong> nesta liga
+                  } pontos</strong> neste bolão
                 </span>
               </div>
             </div>
@@ -643,12 +647,10 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                         <footer className="matches-row-footer">
                           <span className={item.reachedLimit ? 'danger' : ''}>
                             {item.reachedLimit
-                              ? 'Limite de edições atingido'
+                              ? 'Limite de alterações atingido'
                               : item.prediction
-                                ? `Salvo: ${item.prediction.homeGuess} x ${item.prediction.awayGuess}`
-                                : 'Sem palpite salvo'}
-                            {' · '}
-                            {item.editCount}/{activeLeague.maxEdits} edições
+                                ? `Seu palpite atual: ${item.prediction.homeGuess} x ${item.prediction.awayGuess}`
+                                : 'Você ainda não palpitou'}
                           </span>
                           <button
                             type="button"

@@ -74,8 +74,8 @@ export async function POST(request: Request) {
         prisma.league.create({
           data: {
             id: 'global',
-            name: 'Bolao Global da Copa',
-            description: 'O bolao oficial da plataforma para todos os torcedores.',
+            name: 'Bolão Global da Copa',
+            description: 'O bolão oficial da plataforma para todos os torcedores.',
             inviteCode: 'COPA-GLOBAL',
             ownerId: user.id,
             expiresAt: new Date('2026-08-01T00:00:00Z'),

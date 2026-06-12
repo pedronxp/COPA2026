@@ -31,29 +31,52 @@ function PodiumCard({
 export function LeaderboardView({ data }: LeaderboardViewProps) {
   const { activeLeague } = data.leagueContext;
   const [leader, second, third] = data.podium;
+  const isGlobal = activeLeague.id === 'global';
 
   return (
     <div className="player-page-stack leaderboard-page">
       <section className="leaderboard-hero">
         <div>
-          <span className="player-kicker">Ranking</span>
-          <h2>Disputa do {activeLeague.name}</h2>
+          <span className="player-kicker">{isGlobal ? 'Ranking global' : 'Ranking do bolão'}</span>
+          <h2>{isGlobal ? 'Classificação geral dos jogadores' : `Disputa do ${activeLeague.name}`}</h2>
           <p>
-            Acompanhe o topo, sua posicao atual e os pontos publicados neste bolao.
+            {isGlobal
+              ? 'Acompanhe sua posição entre todos os jogadores da plataforma.'
+              : 'Acompanhe o topo, sua posição atual e os pontos publicados neste bolão.'}
           </p>
         </div>
         <div className="leaderboard-hero-meta">
           <span>{activeLeague.memberCount} competidores</span>
           <strong>{activeLeague.userRank ? `#${activeLeague.userRank}` : '--'}</strong>
-          <small>Sua posicao</small>
+          <small>Sua posição</small>
         </div>
       </section>
+
+      {!isGlobal && (
+        <section className="leaderboard-current-card leaderboard-global-card">
+          <div>
+            <span className="player-kicker">Rank global</span>
+            <h3>Desempenho em toda a plataforma</h3>
+            <small>{data.globalMembers.length} participantes globais</small>
+          </div>
+          <div className="leaderboard-current-stats">
+            <span>
+              <strong>{data.currentGlobalMember?.rank ? `#${data.currentGlobalMember.rank}` : '--'}</strong>
+              posição
+            </span>
+            <span><strong>{data.currentGlobalMember?.points ?? 0}</strong> pontos</span>
+            <Link href="/leaderboard?league=global" className="btn btn-neon-outline">
+              Ver ranking global
+            </Link>
+          </div>
+        </section>
+      )}
 
       {data.members.length === 0 ? (
         <section className="player-panel player-empty-state">
           <i className="bi bi-trophy" aria-hidden="true" />
           <h3>Ranking vazio</h3>
-          <p>Este bolao ainda nao tem participantes ativos para classificar.</p>
+          <p>Este bolão ainda não tem participantes ativos para classificar.</p>
         </section>
       ) : (
         <>
@@ -66,10 +89,10 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
           <section className="leaderboard-current-card">
             <div>
               <span className="player-kicker">Sua campanha</span>
-              <h3>{data.currentMember?.name || 'Voce ainda nao aparece no ranking'}</h3>
+              <h3>{data.currentMember?.name || 'Você ainda não aparece no ranking'}</h3>
             </div>
             <div className="leaderboard-current-stats">
-              <span><strong>{data.currentMember?.rank ? `#${data.currentMember.rank}` : '--'}</strong> posicao</span>
+              <span><strong>{data.currentMember?.rank ? `#${data.currentMember.rank}` : '--'}</strong> posição</span>
               <span><strong>{data.currentMember?.points ?? 0}</strong> pontos</span>
               <span><strong>{data.currentMember?.pendingPoints ?? 0}</strong> pendentes</span>
             </div>
@@ -78,7 +101,7 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
           <section className="player-panel leaderboard-list-panel">
             <div className="player-panel-heading">
               <div>
-                <span className="player-kicker">Classificacao geral</span>
+                <span className="player-kicker">Classificação geral</span>
                 <h3>Todos os participantes</h3>
               </div>
               {activeLeague.lastPublishedAt && (

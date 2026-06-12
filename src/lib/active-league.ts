@@ -104,9 +104,9 @@ async function getGlobalLeagueOption(userId: string): Promise<ActiveLeagueOption
   return {
     id: 'global',
     slug: 'global',
-    name: league?.name || 'Bolao Global da Copa',
+    name: league?.name || 'Bolão Global da Copa',
     description:
-      league?.description || 'O bolao oficial da plataforma para todos os torcedores.',
+      league?.description || 'O bolão oficial da plataforma para todos os torcedores.',
     visibility: league?.visibility || 'public',
     joinPolicy: league?.joinPolicy || 'open',
     status: league?.status || 'active',
@@ -236,7 +236,7 @@ export async function getActiveLeagueContext(
     requestedLeague: requested,
     fallbackReason:
       requested && !matchesLeagueReference(activeLeague, requested)
-        ? 'Voce nao participa deste bolao ou ele nao esta disponivel.'
+        ? 'Você não participa deste bolão ou ele não está disponível.'
         : null,
   };
 }

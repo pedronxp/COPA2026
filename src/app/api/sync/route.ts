@@ -1,9 +1,9 @@
 // src/app/api/sync/route.ts
 import { NextResponse } from 'next/server';
-import { syncFromApi } from '@/lib/matches-service';
 import { prisma } from '@/lib/prisma';
 import { requireApiUser } from '@/lib/api-session';
 import { requireOperationalRequest } from '@/lib/operational-auth';
+import { executeSync } from '@/lib/sync-service';
 
 // POST: Dispara sincronização com a API WorldCup26.ir
 export async function POST(request: Request) {
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const forbidden = await requireOperationalRequest(request, 'matches:operate');
     if (forbidden) return forbidden;
 
-    const report = await syncFromApi();
+    const report = await executeSync('manual');
     return NextResponse.json(report);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';

@@ -68,11 +68,13 @@ export function deriveSyncHealth(
     };
   }
 
-  if (latest.status === 'degraded' || latest.source === 'backup') {
+  if (latest.status === 'degraded' || latest.source === 'backup' || latest.source === 'database') {
     return {
       state: 'degraded',
       tone: 'warning',
-      title: 'API indisponivel, backup utilizado',
+      title: latest.source === 'database'
+        ? 'API indisponivel, banco preservado'
+        : 'API indisponivel, backup utilizado',
       detail: latest.error || 'Os dados locais mantiveram o sistema operacional.',
     };
   }

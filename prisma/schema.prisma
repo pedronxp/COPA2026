@@ -136,7 +136,7 @@ model SyncLog {
 model SyncSchedule {
   id              String    @id @default("default")
   enabled         Boolean   @default(true)
-  intervalMinutes Int       @default(30)
+  intervalMinutes Int       @default(5)
   nextRunAt       DateTime?
   lastAttemptAt   DateTime?
   lastSuccessAt   DateTime?

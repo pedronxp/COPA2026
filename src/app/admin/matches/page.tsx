@@ -5,11 +5,24 @@ import {
   correctMatchAction,
   triggerSyncAction,
 } from '@/app/admin/actions';
+import {
+  AdminEmptyState,
+  AdminMetric,
+  AdminPageHeader,
+  AdminPanel,
+  AdminStatusBadge,
+} from '@/components/admin/admin-ui';
 
 function fmt(value: Date | null | undefined) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(value);
 }
+
+const statusLabels: Record<string, string> = {
+  scheduled: 'Agendada',
+  live: 'Ao vivo',
+  finished: 'Finalizada',
+};
 
 export default async function AdminMatchesPage() {
   await requireAdminPage('matches:operate');
@@ -17,123 +30,153 @@ export default async function AdminMatchesPage() {
 
   return (
     <section className="admin-stack">
-      <header className="admin-page-head">
-        <div>
-          <p>API e placares</p>
-          <h1>Partidas</h1>
-        </div>
+      <AdminPageHeader
+        eyebrow="API e placares"
+        title="Partidas"
+        description="Monitore sincronizacao, ajuste agenda automatica e corrija placares com auditoria."
+      >
         <form action={triggerSyncAction}>
           <button className="admin-button" type="submit">
-            <i className="bi bi-arrow-repeat" aria-hidden="true" /> Sincronizar agora
+            <i className="bi bi-arrow-repeat" aria-hidden="true" />
+            Sincronizar agora
           </button>
         </form>
-      </header>
+      </AdminPageHeader>
 
       <div className="admin-grid compact">
         {data.statusCounts.map((item) => (
-          <div className="admin-metric" key={item.status}>
-            <span>{item.status}</span>
-            <strong>{item._count.status}</strong>
-          </div>
+          <AdminMetric
+            icon={item.status === 'live' ? 'bi-broadcast' : 'bi-calendar-event'}
+            key={item.status}
+            label={statusLabels[item.status] || item.status}
+            tone={item.status === 'live' ? 'warning' : 'default'}
+            value={item._count.status}
+          />
         ))}
       </div>
 
-      <div className="admin-panel">
-        <div className="admin-panel-head">
-          <div>
-            <h2>Sincronizacao automatica</h2>
-            <p>{data.apiHealth.title}: {data.apiHealth.detail}</p>
+      <div className="admin-two-column">
+        <AdminPanel
+          action={
+            <AdminStatusBadge status={data.apiHealth.tone}>
+              {data.apiHealth.state}
+            </AdminStatusBadge>
+          }
+          description={data.apiHealth.detail}
+          title="Sincronizacao automatica"
+        >
+          <form className="admin-schedule-form" action={configureSyncAction}>
+            <label className="admin-toggle">
+              <input
+                type="checkbox"
+                name="enabled"
+                defaultChecked={data.syncSchedule.enabled}
+              />
+              <span>Agendamento ativo</span>
+            </label>
+            <label className="admin-field">
+              <span>Intervalo</span>
+              <select
+                name="intervalMinutes"
+                defaultValue={data.syncSchedule.intervalMinutes}
+              >
+                <option value={5}>5 minutos</option>
+                <option value={10}>10 minutos</option>
+                <option value={15}>15 minutos</option>
+                <option value={30}>30 minutos</option>
+                <option value={60}>1 hora</option>
+                <option value={180}>3 horas</option>
+                <option value={360}>6 horas</option>
+                <option value={720}>12 horas</option>
+                <option value={1440}>24 horas</option>
+              </select>
+            </label>
+            <div className="admin-schedule-meta">
+              <small>Proxima: {fmt(data.syncSchedule.nextRunAt)}</small>
+              <small>Ultimo sucesso: {fmt(data.syncSchedule.lastSuccessAt)}</small>
+            </div>
+            <button className="admin-button secondary" type="submit">
+              <i className="bi bi-calendar-check" aria-hidden="true" />
+              Salvar
+            </button>
+          </form>
+        </AdminPanel>
+
+        <AdminPanel description="Ultimos eventos da fonte externa e fallback." title="Historico de sync">
+          <div className="admin-list compact-list">
+            {data.syncLogs.slice(0, 5).map((log) => (
+              <article className="admin-list-row" key={log.id}>
+                <div>
+                  <strong>{log.source} / {log.status}</strong>
+                  <small>{log.matchesCreated} criadas / {log.matchesUpdated} atualizadas</small>
+                  <small>{log.trigger}{log.durationMs ? ` / ${log.durationMs} ms` : ''}</small>
+                  {log.error && <small className="admin-error-text">{log.error}</small>}
+                </div>
+                <time>{fmt(log.syncedAt)}</time>
+              </article>
+            ))}
+            {data.syncLogs.length === 0 && (
+              <AdminEmptyState
+                description="A proxima sincronizacao registrada aparecera aqui."
+                icon="bi-cloud-arrow-down"
+                title="Nenhuma sync registrada"
+              />
+            )}
           </div>
-          <span className={`admin-badge ${data.apiHealth.tone}`}>
-            {data.apiHealth.state}
-          </span>
-        </div>
-        <form className="admin-schedule-form" action={configureSyncAction}>
-          <label className="admin-toggle">
-            <input
-              type="checkbox"
-              name="enabled"
-              defaultChecked={data.syncSchedule.enabled}
-            />
-            <span>Agendamento ativo</span>
-          </label>
-          <label className="admin-field">
-            <span>Intervalo</span>
-            <select
-              name="intervalMinutes"
-              defaultValue={data.syncSchedule.intervalMinutes}
-            >
-              <option value={5}>5 minutos</option>
-              <option value={10}>10 minutos</option>
-              <option value={15}>15 minutos</option>
-              <option value={30}>30 minutos</option>
-              <option value={60}>1 hora</option>
-              <option value={180}>3 horas</option>
-              <option value={360}>6 horas</option>
-              <option value={720}>12 horas</option>
-              <option value={1440}>24 horas</option>
-            </select>
-          </label>
-          <div className="admin-schedule-meta">
-            <small>Proxima: {fmt(data.syncSchedule.nextRunAt)}</small>
-            <small>Ultimo sucesso: {fmt(data.syncSchedule.lastSuccessAt)}</small>
-          </div>
-          <button className="admin-button secondary" type="submit">
-            <i className="bi bi-calendar-check" aria-hidden="true" /> Salvar agendamento
-          </button>
-        </form>
+        </AdminPanel>
       </div>
 
-      <div className="admin-panel">
-        <div className="admin-panel-head">
-          <h2>Ultimas sincronizacoes</h2>
-        </div>
-        <div className="admin-list">
-          {data.syncLogs.map((log) => (
-            <article className="admin-list-row" key={log.id}>
-              <div>
-                <strong>{log.source} · {log.status}</strong>
-                <small>{log.matchesCreated} criadas · {log.matchesUpdated} atualizadas</small>
-                <small>{log.trigger}{log.durationMs ? ` · ${log.durationMs} ms` : ''}</small>
-                {log.error && <small className="admin-error-text">{log.error}</small>}
-              </div>
-              <time>{fmt(log.syncedAt)}</time>
-            </article>
-          ))}
-          {data.syncLogs.length === 0 && <p className="admin-empty">Nenhuma sync registrada.</p>}
-        </div>
-      </div>
-
-      <div className="admin-panel">
-        <div className="admin-panel-head">
-          <h2>Correcoes de partidas</h2>
-        </div>
-        <div className="admin-table">
+      <AdminPanel
+        description="Use correcoes manuais apenas quando a fonte estiver atrasada ou incorreta."
+        title="Correcoes de partidas"
+      >
+        <div className="admin-table match-table">
           {data.matches.map((match) => (
             <article className="admin-table-row match-row" key={match.id}>
               <div>
                 <strong>{match.homeTeam} x {match.awayTeam}</strong>
-                <small>{fmt(match.kickOff)} · {match._count.predictions} palpites</small>
+                <small>{fmt(match.kickOff)} / {match._count.predictions} palpites</small>
               </div>
-              <span className={`admin-badge ${match.status}`}>{match.status}</span>
-              <form className="admin-inline-form" action={correctMatchAction}>
+              <AdminStatusBadge status={match.status}>{statusLabels[match.status] || match.status}</AdminStatusBadge>
+              <form className="admin-action-form match-correction-form" action={correctMatchAction}>
                 <input type="hidden" name="matchId" value={match.id} />
-                <input name="homeScore" type="number" min={0} max={99} defaultValue={match.homeScore ?? 0} aria-label="Placar mandante" />
-                <input name="awayScore" type="number" min={0} max={99} defaultValue={match.awayScore ?? 0} aria-label="Placar visitante" />
+                <input
+                  name="homeScore"
+                  type="number"
+                  min={0}
+                  max={99}
+                  defaultValue={match.homeScore ?? 0}
+                  aria-label="Placar mandante"
+                />
+                <input
+                  name="awayScore"
+                  type="number"
+                  min={0}
+                  max={99}
+                  defaultValue={match.awayScore ?? 0}
+                  aria-label="Placar visitante"
+                />
                 <select name="status" defaultValue={match.status} aria-label="Status da partida">
                   <option value="scheduled">Agendada</option>
                   <option value="live">Ao vivo</option>
                   <option value="finished">Finalizada</option>
                 </select>
                 <input name="reason" placeholder="Motivo" required minLength={3} />
-                <button className="admin-icon-button" title="Corrigir">
+                <button className="admin-icon-button" title="Corrigir" type="submit">
                   <i className="bi bi-save" aria-hidden="true" />
                 </button>
               </form>
             </article>
           ))}
+          {data.matches.length === 0 && (
+            <AdminEmptyState
+              description="Sincronize a API para carregar partidas operacionais."
+              icon="bi-calendar-x"
+              title="Nenhuma partida encontrada"
+            />
+          )}
         </div>
-      </div>
+      </AdminPanel>
     </section>
   );
 }

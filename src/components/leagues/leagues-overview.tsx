@@ -7,7 +7,7 @@ import { JoinLeagueButton } from './join-league-button';
 
 function roleLabel(role: LeagueCardData['userRole']) {
   if (role === 'owner') return 'Criador';
-  if (role === 'subadmin') return 'Subadmin';
+  if (role === 'subadmin') return 'Subadministrador';
   return 'Membro';
 }
 
@@ -53,7 +53,7 @@ function LeagueCard({ league, mine }: { league: LeagueCardData; mine: boolean })
           <span>{mine ? 'Sua posição' : 'Líder'}</span>
           <strong>
             {mine
-              ? league.userRank ? `${league.userRank}o` : '-'
+              ? league.userRank ? `${league.userRank}º` : '-'
               : league.leader?.name || 'Sem ranking'}
           </strong>
         </div>

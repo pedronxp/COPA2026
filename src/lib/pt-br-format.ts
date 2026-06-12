@@ -61,7 +61,7 @@ export function formatLeagueStatusPtBr(status: string | null | undefined) {
 export function formatJoinPolicyPtBr(policy: string | null | undefined) {
   const labels: Record<string, string> = {
     open: 'Entrada aberta',
-    approval: 'Entrada por aprovacao',
+    approval: 'Entrada por aprovação',
     invite: 'Entrada por convite',
   };
   return labels[policy || ''] || 'Entrada restrita';

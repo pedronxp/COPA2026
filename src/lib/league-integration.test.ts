@@ -201,6 +201,94 @@ integration('league integration', () => {
     } finally {
       await cleanup(prefix, matchIds);
     }
+  }, 20_000);
+
+  it('recomputes global points and miss streak after a result correction', async () => {
+    const prefix = `codex-it-${randomUUID()}`;
+    const matchIds: string[] = [];
+    await cleanup(prefix);
+
+    try {
+      const user = await createTestUser(prefix, 'global-score');
+      await db.leagueMember.create({
+        data: {
+          leagueId: 'global',
+          userId: user.id,
+          role: 'member',
+          status: 'active',
+        },
+      });
+      const matches = await Promise.all([
+        db.match.create({
+          data: {
+            homeTeam: 'Casa Global 1',
+            awayTeam: 'Fora Global 1',
+            kickOff: new Date(Date.now() - 2 * 60 * 60 * 1000),
+            homeScore: 2,
+            awayScore: 1,
+            status: 'finished',
+            stage: 'group',
+            matchday: '1',
+          },
+        }),
+        db.match.create({
+          data: {
+            homeTeam: 'Casa Global 2',
+            awayTeam: 'Fora Global 2',
+            kickOff: new Date(Date.now() - 60 * 60 * 1000),
+            homeScore: 0,
+            awayScore: 1,
+            status: 'finished',
+            stage: 'group',
+            matchday: '1',
+          },
+        }),
+      ]);
+      matchIds.push(...matches.map((match) => match.id));
+      await Promise.all([
+        db.prediction.create({
+          data: {
+            userId: user.id,
+            leagueId: 'global',
+            matchId: matches[0].id,
+            homeGuess: 2,
+            awayGuess: 1,
+          },
+        }),
+        db.prediction.create({
+          data: {
+            userId: user.id,
+            leagueId: 'global',
+            matchId: matches[1].id,
+            homeGuess: 1,
+            awayGuess: 0,
+          },
+        }),
+      ]);
+
+      await processScoringFn(matches[0].id);
+      await processScoringFn(matches[1].id);
+      await db.match.update({
+        where: { id: matches[0].id },
+        data: { homeScore: 0, awayScore: 2 },
+      });
+      await processScoringFn(matches[0].id);
+
+      const updated = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+      const scoreEntries = await db.leaguePointEntry.findMany({
+        where: {
+          leagueId: 'global',
+          userId: user.id,
+          predictionId: { not: null },
+        },
+      });
+
+      expect(updated).toMatchObject({ points: 0, streak: 0, misses: 2 });
+      expect(scoreEntries).toHaveLength(2);
+      expect(scoreEntries.every((entry) => entry.points === 0)).toBe(true);
+    } finally {
+      await cleanup(prefix, matchIds);
+    }
   });
 
   it('keeps private league details restricted for non-members', async () => {
@@ -305,6 +393,11 @@ integration('league integration', () => {
         adminRole: 'super_admin',
         accountStatus: 'active',
         name: owner.name,
+        image: owner.image,
+        points: owner.points,
+        streak: owner.streak,
+        misses: owner.misses,
+        suspendedUntil: owner.suspendedUntil,
       };
 
       const league = await createLeagueFn(owner.id, {
@@ -353,6 +446,11 @@ integration('league integration', () => {
         adminRole: 'super_admin',
         accountStatus: 'active',
         name: adminUser.name,
+        image: adminUser.image,
+        points: adminUser.points,
+        streak: adminUser.streak,
+        misses: adminUser.misses,
+        suspendedUntil: adminUser.suspendedUntil,
       };
 
       const league = await createLeagueFn(owner.id, {

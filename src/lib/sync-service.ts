@@ -20,7 +20,7 @@ export async function getSyncSchedule() {
     create: {
       id: 'default',
       enabled: true,
-      intervalMinutes: 30,
+      intervalMinutes: 5,
       nextRunAt: new Date(),
     },
   });
@@ -50,20 +50,10 @@ export async function updateSyncSchedule(input: {
   });
 }
 
-export async function executeSync(trigger: 'manual' | 'scheduled'): Promise<SyncReport> {
-  const schedule = await getSyncSchedule();
-  const attemptedAt = new Date();
-
-  await prisma.syncSchedule.update({
-    where: { id: schedule.id },
-    data: {
-      lastAttemptAt: attemptedAt,
-      lastStatus: 'running',
-      lastError: null,
-      nextRunAt: schedule.enabled ? nextRun(schedule.intervalMinutes) : null,
-    },
-  });
-
+async function completeSync(
+  schedule: Awaited<ReturnType<typeof getSyncSchedule>>,
+  trigger: 'manual' | 'scheduled',
+): Promise<SyncReport> {
   try {
     const report = await syncFromApi(trigger);
     await prisma.syncSchedule.update({
@@ -98,6 +88,20 @@ export async function executeSync(trigger: 'manual' | 'scheduled'): Promise<Sync
   }
 }
 
+export async function executeSync(trigger: 'manual' | 'scheduled'): Promise<SyncReport> {
+  const schedule = await getSyncSchedule();
+  const runningSchedule = await prisma.syncSchedule.update({
+    where: { id: schedule.id },
+    data: {
+      lastAttemptAt: new Date(),
+      lastStatus: 'running',
+      lastError: null,
+      nextRunAt: schedule.enabled ? nextRun(schedule.intervalMinutes) : null,
+    },
+  });
+  return completeSync(runningSchedule, trigger);
+}
+
 export async function runDueScheduledSync() {
   const schedule = await getSyncSchedule();
   const now = new Date();
@@ -128,6 +132,9 @@ export async function runDueScheduledSync() {
     return { executed: false, nextRunAt: schedule.nextRunAt, reason: 'already_claimed' };
   }
 
-  const report = await executeSync('scheduled');
+  const runningSchedule = await prisma.syncSchedule.findUniqueOrThrow({
+    where: { id: schedule.id },
+  });
+  const report = await completeSync(runningSchedule, 'scheduled');
   return { executed: true, report };
 }

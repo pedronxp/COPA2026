@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma, withRetry } from '@/lib/prisma';
-import { verifyPassword } from '@/lib/auth';
+import { hashPassword, isLegacyPasswordHash, verifyPassword } from '@/lib/auth';
 import { createSession, getSessionCookieOptions, SESSION_COOKIE_NAME } from '@/lib/session';
 import { isValidEmail, normalizeEmail, readStringField } from '@/lib/auth-validation';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -49,6 +49,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Senha incorreta. Verifique e tente novamente.', code: 'invalid_credentials' },
         { status: 400 },
+      );
+    }
+
+    if (isLegacyPasswordHash(user.passwordHash)) {
+      await withRetry(() =>
+        prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: hashPassword(password) },
+        })
       );
     }
 

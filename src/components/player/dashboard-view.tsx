@@ -240,39 +240,6 @@ export function DashboardView({ user, data }: DashboardViewProps) {
         </div>
       </section>
 
-      <details className="player-summary-dropdown">
-        <summary>
-          <div>
-            <span className="player-kicker">Resumo do bolão</span>
-            <strong>{userRankSummary} - {activeLeague.userPoints} pontos - {predictionCoverage}% dos palpites</strong>
-          </div>
-          <i className="bi bi-chevron-down" aria-hidden="true" />
-        </summary>
-
-        <section className="player-stat-grid" aria-label="Resumo do bolão ativo">
-          <div className="player-stat-card">
-            <span>Classificação</span>
-            <strong>{userRankLabel}</strong>
-            <small>{activeLeague.memberCount} competidores no bolão</small>
-          </div>
-          <div className="player-stat-card">
-            <span>Pontuação</span>
-            <strong>{activeLeague.userPoints}</strong>
-            <small>{activeLeague.userPendingPoints > 0 ? `${activeLeague.userPendingPoints} pontos pendentes` : 'pontos publicados'}</small>
-          </div>
-          <div className="player-stat-card">
-            <span>Palpites</span>
-            <strong>{predictionCount}</strong>
-            <small>{predictionCoverage}% concluído</small>
-          </div>
-          <div className="player-stat-card">
-            <span>Situação</span>
-            <strong>{formatLeagueStatusPtBr(activeLeague.status)}</strong>
-            <small>Janela de palpites: {activeLeague.windowHours}h</small>
-          </div>
-        </section>
-      </details>
-
       <section className="player-dashboard-command">
         <div className="player-progress-card">
           <div className="player-panel-heading">
@@ -506,28 +473,36 @@ export function DashboardView({ user, data }: DashboardViewProps) {
       <section className="player-panel player-dashboard-main">
         <div className="player-panel-heading">
           <div>
-            <span className="player-kicker">Pontuação recente</span>
+            <span className="player-kicker">Resultados recentes</span>
             <h3>Últimos resultados</h3>
           </div>
         </div>
         {recentResults.length > 0 ? (
           <div className="player-compact-list flex-list">
             {recentResults.map(({ prediction, match, points }) => (
-              <div key={prediction.id} className="player-compact-result-row">
+              <div key={match.id} className="player-compact-result-row">
                 <div className="result-main-info">
-                  <span className={`points-badge pts-${points}`}>+{points} pts</span>
+                  {points === null ? (
+                    <span className="points-badge pts-0">Final</span>
+                  ) : (
+                    <span className={`points-badge pts-${points}`}>+{points} pts</span>
+                  )}
                   <div className="teams-result">
                     <TeamMark name={match.homeTeam} logo={match.homeTeamLogo} flag={match.homeFlag} align="end" />
                     <span className="score-pill notranslate" translate="no">{match.homeScore} x {match.awayScore}</span>
                     <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
                   </div>
                 </div>
-                <small className="guess-label">Palpite: {prediction.homeGuess} x {prediction.awayGuess}</small>
+                <small className="guess-label">
+                  {prediction
+                    ? `Seu palpite: ${prediction.homeGuess} x ${prediction.awayGuess}`
+                    : 'Você não palpitou neste jogo'}
+                </small>
               </div>
             ))}
           </div>
         ) : (
-          <p className="player-empty-text">Nenhum resultado processado neste bolão ainda.</p>
+          <p className="player-empty-text">Nenhum jogo finalizado ainda.</p>
         )}
       </section>
 
@@ -548,7 +523,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
               { label: 'Empate', points: activeLeague.pointsDraw, icon: 'bi-shuffle' },
               { label: 'Fora', points: activeLeague.pointsWinnerAway, icon: 'bi-airplane' },
               { label: 'Ambas sim', points: activeLeague.pointsBothScoreYes, icon: 'bi-check2-circle' },
-              { label: 'Ambas nao', points: activeLeague.pointsBothScoreNo, icon: 'bi-x-circle' },
+              { label: 'Ambas não', points: activeLeague.pointsBothScoreNo, icon: 'bi-x-circle' },
             ]
               .filter((rule) => rule.points > 0)
               .map((rule, idx) => (
@@ -566,6 +541,39 @@ export function DashboardView({ user, data }: DashboardViewProps) {
             <span>{formatJoinPolicyPtBr(activeLeague.joinPolicy)} - máximo de {activeLeague.maxEdits} edições por jogo</span>
           </div>
         </div>
+      </details>
+
+      <details className="player-summary-dropdown">
+        <summary>
+          <div>
+            <span className="player-kicker">Resumo do bolão</span>
+            <strong>{userRankSummary} - {activeLeague.userPoints} pontos - {predictionCoverage}% dos palpites</strong>
+          </div>
+          <i className="bi bi-chevron-down" aria-hidden="true" />
+        </summary>
+
+        <section className="player-stat-grid" aria-label="Resumo do bolão ativo">
+          <div className="player-stat-card">
+            <span>Classificação</span>
+            <strong>{userRankLabel}</strong>
+            <small>{activeLeague.memberCount} competidores no bolão</small>
+          </div>
+          <div className="player-stat-card">
+            <span>Pontuação</span>
+            <strong>{activeLeague.userPoints}</strong>
+            <small>{activeLeague.userPendingPoints > 0 ? `${activeLeague.userPendingPoints} pontos pendentes` : 'pontos publicados'}</small>
+          </div>
+          <div className="player-stat-card">
+            <span>Palpites</span>
+            <strong>{predictionCount}</strong>
+            <small>{predictionCoverage}% concluído</small>
+          </div>
+          <div className="player-stat-card">
+            <span>Situação</span>
+            <strong>{formatLeagueStatusPtBr(activeLeague.status)}</strong>
+            <small>Janela de palpites: {activeLeague.windowHours}h</small>
+          </div>
+        </section>
       </details>
     </div>
   );

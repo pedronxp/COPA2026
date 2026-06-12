@@ -5,8 +5,8 @@ import { requireUser } from '@/lib/session';
 import './leagues.css';
 
 export const metadata: Metadata = {
-  title: 'Boloes | Copa dos Crias',
-  description: 'Crie, encontre e acompanhe boloes da Copa do Mundo de 2026.',
+  title: 'Bolões | Copa dos Crias',
+  description: 'Crie, encontre e acompanhe bolões da Copa do Mundo de 2026.',
 };
 
 export default async function LeaguesLayout({ children }: { children: React.ReactNode }) {

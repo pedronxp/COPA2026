@@ -17,20 +17,51 @@ async function main() {
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, name: true, email: true, adminRole: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      adminRole: true,
+      accountStatus: true,
+    },
   });
 
   if (!user) {
     throw new Error(`Usuario nao encontrado: ${email}`);
   }
+  if (role !== 'none' && user.accountStatus !== 'active') {
+    throw new Error('A conta precisa estar ativa para receber acesso administrativo.');
+  }
 
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: { adminRole: role },
-    select: { id: true, name: true, email: true, adminRole: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.user.update({
+      where: { id: user.id },
+      data: { adminRole: role },
+      select: { id: true, name: true, email: true, adminRole: true },
+    });
+
+    await tx.adminAuditLog.create({
+      data: {
+        action: 'admin_role_changed',
+        entityType: 'user',
+        entityId: user.id,
+        summary: `Permissao administrativa de ${email} alterada de ${user.adminRole} para ${role}.`,
+        metadata: {
+          previousRole: user.adminRole,
+          newRole: role,
+          source: 'manage-admin-cli',
+        },
+      },
+    });
+
+    return result;
   });
 
-  console.log(JSON.stringify(updated, null, 2));
+  console.log(JSON.stringify({
+    ...updated,
+    previousRole: user.adminRole,
+    auditRecorded: true,
+  }, null, 2));
 }
 
 main()

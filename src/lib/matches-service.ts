@@ -2,10 +2,11 @@
 // Serviço de dados do bolão - 100% Prisma, sem mock, sem fallback em memória
 import { prisma, withRetry } from './prisma';
 import type { Prisma } from '@prisma/client';
-import { fetchGamesResult, fetchTeamsResult, type ApiTeam } from './football-api';
+import { fetchFootballSnapshot, type ApiTeam } from './football-api';
 import { translateTeamName } from './team-translation';
 import { parseMatchLocalDate } from './match-time';
 import { calculatePredictionScore } from './scoring-domain';
+import { mergeMatchSyncState, normalizeMatchStatus } from './match-sync-domain';
 
 export { calculatePredictionScore } from './scoring-domain';
 
@@ -433,77 +434,6 @@ export async function updateMatchScore(
 }
 
 /**
- * Motor de pontuação: processa todos os palpites não processados de uma partida.
- * Calcula pontos, atualiza User.points/streak/misses.
- */
-export async function processScoringForMatch(matchId: string): Promise<void> {
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match || match.homeScore === null || match.awayScore === null) return;
-
-  const homeScore = match.homeScore;
-  const awayScore = match.awayScore;
-
-  // Buscar palpites não processados para o jogo
-  const predictions = await prisma.prediction.findMany({
-    where: { matchId, processed: false },
-    include: { league: true }
-  });
-
-  for (const pred of predictions) {
-    const isGlobal = pred.leagueId === 'global';
-    
-    // Regras de pontuação do bolão
-    const rules = {
-      pointsExact: pred.league.pointsExact,
-      pointsDiff: pred.league.pointsDiff,
-      pointsWinner: pred.league.pointsWinner,
-      pointsWinnerHome: pred.league.pointsWinnerHome,
-      pointsWinnerAway: pred.league.pointsWinnerAway,
-      pointsDraw: pred.league.pointsDraw
-    };
-    
-    const points = calculatePredictionPoints(pred.homeGuess, pred.awayGuess, homeScore, awayScore, rules);
-    const isHit = points > 0;
-
-    if (isGlobal) {
-      // Bolão Global: atualiza pontuação geral do usuário
-      await prisma.user.update({
-        where: { id: pred.userId },
-        data: {
-          points: { increment: points },
-          streak: isHit ? { increment: 1 } : 0,
-          misses: isHit ? 0 : { increment: 1 },
-        },
-      });
-    } else {
-      // Bolão Customizado: atualiza pontuação do membro naquele bolão específico
-      const member = await prisma.leagueMember.findUnique({
-        where: {
-          leagueId_userId: { leagueId: pred.leagueId, userId: pred.userId }
-        }
-      });
-      
-      if (member) {
-        await prisma.leagueMember.update({
-          where: {
-            leagueId_userId: { leagueId: pred.leagueId, userId: pred.userId }
-          },
-          data: {
-            points: { increment: points }
-          }
-        });
-      }
-    }
-
-    // Marcar palpite como processado
-    await prisma.prediction.update({
-      where: { id: pred.id },
-      data: { processed: true },
-    });
-  }
-}
-
-/**
  * Calcula a porcentagem de palpites (casa/empate/fora) de uma partida para um bolão específico.
  */
 export async function getMatchStats(matchId: string, leagueId?: string): Promise<MatchStats> {
@@ -625,18 +555,34 @@ function parseLocalDateWithOffset(dateStr: string, stadiumId: string): Date {
  */
 export async function syncFromApi(trigger = 'manual'): Promise<SyncReport> {
   const startedAt = Date.now();
-  const [gamesResult, teamsResult] = await Promise.all([
-    fetchGamesResult(),
-    fetchTeamsResult(),
-  ]);
-  const games = gamesResult.data;
-  const teams = teamsResult.data;
-  const errors = [gamesResult.error, teamsResult.error].filter(Boolean);
-  const status = errors.length > 0 ? 'degraded' : 'success';
-  const source =
-    gamesResult.source === 'api' && teamsResult.source === 'api'
-      ? 'worldcup26'
-      : 'backup';
+  const snapshot = await fetchFootballSnapshot();
+  const games = snapshot.games;
+  const teams = snapshot.teams;
+  const errors = snapshot.error ? [snapshot.error] : [];
+  let status: SyncReport['status'] = snapshot.source === 'api' ? 'success' : 'degraded';
+  const source = snapshot.source === 'api' ? 'worldcup26' : 'backup';
+  const existingMatchCount = await prisma.match.count();
+
+  if (snapshot.source === 'backup' && existingMatchCount > 0) {
+    const error = `${snapshot.error || 'API principal invalida.'} Ultimo estado valido do banco foi preservado.`;
+    await prisma.syncLog.create({
+      data: {
+        source: 'database',
+        status: 'degraded',
+        trigger,
+        error,
+        durationMs: Date.now() - startedAt,
+      },
+    });
+    return {
+      created: 0,
+      updated: 0,
+      source: 'database',
+      status: 'degraded',
+      error,
+      durationMs: Date.now() - startedAt,
+    };
+  }
 
   if (games.length === 0) {
     console.warn('[sync] Nenhuma partida retornada pela API externa.');
@@ -649,72 +595,88 @@ export async function syncFromApi(trigger = 'manual'): Promise<SyncReport> {
     teamMap.set(team.id, team);
   }
 
-  let created = 0;
-  let updated = 0;
+  const syncedAt = new Date();
+  const result = await prisma.$transaction(async (tx) => {
+    let created = 0;
+    let updated = 0;
+    const finishedMatchIds: string[] = [];
 
-  for (const game of games) {
-    const externalId = parseInt(game.id);
-    const homeTeam = teamMap.get(game.home_team_id);
-    const awayTeam = teamMap.get(game.away_team_id);
+    for (const game of games) {
+      const externalId = Number(game.id);
+      const homeTeam = teamMap.get(game.home_team_id);
+      const awayTeam = teamMap.get(game.away_team_id);
+      const kickOff = parseLocalDateWithOffset(game.local_date, game.stadium_id);
+      const incomingStatus = normalizeMatchStatus(game.finished, game.time_elapsed);
+      const homeName = game.home_team_name_en || game.home_team_label || 'TBD';
+      const awayName = game.away_team_name_en || game.away_team_label || 'TBD';
+      const incomingState = {
+        status: incomingStatus,
+        elapsed: game.time_elapsed || 'notstarted',
+        homeScore: incomingStatus === 'scheduled' ? null : Number(game.home_score) || 0,
+        awayScore: incomingStatus === 'scheduled' ? null : Number(game.away_score) || 0,
+      };
 
-    const kickOff = parseLocalDateWithOffset(game.local_date, game.stadium_id);
-    const isFinished = game.finished?.toUpperCase() === 'TRUE';
-    const status = isFinished ? 'finished' : game.time_elapsed !== 'notstarted' ? 'live' : 'scheduled';
-
-    const homeScore = isFinished || status === 'live' ? parseInt(game.home_score) || 0 : null;
-    const awayScore = isFinished || status === 'live' ? parseInt(game.away_score) || 0 : null;
-
-    const matchData = {
-      homeTeam: game.home_team_name_en || game.home_team_label || 'TBD',
-      awayTeam: game.away_team_name_en || game.away_team_label || 'TBD',
-      homeFlag: homeTeam?.iso2 || null,
-      awayFlag: awayTeam?.iso2 || null,
-      homeTeamLogo: homeTeam?.flag || null,
-      awayTeamLogo: awayTeam?.flag || null,
-      homeLabel: game.home_team_label || null,
-      awayLabel: game.away_team_label || null,
-      kickOff,
-      homeScore,
-      awayScore,
-      status,
-      stage: game.type || 'group',
-      group: game.group || null,
-      matchday: game.matchday || null,
-      elapsed: game.time_elapsed || 'notstarted',
-      lastSyncAt: new Date(),
-    };
-
-    const existing = await prisma.match.findUnique({ where: { externalId } });
-    let matchId = '';
-    if (existing) {
-      const updatedMatch = await prisma.match.update({
-        where: { externalId },
-        data: matchData,
-      });
-      matchId = updatedMatch.id;
-      updated++;
-    } else {
-      const createdMatch = await prisma.match.create({
-        data: {
-          externalId,
-          ...matchData,
+      const existing = await tx.match.findFirst({
+        where: {
+          OR: [
+            { externalId },
+            {
+              externalId: null,
+              homeTeam: homeName,
+              awayTeam: awayName,
+              kickOff,
+            },
+          ],
         },
       });
-      matchId = createdMatch.id;
-      created++;
+      const state = mergeMatchSyncState(existing, incomingState);
+      const matchData = {
+        externalId,
+        homeTeam: homeName,
+        awayTeam: awayName,
+        homeFlag: homeTeam?.iso2 || null,
+        awayFlag: awayTeam?.iso2 || null,
+        homeTeamLogo: homeTeam?.flag || null,
+        awayTeamLogo: awayTeam?.flag || null,
+        homeLabel: game.home_team_label || null,
+        awayLabel: game.away_team_label || null,
+        kickOff,
+        homeScore: state.homeScore,
+        awayScore: state.awayScore,
+        status: state.status,
+        stage: game.type || 'group',
+        group: game.group || null,
+        matchday: game.matchday || null,
+        elapsed: state.elapsed,
+        lastSyncAt: syncedAt,
+      };
+
+      const match = existing
+        ? await tx.match.update({ where: { id: existing.id }, data: matchData })
+        : await tx.match.create({ data: matchData });
+      if (existing) updated++;
+      else created++;
+      if (match.status === 'finished') finishedMatchIds.push(match.id);
     }
 
-    if (matchData.status === 'finished') {
+    return { created, updated, finishedMatchIds };
+  }, { maxWait: 10_000, timeout: 120_000 });
+
+  for (const matchId of result.finishedMatchIds) {
+    try {
       const { processLeagueScoringForMatch } = await import('./scoring-service');
       await processLeagueScoringForMatch(matchId);
+    } catch (error) {
+      status = 'degraded';
+      errors.push(`Pontuacao ${matchId}: ${error instanceof Error ? error.message : 'falhou'}`);
     }
   }
 
   // Registrar log de sincronização
   await prisma.syncLog.create({
     data: {
-      matchesCreated: created,
-      matchesUpdated: updated,
+      matchesCreated: result.created,
+      matchesUpdated: result.updated,
       source,
       status,
       trigger,
@@ -723,10 +685,10 @@ export async function syncFromApi(trigger = 'manual'): Promise<SyncReport> {
     },
   });
 
-  console.log(`[sync] Sincronização concluída: ${created} criadas, ${updated} atualizadas.`);
+  console.log(`[sync] Sincronização concluída: ${result.created} criadas, ${result.updated} atualizadas.`);
   return {
-    created,
-    updated,
+    created: result.created,
+    updated: result.updated,
     source,
     status,
     error: errors.join(' ') || null,

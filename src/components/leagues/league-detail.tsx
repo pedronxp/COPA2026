@@ -150,7 +150,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
 
   function shareWhatsApp() {
     const invitation = league.inviteCode ? ` Codigo: ${league.inviteCode}.` : '';
-    const text = `Vem participar do bolao ${league.name}!${invitation} ${window.location.href}`;
+    const text = `Vem participar do bolão ${league.name}!${invitation} ${window.location.href}`;
     window.open(
       `https://wa.me/?text=${encodeURIComponent(text)}`,
       '_blank',
@@ -246,7 +246,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
               <div><span><i className="bi bi-dash-circle" aria-hidden="true"></i></span><p>Empate correto</p><strong>+{league.pointsDraw}</strong></div>
               <div><span><i className="bi bi-airplane" aria-hidden="true"></i></span><p>Vitória Fora</p><strong>+{league.pointsWinnerAway}</strong></div>
               <div><span><i className="bi bi-check2-circle" aria-hidden="true"></i></span><p>Ambas marcam: sim</p><strong>+{league.pointsBothScoreYes}</strong></div>
-              <div><span><i className="bi bi-x-circle" aria-hidden="true"></i></span><p>Ambas marcam: nao</p><strong>+{league.pointsBothScoreNo}</strong></div>
+              <div><span><i className="bi bi-x-circle" aria-hidden="true"></i></span><p>Ambas marcam: não</p><strong>+{league.pointsBothScoreNo}</strong></div>
             </div>
             <p className="league-rules-note">O bonus de ambas marcam soma ao nivel mais preciso obtido: placar exato, saldo ou resultado.</p>
           </div>

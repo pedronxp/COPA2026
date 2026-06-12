@@ -16,6 +16,9 @@ export function HistoryView({ data }: { data: HistoryData }) {
     );
   const matchesHref =
     activeLeague.slug === 'global' ? '/matches' : `/matches?league=${activeLeague.slug}`;
+  const finishedCount = rows.filter(
+    ({ match }) => match?.status === 'finished' && match.homeScore !== null && match.awayScore !== null,
+  ).length;
 
   return (
     <div className="player-page-stack">
@@ -23,11 +26,12 @@ export function HistoryView({ data }: { data: HistoryData }) {
         <div>
           <span className="player-kicker">Sua jornada</span>
           <h2>Histórico de palpites</h2>
-          <p>Todos os palpites registrados no {activeLeague.name}, sem trocar de experiência.</p>
+          <p>Revise seus palpites no {activeLeague.name} com resultado, status e pontuação em uma visão simples.</p>
         </div>
-        <div className="player-results-summary">
-          <strong>{rows.length}</strong>
-          <span>palpites enviados</span>
+        <div className="player-results-summary history-summary">
+          <span><strong>{rows.length}</strong> palpites</span>
+          <span><strong>{finishedCount}</strong> finalizados</span>
+          <span><strong>{rows.length - finishedCount}</strong> aguardando</span>
         </div>
       </section>
 
@@ -61,7 +65,10 @@ export function HistoryView({ data }: { data: HistoryData }) {
                   flag={match.homeFlag}
                   align="end"
                 />
-                <strong>{prediction.homeGuess} x {prediction.awayGuess}</strong>
+                <strong>
+                  <span>Seu palpite</span>
+                  {prediction.homeGuess} x {prediction.awayGuess}
+                </strong>
                 <TeamMark
                   name={match.awayTeam}
                   logo={match.awayTeamLogo}
@@ -72,15 +79,11 @@ export function HistoryView({ data }: { data: HistoryData }) {
               <div className="player-history-result">
                 {isFinished ? (
                   <>
-                    <span>Resultado {match.homeScore} x {match.awayScore}</span>
+                    <span>Resultado da partida: {match.homeScore} x {match.awayScore}</span>
                     <strong className={points && points > 0 ? 'positive' : ''}>+{points} pts</strong>
                   </>
                 ) : (
-                  <span>
-                    {prediction.editCount === 1
-                      ? '1 edição usada'
-                      : `${prediction.editCount} edições usadas`}
-                  </span>
+                  <span>Resultado da partida ainda não saiu</span>
                 )}
               </div>
             </article>

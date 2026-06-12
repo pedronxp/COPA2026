@@ -65,7 +65,7 @@ export function CalendarView({ data }: CalendarViewProps) {
         <div className="player-panel">
           <div className="player-panel-heading">
             <div>
-              <span className="player-kicker">Classificacao</span>
+              <span className="player-kicker">Classificação</span>
               <h3>Grupo {selectedGroup}</h3>
             </div>
           </div>
@@ -114,7 +114,7 @@ export function CalendarView({ data }: CalendarViewProps) {
                   <strong>{statusLabel(match)}</strong>
                   <TeamMark name={match.awayTeam} logo={match.awayTeamLogo} flag={match.awayFlag} align="start" />
                 </div>
-                {predictedMatchIds.has(match.id) && <span>Voce ja palpitou neste bolao</span>}
+                {predictedMatchIds.has(match.id) && <span>Você já palpitou neste bolão</span>}
               </article>
             ))}
           </div>
