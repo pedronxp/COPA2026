@@ -6854,10 +6854,10 @@ body {
     left: -292px !important;
     width: 292px !important;
     height: 100vh !important;
-    z-index: 1100 !important;
+    z-index: 9999 !important; /* Aumentado de 1100 para 9999 para garantir que fique por cima de tudo */
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.6) !important;
-    background: #111418 !important;
+    background: #111418 !important; /* Fundo sólido e opaco */
   }
 
   .admin-sidebar.open {
@@ -6880,7 +6880,7 @@ body {
     background: #111418 !important;
     border-bottom: 1px solid rgba(148, 163, 184, 0.14) !important;
     padding: 0 16px !important;
-    z-index: 1000 !important;
+    z-index: 9997 !important; /* Aumentado de 1000 para 9997 */
   }
 
   .admin-hamburger {
@@ -6911,7 +6911,7 @@ body {
     bottom: 0 !important;
     background: rgba(0, 0, 0, 0.6) !important;
     backdrop-filter: blur(4px) !important;
-    z-index: 1050 !important;
+    z-index: 9998 !important; /* Aumentado de 1050 para 9998 */
   }
 
   .admin-sidebar-close {
@@ -6931,6 +6931,8 @@ body {
 
   .admin-main {
     padding-top: 80px !important;
+    position: relative !important;
+    z-index: 1 !important; /* Força stacking context local menor que a sidebar móvel */
   }
 }
 /* --- FIM ESTILOS SIDEBAR RETRATIL ADMIN --- */
