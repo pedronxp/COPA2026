@@ -117,8 +117,8 @@ export async function decidePasswordResetRequest(input: {
     include: { user: { select: { email: true } } },
   });
 
-  if (!resetReq) throw new Error('Solicitacao nao encontrada.');
-  if (resetReq.status !== 'pending') throw new Error('Esta solicitacao ja foi processada.');
+  if (!resetReq) throw new Error('Solicitação não encontrada.');
+  if (resetReq.status !== 'pending') throw new Error('Esta solicitação já foi processada.');
 
   if (input.action === 'approve') {
     await prisma.$transaction([
@@ -153,7 +153,7 @@ export async function decidePasswordResetRequest(input: {
     action: input.action === 'approve' ? 'password_reset.approve' : 'password_reset.reject',
     entityType: 'password_reset_request',
     entityId: input.requestId,
-    summary: `${input.actor.email} ${input.action === 'approve' ? 'aprovou' : 'rejeitou'} redefinicao de senha para ${resetReq.user.email}.`,
+    summary: `${input.actor.email} ${input.action === 'approve' ? 'aprovou' : 'rejeitou'} redefinição de senha para ${resetReq.user.email}.`,
     metadata: safeJson({ reason, targetUserId: resetReq.userId }),
   });
 }
@@ -203,18 +203,18 @@ export async function moderateUser(input: {
   suspendedUntil?: Date | null;
 }) {
   const reason = requireReason(input.reason);
-  if (!ACCOUNT_STATUSES.has(input.accountStatus)) throw new Error('Status de conta invalido.');
+  if (!ACCOUNT_STATUSES.has(input.accountStatus)) throw new Error('Status de conta inválido.');
   if (input.actor.id === input.targetUserId && input.accountStatus !== 'active') {
-    throw new Error('Voce nao pode restringir a propria conta.');
+    throw new Error('Você não pode restringir a própria conta.');
   }
 
   const target = await prisma.user.findUnique({
     where: { id: input.targetUserId },
     select: { id: true, email: true, adminRole: true, accountStatus: true },
   });
-  if (!target) throw new Error('Usuario nao encontrado.');
+  if (!target) throw new Error('Usuário não encontrado.');
   if (target.adminRole === 'super_admin' && input.actor.id !== target.id) {
-    throw new Error('Super admins nao podem ser restringidos por outro admin.');
+    throw new Error('Super admins não podem ser restringidos por outro admin.');
   }
 
   await prisma.$transaction([
@@ -252,8 +252,8 @@ export async function deleteUsersBatch(input: {
 }) {
   const reason = requireReason(input.reason);
   const userIds = [...new Set(input.userIds.filter(Boolean))];
-  if (userIds.length === 0) throw new Error('Selecione pelo menos um usuario.');
-  if (userIds.includes(input.actor.id)) throw new Error('Voce nao pode excluir a propria conta.');
+  if (userIds.length === 0) throw new Error('Selecione pelo menos um usuário.');
+  if (userIds.includes(input.actor.id)) throw new Error('Você não pode excluir a própria conta.');
 
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
@@ -265,9 +265,9 @@ export async function deleteUsersBatch(input: {
     },
   });
 
-  if (users.length !== userIds.length) throw new Error('Um ou mais usuarios nao foram encontrados.');
+  if (users.length !== userIds.length) throw new Error('Um ou mais usuários não foram encontrados.');
   if (users.some((user) => user.id === 'system' || user.adminRole !== 'none')) {
-    throw new Error('Contas administrativas ou de sistema nao podem ser excluidas.');
+    throw new Error('Contas administrativas ou de sistema não podem ser excluídas.');
   }
 
   await prisma.$transaction([
@@ -276,7 +276,7 @@ export async function deleteUsersBatch(input: {
         actorId: input.actor.id,
         action: 'user.batch_delete',
         entityType: 'user',
-        summary: `${input.actor.email} excluiu ${users.length} usuario(s) em lote.`,
+        summary: `${input.actor.email} excluiu ${users.length} usuário(s) em lote.`,
         metadata: safeJson({
           reason,
           users: users.map((user) => ({ id: user.id, email: user.email })),
@@ -330,11 +330,11 @@ export async function updateAdminLeague(input: {
 
   if (nextName && nextName !== league.name) data.name = nextName;
   if (nextStatus && nextStatus !== league.status) {
-    if (!LEAGUE_STATUSES.has(nextStatus)) throw new Error('Status de bolao invalido.');
+    if (!LEAGUE_STATUSES.has(nextStatus)) throw new Error('Status de bolão inválido.');
     data.status = nextStatus;
   }
 
-  if (Object.keys(data).length === 0) throw new Error('Nenhuma alteracao informada.');
+  if (Object.keys(data).length === 0) throw new Error('Nenhuma alteração informada.');
 
   const updated = await prisma.league.update({
     where: { id: input.leagueId },
@@ -346,7 +346,7 @@ export async function updateAdminLeague(input: {
     action: 'league.update',
     entityType: 'league',
     entityId: input.leagueId,
-    summary: `${input.actor.email} atualizou o bolao ${league.name}.`,
+    summary: `${input.actor.email} atualizou o bolão ${league.name}.`,
     metadata: safeJson({
       reason,
       before: { name: league.name, status: league.status },
@@ -362,7 +362,7 @@ export async function deleteAdminLeague(input: {
 }) {
   const reason = requireReason(input.reason);
   if (input.leagueId === 'global') {
-    throw new Error('O bolao global nao pode ser excluido.');
+    throw new Error('O bolão global não pode ser excluído.');
   }
 
   const league = await prisma.league.findUnique({
@@ -370,7 +370,7 @@ export async function deleteAdminLeague(input: {
     select: { id: true, name: true, slug: true },
   });
 
-  if (!league) throw new Error('Bolao nao encontrado.');
+  if (!league) throw new Error('Bolão não encontrado.');
 
   await prisma.$transaction([
     prisma.adminAuditLog.create({
@@ -379,7 +379,7 @@ export async function deleteAdminLeague(input: {
         action: 'league.delete',
         entityType: 'league',
         entityId: input.leagueId,
-        summary: `${input.actor.email} excluiu o bolao ${league.name} (${league.slug || league.id}).`,
+        summary: `${input.actor.email} excluiu o bolão ${league.name} (${league.slug || league.id}).`,
         metadata: safeJson({ reason }),
       },
     }),

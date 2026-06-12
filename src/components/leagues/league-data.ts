@@ -106,6 +106,7 @@ function serializeCard(league: LeagueWithMembers, userId: string): LeagueCardDat
     pointsBothScoreYes: league.pointsBothScoreYes,
     pointsBothScoreNo: league.pointsBothScoreNo,
     lastPublishedAt: league.lastPublishedAt?.toISOString() ?? null,
+    editedByOwner: league.editedByOwner,
   };
 }
 

@@ -202,12 +202,22 @@ export function validateLeagueConfiguration(input: Record<string, unknown>) {
   const visualTheme = isOneOf(input.visualTheme, LEAGUE_VISUAL_THEMES)
     ? input.visualTheme
     : 'pulse';
-  const scoringPreset =
+  let scoringPreset =
     typeof input.scoringPreset === 'string' && input.scoringPreset in SCORING_PRESETS
       ? (input.scoringPreset as ScoringPreset)
       : 'standard';
   const presetRules = SCORING_PRESETS[scoringPreset].rules;
   const rules = validateScoringRules(input, presetRules);
+
+  if (scoringPreset !== 'custom') {
+    const presetDefaultRules = SCORING_PRESETS[scoringPreset].rules;
+    const isDifferent = (Object.keys(presetDefaultRules) as Array<keyof LeagueScoringRules>).some(
+      (key) => rules[key] !== presetDefaultRules[key]
+    );
+    if (isDifferent) {
+      scoringPreset = 'custom';
+    }
+  }
   const groupPublicationMode = isOneOf(input.groupPublicationMode, GROUP_PUBLICATION_MODES)
     ? input.groupPublicationMode
     : 'match';

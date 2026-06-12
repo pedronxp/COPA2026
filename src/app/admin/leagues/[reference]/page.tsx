@@ -96,24 +96,24 @@ export default async function AdminLeagueGovernancePage({
   return (
     <section className="admin-stack">
       <AdminPageHeader
-        eyebrow={league.isGlobal ? 'Bolao principal' : 'Governanca de bolao'}
+        eyebrow={league.isGlobal ? 'Bolão principal' : 'Governança de bolão'}
         title={league.name}
-        description="Regras, pontuacao e membros com trilha de auditoria."
+        description="Regras, pontuação e membros com trilha de auditoria."
       >
         <Link className="admin-button secondary" href="/admin/leagues">
           <i className="bi bi-arrow-left" aria-hidden="true" />
-          Boloes
+          Bolões
         </Link>
       </AdminPageHeader>
 
       <div className="admin-grid compact">
         <AdminMetric icon="bi-people" label="Membros" value={league._count.members} />
         <AdminMetric icon="bi-clipboard2-check" label="Palpites" value={league._count.predictions} />
-        <AdminMetric icon="bi-check2-circle" label="Publicados" value={published.points} detail={`${published.count} lancamentos`} />
-        <AdminMetric icon="bi-hourglass-split" label="Pendentes" value={pending.points} detail={`${pending.count} lancamentos`} />
+        <AdminMetric icon="bi-check2-circle" label="Publicados" value={published.points} detail={`${published.count} lançamentos`} />
+        <AdminMetric icon="bi-hourglass-split" label="Pendentes" value={pending.points} detail={`${pending.count} lançamentos`} />
       </div>
 
-      <AdminPanel title="Identidade" description="Dados operacionais do bolao selecionado.">
+      <AdminPanel title="Identidade" description="Dados operacionais do bolão selecionado.">
         <div className="admin-meta-list">
           <div>
             <dt>Status</dt>
@@ -139,8 +139,8 @@ export default async function AdminLeagueGovernancePage({
       </AdminPanel>
 
       <AdminPanel
-        title="Regras de pontuacao"
-        description="Alteracoes exigem motivo e definem impacto sobre pontuacoes ja processadas."
+        title="Regras de pontuação"
+        description="Alterações exigem motivo e definem impacto sobre pontuações já processadas."
       >
         <form className="admin-action-form admin-rules-form" action={updateLeagueRulesAction}>
           <HiddenContext league={league} />
@@ -155,7 +155,7 @@ export default async function AdminLeagueGovernancePage({
             </select>
           </label>
           <label className="admin-field">
-            <span>Inicio</span>
+            <span>Início</span>
             <input name="scoringStartMatchday" type="number" min={1} max={99} defaultValue={league.scoringStartMatchday} />
           </label>
           <label className="admin-field">
@@ -163,7 +163,7 @@ export default async function AdminLeagueGovernancePage({
             <input name="windowHours" type="number" min={1} max={168} defaultValue={league.windowHours} />
           </label>
           <label className="admin-field">
-            <span>Edicoes</span>
+            <span>Edições</span>
             <input name="maxEdits" type="number" min={0} max={999} defaultValue={league.maxEdits} />
           </label>
           <label className="admin-field">
@@ -195,7 +195,7 @@ export default async function AdminLeagueGovernancePage({
             <input name="pointsBothScoreYes" type="number" min={0} max={100} defaultValue={league.pointsBothScoreYes} />
           </label>
           <label className="admin-field">
-            <span>Ambos nao</span>
+            <span>Ambos não</span>
             <input name="pointsBothScoreNo" type="number" min={0} max={100} defaultValue={league.pointsBothScoreNo} />
           </label>
           <label className="admin-field">
@@ -226,7 +226,7 @@ export default async function AdminLeagueGovernancePage({
           </label>
           <label className="admin-field">
             <span>Motivo</span>
-            <input name="reason" required minLength={3} placeholder="Motivo auditavel" />
+            <input name="reason" required minLength={3} placeholder="Motivo auditável" />
           </label>
           <div className="admin-form-footer">
             <button className="admin-button" type="submit">
@@ -238,8 +238,8 @@ export default async function AdminLeagueGovernancePage({
       </AdminPanel>
 
       <div className="admin-two-column">
-        <AdminPanel className="admin-danger-zone" title="Bonus opcionais">
-          <form className="admin-action-form" action={deleteOptionalScoringRulesAction}>
+        <AdminPanel className="admin-danger-zone" title="Bônus opcionais">
+          <form className="admin-action-form admin-bonus-form" action={deleteOptionalScoringRulesAction}>
             <HiddenContext league={league} />
             <select name="impactMode" defaultValue="future_only" aria-label="Impacto">
               <option value="future_only">Futuro</option>
@@ -248,13 +248,13 @@ export default async function AdminLeagueGovernancePage({
             <input name="reason" required minLength={3} placeholder="Motivo" />
             <button className="admin-button danger" type="submit">
               <i className="bi bi-slash-circle" aria-hidden="true" />
-              Desativar bonus
+              Desativar bônus
             </button>
           </form>
         </AdminPanel>
 
-        <AdminPanel title="Recalculo manual">
-          <form className="admin-action-form" action={recomputeLeagueScoringAction}>
+        <AdminPanel title="Recálculo manual">
+          <form className="admin-action-form admin-recompute-form" action={recomputeLeagueScoringAction}>
             <HiddenContext league={league} />
             <input name="reason" required minLength={3} placeholder="Motivo" />
             <button className="admin-button secondary" type="submit">
@@ -266,8 +266,8 @@ export default async function AdminLeagueGovernancePage({
       </div>
 
       <AdminPanel
-        title={league.isGlobal ? 'Pontuacao global' : 'Membros'}
-        description={league.isGlobal ? 'Acoes afetam User.points, streak e misses.' : 'Acoes afetam somente a participacao neste bolao.'}
+        title={league.isGlobal ? 'Pontuação global' : 'Membros'}
+        description={league.isGlobal ? 'Ações afetam User.points, streak e misses.' : 'Ações afetam somente a participação neste bolão.'}
       >
         <div className="admin-table user-table">
           {scoreRows.map((row) => (
@@ -281,12 +281,12 @@ export default async function AdminLeagueGovernancePage({
                 <small>{row.points} pts / {row.pendingPoints} pend.</small>
               </div>
               <div className="admin-row-meta">
-                <span>Serie</span>
+                <span>Série</span>
                 <small>{row.streak} atual / {row.best} ref.</small>
               </div>
               <AdminStatusBadge status={row.role}>{row.role}</AdminStatusBadge>
               <div className="admin-action-group">
-                <form className="admin-action-form" action={resetPoolScoreAction}>
+                <form className="admin-action-form admin-reset-score-form" action={resetPoolScoreAction}>
                   <HiddenContext league={league} />
                   <input type="hidden" name="targetUserId" value={row.id} />
                   <input name="reason" required minLength={3} placeholder="Motivo" />
@@ -295,11 +295,11 @@ export default async function AdminLeagueGovernancePage({
                   </button>
                 </form>
                 {!league.isGlobal && row.role !== 'owner' && (
-                  <form className="admin-action-form" action={removeLeagueMemberAction}>
+                  <form className="admin-action-form admin-remove-member-form" action={removeLeagueMemberAction}>
                     <HiddenContext league={league} />
                     <input type="hidden" name="targetUserId" value={row.id} />
                     <input name="reason" required minLength={3} placeholder="Motivo" />
-                    <button className="admin-icon-button danger" type="submit" title="Remover do bolao">
+                    <button className="admin-icon-button danger" type="submit" title="Remover do bolão">
                       <i className="bi bi-person-dash" aria-hidden="true" />
                     </button>
                   </form>
@@ -309,7 +309,7 @@ export default async function AdminLeagueGovernancePage({
           ))}
           {scoreRows.length === 0 && (
             <AdminEmptyState
-              description="Nenhum usuario disponivel para esta visao."
+              description="Nenhum usuário disponível para esta visão."
               icon="bi-people"
               title="Sem participantes"
             />
@@ -337,13 +337,50 @@ export default async function AdminLeagueGovernancePage({
           ))}
           {league.recentAudit.length === 0 && (
             <AdminEmptyState
-              description="Este bolao ainda nao possui eventos de governanca."
+              description="Este bolão ainda não possui eventos de governança."
               icon="bi-journal-text"
               title="Sem auditoria"
             />
           )}
         </div>
       </AdminPanel>
+
+      <script dangerouslySetInnerHTML={{ __html: `
+        document.addEventListener('submit', function(event) {
+          var form = event.target;
+          if (form.classList.contains('admin-rules-form')) {
+            var impactMode = form.querySelector('[name="impactMode"]').value;
+            var msg = impactMode === 'recompute_scored'
+              ? 'Atenção: Você selecionou para RECALCULAR as pontuações. Isso reavaliará todos os palpites históricos de todos os usuários no banco de dados com base nas novas regras. Deseja prosseguir?'
+              : 'Confirmar a atualização das regras de pontuação?';
+            if (!confirm(msg)) {
+              event.preventDefault();
+            }
+          } else if (form.classList.contains('admin-bonus-form')) {
+            var msg = 'Atenção: Isso desativará as regras opcionais de Ambos Marcam (definindo-as para zero). Deseja continuar?';
+            if (!confirm(msg)) {
+              event.preventDefault();
+            }
+          } else if (form.classList.contains('admin-recompute-form')) {
+            var msg = 'Confirmar o recálculo geral e manual de todos os palpites deste bolão? Isso pode levar alguns segundos.';
+            if (!confirm(msg)) {
+              event.preventDefault();
+            }
+          } else if (form.classList.contains('admin-reset-score-form')) {
+            var userName = form.closest('.admin-table-row')?.querySelector('strong')?.textContent || 'este participante';
+            var msg = 'Tem certeza que deseja ZERAR os pontos de ' + userName + '? Isso excluirá permanentemente todos os seus lançamentos de pontos neste bolão.';
+            if (!confirm(msg)) {
+              event.preventDefault();
+            }
+          } else if (form.classList.contains('admin-remove-member-form')) {
+            var userName = form.closest('.admin-table-row')?.querySelector('strong')?.textContent || 'este participante';
+            var msg = 'Tem certeza que deseja REMOVER ' + userName + ' deste bolão?';
+            if (!confirm(msg)) {
+              event.preventDefault();
+            }
+          }
+        });
+      ` }} />
     </section>
   );
 }

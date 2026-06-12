@@ -32,8 +32,8 @@ export default async function AdminResetsPage({ searchParams }: PageProps<'/admi
     <section className="admin-stack">
       <AdminPageHeader
         eyebrow="Suporte"
-        title="Redefinicao de senha"
-        description="Analise pedidos, registre motivo e mantenha rastro de aprovacao."
+        title="Redefinição de senha"
+        description="Analise pedidos, registre motivo e mantenha rastro de aprovação."
       >
         <form className="admin-filter" action="/admin/resets">
           <select name="status" defaultValue={status} aria-label="Filtrar status">
@@ -52,7 +52,7 @@ export default async function AdminResetsPage({ searchParams }: PageProps<'/admi
       <div className="admin-grid compact">
         <AdminMetric
           icon="bi-hourglass-split"
-          label="Pendentes na visao"
+          label="Pendentes na visão"
           tone={pendingCount > 0 ? 'warning' : 'ok'}
           value={pendingCount}
         />
@@ -65,14 +65,14 @@ export default async function AdminResetsPage({ searchParams }: PageProps<'/admi
       </div>
 
       <AdminPanel
-        description="A aprovacao troca a senha proposta; a rejeicao preserva o acesso atual."
-        title="Fila de revisao"
+        description="A aprovação troca a senha proposta; a rejeição preserva o acesso atual."
+        title="Fila de revisão"
       >
         <div className="admin-table reset-table">
           {requests.map((request) => (
             <article className="admin-table-row reset-row" key={request.id}>
               <div>
-                <strong>{request.user.name || 'Usuario'}</strong>
+                <strong>{request.user.name || 'Usuário'}</strong>
                 <small>{request.user.email}</small>
               </div>
               <AdminStatusBadge status={request.status}>{statusLabels[request.status] || request.status}</AdminStatusBadge>
@@ -87,7 +87,7 @@ export default async function AdminResetsPage({ searchParams }: PageProps<'/admi
               {request.status === 'pending' ? (
                 <form className="admin-action-form reset-action-form" action={decideResetAction}>
                   <input type="hidden" name="requestId" value={request.id} />
-                  <input name="reason" placeholder="Motivo da decisao" required minLength={3} />
+                  <input name="reason" placeholder="Motivo da decisão" required minLength={3} />
                   <div className="admin-action-buttons">
                     <button className="admin-icon-button ok" name="action" value="approve" title="Aprovar" type="submit">
                       <i className="bi bi-check-lg" aria-hidden="true" />
@@ -107,9 +107,9 @@ export default async function AdminResetsPage({ searchParams }: PageProps<'/admi
           ))}
           {requests.length === 0 && (
             <AdminEmptyState
-              description="Ajuste o filtro ou aguarde novas solicitacoes de usuarios."
+              description="Ajuste o filtro ou aguarde novas solicitações de usuários."
               icon="bi-inbox"
-              title="Nenhuma solicitacao encontrada"
+              title="Nenhuma solicitação encontrada"
             />
           )}
         </div>

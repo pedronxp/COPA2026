@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 interface AdminShellUser {
   name: string | null;
@@ -12,26 +13,26 @@ interface AdminShellUser {
 const navItems = [
   {
     href: '/admin',
-    label: 'Visao geral',
-    detail: 'Saude e filas',
+    label: 'Visão geral',
+    detail: 'Saúde e filas',
     icon: 'bi-speedometer2',
   },
   {
     href: '/admin/resets',
-    label: 'Solicitacoes',
-    detail: 'Redefinicao de senha',
+    label: 'Solicitações',
+    detail: 'Redefinição de senha',
     icon: 'bi-key',
   },
   {
     href: '/admin/users',
-    label: 'Usuarios',
-    detail: 'Moderacao e acesso',
+    label: 'Usuários',
+    detail: 'Moderação e acesso',
     icon: 'bi-people',
   },
   {
     href: '/admin/leagues',
-    label: 'Boloes',
-    detail: 'Status e operacao',
+    label: 'Bolões',
+    detail: 'Status e operação',
     icon: 'bi-trophy',
   },
   {
@@ -61,14 +62,53 @@ export function AdminShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Fecha a sidebar ao clicar em um link no mobile
+  const handleLinkClick = () => {
+    setSidebarOpen(false);
+  };
 
   return (
     <div className="admin-shell">
-      <aside className="admin-sidebar" aria-label="Navegacao administrativa">
-        <Link className="admin-brand" href="/admin">
+      {/* Header fixo no celular */}
+      <header className="admin-mobile-header">
+        <button
+          type="button"
+          className="admin-hamburger"
+          aria-label="Abrir menu"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <i className="bi bi-list" aria-hidden="true" />
+        </button>
+        <span className="admin-mobile-title">Copa dos Crias Admin</span>
+      </header>
+
+      {/* Overlay transparente/desfocado para fechar a sidebar no mobile */}
+      {sidebarOpen && (
+        <div
+          className="admin-sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Navegação administrativa">
+        {/* Botão de fechar no mobile */}
+        <button
+          type="button"
+          className="admin-sidebar-close"
+          aria-label="Fechar menu"
+          onClick={() => setSidebarOpen(false)}
+          style={{ display: sidebarOpen ? 'block' : 'none' }}
+        >
+          <i className="bi bi-x-lg" aria-hidden="true" />
+        </button>
+
+        <Link className="admin-brand" href="/admin" onClick={handleLinkClick}>
           <span>CDC</span>
           <strong>
-            Operacoes
+            Operações
             <small>Copa dos Crias</small>
           </strong>
         </Link>
@@ -80,6 +120,7 @@ export function AdminShell({
               className={isActive(pathname, item.href) ? 'active' : undefined}
               href={item.href}
               key={item.href}
+              onClick={handleLinkClick}
             >
               <i className={`bi ${item.icon}`} aria-hidden="true" />
               <span>

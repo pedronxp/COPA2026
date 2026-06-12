@@ -27,7 +27,7 @@ function text(formData: FormData, key: string) {
 
 function intValue(formData: FormData, key: string) {
   const value = Number(text(formData, key));
-  if (!Number.isInteger(value)) throw new Error(`Valor invalido para ${key}.`);
+  if (!Number.isInteger(value)) throw new Error(`Valor inválido para ${key}.`);
   return value;
 }
 

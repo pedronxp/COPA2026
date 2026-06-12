@@ -10,7 +10,7 @@ interface DeleteLeagueFormProps {
 export function DeleteLeagueForm({ leagueId, leagueName }: DeleteLeagueFormProps) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     const confirmDelete = window.confirm(
-      `Tem certeza de que deseja excluir permanentemente o bolao "${leagueName}"? Esta acao nao pode ser desfeita e removera todos os membros e palpites relacionados.`,
+      `Tem certeza de que deseja excluir permanentemente o bolão "${leagueName}"? Esta ação não pode ser desfeita e removerá todos os membros e palpites relacionados.`,
     );
     if (!confirmDelete) {
       event.preventDefault();
@@ -22,15 +22,15 @@ export function DeleteLeagueForm({ leagueId, leagueName }: DeleteLeagueFormProps
       <input type="hidden" name="leagueId" value={leagueId} />
       <input
         name="reason"
-        placeholder="Motivo exclusao"
+        placeholder="Motivo exclusão"
         required
         minLength={3}
-        aria-label="Motivo da exclusao do bolao"
+        aria-label="Motivo da exclusão do bolão"
       />
       <button
         className="admin-icon-button danger"
         type="submit"
-        title="Excluir bolao"
+        title="Excluir bolão"
       >
         <i className="bi bi-trash" aria-hidden="true" />
       </button>

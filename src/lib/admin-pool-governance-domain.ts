@@ -44,7 +44,7 @@ export function parseAdminLeagueRules(
   input: Record<string, unknown>,
   fallback: AdminLeagueRuleInput,
 ): AdminLeagueRuleInput {
-  const scoringPreset =
+  let scoringPreset =
     typeof input.scoringPreset === 'string' && input.scoringPreset in SCORING_PRESETS
       ? (input.scoringPreset as keyof typeof SCORING_PRESETS)
       : fallback.scoringPreset;
@@ -53,6 +53,16 @@ export function parseAdminLeagueRules(
       ? fallback
       : SCORING_PRESETS[scoringPreset].rules;
   const rules = validateScoringRules(input, scoringFallback);
+
+  if (scoringPreset !== 'custom') {
+    const presetDefaultRules = SCORING_PRESETS[scoringPreset].rules;
+    const isDifferent = (Object.keys(presetDefaultRules) as Array<keyof LeagueScoringRules>).some(
+      (key) => rules[key] !== presetDefaultRules[key]
+    );
+    if (isDifferent) {
+      scoringPreset = 'custom';
+    }
+  }
 
   return {
     ...rules,

@@ -84,7 +84,7 @@ function ruleUpdateData(rules: AdminLeagueRuleInput): Prisma.LeagueUpdateInput {
 
 export async function getAdminLeagueGovernance(reference: string) {
   const normalized = reference.trim();
-  if (!normalized) throw new Error('Bolao nao informado.');
+  if (!normalized) throw new Error('Bolão não informado.');
 
   const league = await prisma.league.findFirst({
     where: { OR: [{ id: normalized }, { slug: normalized }] },
@@ -123,7 +123,7 @@ export async function getAdminLeagueGovernance(reference: string) {
       },
     },
   });
-  if (!league) throw new Error('Bolao nao encontrado.');
+  if (!league) throw new Error('Bolão não encontrado.');
 
   const [pointStatus, recentAudit, globalUsers] = await Promise.all([
     prisma.leaguePointEntry.groupBy({
@@ -269,7 +269,7 @@ export async function recomputeAdminLeagueScoring(input: {
 }) {
   const reason = requireReason(input.reason);
   const league = await prisma.league.findUnique({ where: { id: input.leagueId } });
-  if (!league) throw new Error('Bolao nao encontrado.');
+  if (!league) throw new Error('Bolão não encontrado.');
 
   return prisma.$transaction(async (tx) => {
     const predictions = await tx.prediction.findMany({
@@ -329,7 +329,7 @@ export async function recomputeAdminLeagueScoring(input: {
         action: 'league.scoring_recompute',
         entityType: 'league',
         entityId: league.id,
-        summary: `${input.actor.email} recalculou a pontuacao do bolao ${league.name}.`,
+        summary: `${input.actor.email} recalculou a pontuação do bolão ${league.name}.`,
         metadata: safeJson({
           reason,
           predictions: predictions.length,
@@ -353,7 +353,7 @@ export async function updateAdminLeagueRules(input: {
   const reason = requireReason(input.reason);
   const impactMode = parseAdminRuleImpactMode(input.impactMode);
   const league = await prisma.league.findUnique({ where: { id: input.leagueId } });
-  if (!league) throw new Error('Bolao nao encontrado.');
+  if (!league) throw new Error('Bolão não encontrado.');
 
   const before = ruleSnapshot(league);
   const after = parseAdminLeagueRules(input.values, before);
@@ -366,7 +366,7 @@ export async function updateAdminLeagueRules(input: {
     action: 'league.rules_update',
     entityType: 'league',
     entityId: league.id,
-    summary: `${input.actor.email} atualizou regras do bolao ${league.name}.`,
+    summary: `${input.actor.email} atualizou regras do bolão ${league.name}.`,
     metadata: safeJson({
       reason,
       impactMode,
@@ -381,7 +381,7 @@ export async function updateAdminLeagueRules(input: {
     await recomputeAdminLeagueScoring({
       actor: input.actor,
       leagueId: league.id,
-      reason: `${reason} (recalculo apos edicao de regras)`,
+      reason: `${reason} (recálculo após edição de regras)`,
     });
   }
 }
@@ -395,13 +395,13 @@ export async function deleteAdminOptionalScoringRules(input: {
   const reason = requireReason(input.reason);
   const impactMode = parseAdminRuleImpactMode(input.impactMode);
   const league = await prisma.league.findUnique({ where: { id: input.leagueId } });
-  if (!league) throw new Error('Bolao nao encontrado.');
+  if (!league) throw new Error('Bolão não encontrado.');
 
   const before = ruleSnapshot(league);
   const after = disableOptionalScoringRules(before);
   const changedFields = diffAdminLeagueRules(before, after);
   if (changedFields.length === 0) {
-    throw new Error('As regras opcionais ja estao desativadas.');
+    throw new Error('As regras opcionais já estão desativadas.');
   }
 
   await prisma.league.update({ where: { id: league.id }, data: ruleUpdateData(after) });
@@ -410,7 +410,7 @@ export async function deleteAdminOptionalScoringRules(input: {
     action: 'league.optional_rules_delete',
     entityType: 'league',
     entityId: league.id,
-    summary: `${input.actor.email} desativou bonus opcionais do bolao ${league.name}.`,
+    summary: `${input.actor.email} desativou bônus opcionais do bolão ${league.name}.`,
     metadata: safeJson({ reason, impactMode, changedFields, before, after }),
   });
 
@@ -418,7 +418,7 @@ export async function deleteAdminOptionalScoringRules(input: {
     await recomputeAdminLeagueScoring({
       actor: input.actor,
       leagueId: league.id,
-      reason: `${reason} (recalculo apos remocao de bonus opcionais)`,
+      reason: `${reason} (recálculo após remoção de bônus opcionais)`,
     });
   }
 }
@@ -434,10 +434,13 @@ export async function resetAdminUserPoolScore(input: {
     where: { id: input.targetUserId },
     select: { id: true, email: true, points: true, streak: true, misses: true },
   });
-  if (!user) throw new Error('Usuario nao encontrado.');
+  if (!user) throw new Error('Usuário não encontrado.');
 
   if (input.leagueId === 'global') {
     await prisma.$transaction([
+      prisma.leaguePointEntry.deleteMany({
+        where: { leagueId: 'global', userId: user.id },
+      }),
       prisma.user.update({
         where: { id: user.id },
         data: { points: 0, streak: 0, misses: 0 },
@@ -448,7 +451,7 @@ export async function resetAdminUserPoolScore(input: {
           action: 'league.score_reset',
           entityType: 'league',
           entityId: 'global',
-          summary: `${input.actor.email} zerou a pontuacao global de ${user.email}.`,
+          summary: `${input.actor.email} zerou a pontuação global de ${user.email}.`,
           metadata: safeJson({
             reason,
             targetUserId: user.id,
@@ -466,10 +469,13 @@ export async function resetAdminUserPoolScore(input: {
     include: { league: { select: { name: true } } },
   });
   if (!membership || membership.status !== 'active') {
-    throw new Error('Usuario nao e membro ativo deste bolao.');
+    throw new Error('Usuário não é membro ativo deste bolão.');
   }
 
   await prisma.$transaction([
+    prisma.leaguePointEntry.deleteMany({
+      where: { leagueId: input.leagueId, userId: user.id },
+    }),
     prisma.leagueMember.update({
       where: { id: membership.id },
       data: {
@@ -485,7 +491,7 @@ export async function resetAdminUserPoolScore(input: {
         action: 'league.score_reset',
         entityType: 'league',
         entityId: input.leagueId,
-        summary: `${input.actor.email} zerou a pontuacao de ${user.email} no bolao ${membership.league.name}.`,
+        summary: `${input.actor.email} zerou a pontuação de ${user.email} no bolão ${membership.league.name}.`,
         metadata: safeJson({
           reason,
           targetUserId: user.id,
@@ -515,7 +521,7 @@ export async function removeAdminLeagueMember(input: {
 }) {
   const reason = requireReason(input.reason);
   if (input.leagueId === 'global') {
-    throw new Error('O bolao principal nao usa remocao de membros.');
+    throw new Error('O bolão principal não usa remoção de membros.');
   }
 
   const membership = await prisma.leagueMember.findUnique({
@@ -528,10 +534,10 @@ export async function removeAdminLeagueMember(input: {
     },
   });
   if (!membership || membership.status !== 'active') {
-    throw new Error('Membro ativo nao encontrado.');
+    throw new Error('Membro ativo não encontrado.');
   }
   if (membership.role === 'owner' || membership.league.ownerId === input.targetUserId) {
-    throw new Error('O dono do bolao nao pode ser removido.');
+    throw new Error('O dono do bolão não pode ser removido.');
   }
 
   await prisma.$transaction([
@@ -545,7 +551,7 @@ export async function removeAdminLeagueMember(input: {
         action: 'league.member_remove',
         entityType: 'league',
         entityId: input.leagueId,
-        summary: `${input.actor.email} removeu ${membership.user.email} do bolao ${membership.league.name}.`,
+        summary: `${input.actor.email} removeu ${membership.user.email} do bolão ${membership.league.name}.`,
         metadata: safeJson({
           reason,
           targetUserId: input.targetUserId,

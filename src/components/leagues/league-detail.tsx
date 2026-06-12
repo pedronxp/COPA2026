@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import type { LeagueDetailData, LeagueRankingEntry } from './league-types';
 import { JoinLeagueButton } from './join-league-button';
+import { SCORING_PRESETS } from '@/lib/league-domain';
 
-type DetailTab = 'overview' | 'ranking' | 'rules' | 'members' | 'publication';
+type DetailTab = 'overview' | 'ranking' | 'rules' | 'members' | 'publication' | 'settings';
 
 const tabs: Array<{ id: DetailTab; label: string; icon: string }> = [
   { id: 'overview', label: 'Visão geral', icon: 'grid' },
@@ -129,10 +130,6 @@ function MemberActions({
           <i className="bi bi-shield-minus" aria-hidden="true"></i>
         </button>
       )}
-      <button type="button" className="danger" title="Remover membro" onClick={() => mutate('remove')} disabled={pending}>
-        <i className="bi bi-person-x" aria-hidden="true"></i>
-      </button>
-      {error && <span>{error}</span>}
     </div>
   );
 }
@@ -140,6 +137,103 @@ function MemberActions({
 export function LeagueDetail({ league }: { league: LeagueDetailData }) {
   const [tab, setTab] = useState<DetailTab>('overview');
   const [copied, setCopied] = useState(false);
+
+  // Estados para aba Settings
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<boolean>(false);
+  const [formData, setFormData] = useState({
+    name: league.name,
+    description: league.description || '',
+    visualTheme: league.visualTheme,
+    visibility: league.visibility,
+    joinPolicy: league.joinPolicy,
+    maxMembers: league.maxMembers,
+    scoringPreset: league.scoringPreset,
+    pointsExact: league.pointsExact,
+    pointsDiff: league.pointsDiff,
+    pointsWinnerHome: league.pointsWinnerHome,
+    pointsWinnerAway: league.pointsWinnerAway,
+    pointsDraw: league.pointsDraw,
+    pointsBothScoreYes: league.pointsBothScoreYes,
+    pointsBothScoreNo: league.pointsBothScoreNo,
+    windowHours: league.windowHours,
+    maxEdits: league.maxEdits,
+    scoringStartMatchday: league.scoringStartMatchday,
+    groupPublicationMode: league.groupPublicationMode,
+    knockoutPublicationMode: league.knockoutPublicationMode,
+    expiresAt: league.expiresAt ? new Date(league.expiresAt).toISOString().split('T')[0] : '',
+  });
+
+  const activeTabs = league.userRole === 'owner'
+    ? [...tabs, { id: 'settings' as DetailTab, label: 'Configurações', icon: 'gear' }]
+    : tabs;
+
+  function handlePresetChange(preset: string) {
+    if (preset === 'custom') {
+      setFormData(prev => ({ ...prev, scoringPreset: 'custom' }));
+      return;
+    }
+    const rules = SCORING_PRESETS[preset as keyof typeof SCORING_PRESETS]?.rules;
+    if (rules) {
+      setFormData(prev => ({
+        ...prev,
+        scoringPreset: preset,
+        ...rules,
+      }));
+    }
+  }
+
+  function updateRuleValue(key: string, val: number) {
+    setFormData(prev => ({
+      ...prev,
+      [key]: val,
+      scoringPreset: 'custom',
+    }));
+  }
+
+  function handleInputChange(key: string, value: string | number) {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSettingsSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (league.editedByOwner) return;
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja salvar estas alterações? O bolão só pode ser editado uma única vez por seu criador.'
+    );
+    if (!confirmed) return;
+
+    setSettingsError(null);
+    setSettingsSuccess(false);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch('/api/leagues', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            leagueId: league.id,
+            ...formData,
+          }),
+        });
+
+        const payload: unknown = await response.json();
+        if (!response.ok) {
+          const record = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+          throw new Error(typeof record.error === 'string' ? record.error : 'Não foi possível salvar as configurações.');
+        }
+
+        setSettingsSuccess(true);
+        router.refresh();
+        setTab('overview');
+      } catch (err) {
+        setSettingsError(err instanceof Error ? err.message : 'Não foi possível salvar as configurações.');
+      }
+    });
+  }
 
   async function copyInvite() {
     if (!league.inviteCode) return;
@@ -194,7 +288,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
       </header>
 
       <nav className="league-detail-tabs" aria-label="Seções do bolão">
-        {tabs.map((item) => (
+        {activeTabs.map((item) => (
           <button key={item.id} type="button" className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>
             <i className={`bi bi-${item.icon}`} aria-hidden="true"></i>
             <span>{item.label}</span>
@@ -306,6 +400,294 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
               <div className="league-compact-empty"><i className="bi bi-hourglass-split" aria-hidden="true"></i><p>O primeiro ciclo aparecerá quando houver resultados.</p></div>
             )}
           </div>
+        </section>
+      )}
+
+      {tab === 'settings' && (
+        <section className="league-panel league-tab-panel">
+          <div className="league-panel-heading">
+            <div>
+              <span className="league-eyebrow">Configurações</span>
+              <h2>Ajustes do seu bolão</h2>
+            </div>
+          </div>
+
+          {league.editedByOwner ? (
+            <div className="league-edited-blocked">
+              <i className="bi bi-lock-fill" aria-hidden="true"></i>
+              <h3>Configuração bloqueada</h3>
+              <p>Este bolão já foi configurado/editado uma vez por você e está permanentemente bloqueado para novas alterações.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSettingsSubmit} className="league-settings-form">
+              {settingsError && (
+                <div className="league-form-feedback error" style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#ef4444', fontSize: '0.82rem' }}>
+                  <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" style={{ marginRight: '8px' }}></i>
+                  {settingsError}
+                </div>
+              )}
+              {settingsSuccess && (
+                <div className="league-form-feedback success" style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '6px', color: '#10b981', fontSize: '0.82rem' }}>
+                  <i className="bi bi-check-circle-fill" aria-hidden="true" style={{ marginRight: '8px' }}></i>
+                  Configurações salvas com sucesso!
+                </div>
+              )}
+
+              <div className="league-settings-grid">
+                {/* Seção 1: Geral */}
+                <div className="league-settings-section">
+                  <h3>Geral</h3>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-name">Nome do bolão</label>
+                    <input
+                      id="settings-name"
+                      type="text"
+                      required
+                      minLength={3}
+                      maxLength={80}
+                      value={formData.name}
+                      onChange={e => handleInputChange('name', e.target.value)}
+                    />
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-description">Descrição</label>
+                    <textarea
+                      id="settings-description"
+                      rows={3}
+                      value={formData.description}
+                      onChange={e => handleInputChange('description', e.target.value)}
+                    />
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-theme">Tema visual</label>
+                    <select
+                      id="settings-theme"
+                      value={formData.visualTheme}
+                      onChange={e => handleInputChange('visualTheme', e.target.value)}
+                    >
+                      <option value="pulse">Pulse (Verde/Neon)</option>
+                      <option value="stadium">Stadium (Azul)</option>
+                      <option value="classic">Classic (Tradicional)</option>
+                    </select>
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-visibility">Visibilidade</label>
+                    <select
+                      id="settings-visibility"
+                      value={formData.visibility}
+                      onChange={e => handleInputChange('visibility', e.target.value)}
+                    >
+                      <option value="public">Público</option>
+                      <option value="private">Privado</option>
+                    </select>
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-join">Política de entrada</label>
+                    <select
+                      id="settings-join"
+                      value={formData.joinPolicy}
+                      onChange={e => handleInputChange('joinPolicy', e.target.value)}
+                    >
+                      <option value="open">Aberto (Qualquer um com link entra)</option>
+                      <option value="approval">Aprovação requerida</option>
+                      <option value="invite">Apenas convite</option>
+                    </select>
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-max-members">Máximo de participantes</label>
+                    <input
+                      id="settings-max-members"
+                      type="number"
+                      min={2}
+                      max={50}
+                      value={formData.maxMembers}
+                      onChange={e => handleInputChange('maxMembers', Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                {/* Seção 2: Pontuação & Regras */}
+                <div className="league-settings-section">
+                  <h3>Preset & Regras</h3>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-preset">Preset de pontuação</label>
+                    <select
+                      id="settings-preset"
+                      value={formData.scoringPreset}
+                      onChange={e => handlePresetChange(e.target.value)}
+                    >
+                      <option value="standard">Padrão Copa dos Crias</option>
+                      <option value="casual">Casual (Amigável)</option>
+                      <option value="exact">Foco no placar exato</option>
+                      <option value="custom">Personalizado</option>
+                    </select>
+                  </div>
+
+                  <div className="league-settings-rules-grid">
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-exact">Placar exato</label>
+                      <input
+                        id="rule-exact"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsExact}
+                        onChange={e => updateRuleValue('pointsExact', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-diff">Saldo de gols</label>
+                      <input
+                        id="rule-diff"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsDiff}
+                        onChange={e => updateRuleValue('pointsDiff', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-winner-home">Vitória Casa</label>
+                      <input
+                        id="rule-winner-home"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsWinnerHome}
+                        onChange={e => updateRuleValue('pointsWinnerHome', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-winner-away">Vitória Fora</label>
+                      <input
+                        id="rule-winner-away"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsWinnerAway}
+                        onChange={e => updateRuleValue('pointsWinnerAway', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-draw">Empate correto</label>
+                      <input
+                        id="rule-draw"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsDraw}
+                        onChange={e => updateRuleValue('pointsDraw', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-both-yes">Ambas marcam (Sim)</label>
+                      <input
+                        id="rule-both-yes"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsBothScoreYes}
+                        onChange={e => updateRuleValue('pointsBothScoreYes', Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="league-settings-field">
+                      <label htmlFor="rule-both-no">Ambas marcam (Não)</label>
+                      <input
+                        id="rule-both-no"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={formData.pointsBothScoreNo}
+                        onChange={e => updateRuleValue('pointsBothScoreNo', Number(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção 3: Funcionamento */}
+                <div className="league-settings-section">
+                  <h3>Funcionamento</h3>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-window">Janela de palpites (horas)</label>
+                    <input
+                      id="settings-window"
+                      type="number"
+                      min={1}
+                      max={168}
+                      value={formData.windowHours}
+                      onChange={e => handleInputChange('windowHours', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-max-edits">Limite de edições por palpite</label>
+                    <select
+                      id="settings-max-edits"
+                      value={formData.maxEdits}
+                      onChange={e => handleInputChange('maxEdits', Number(e.target.value))}
+                    >
+                      <option value={1}>1 edição</option>
+                      <option value={3}>3 edições</option>
+                      <option value={5}>5 edições</option>
+                      <option value={999}>Sem limite</option>
+                    </select>
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-start-matchday">Rodada de início</label>
+                    <input
+                      id="settings-start-matchday"
+                      type="number"
+                      min={1}
+                      max={38}
+                      value={formData.scoringStartMatchday}
+                      onChange={e => handleInputChange('scoringStartMatchday', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-expires-at">Encerramento</label>
+                    <input
+                      id="settings-expires-at"
+                      type="date"
+                      value={formData.expiresAt}
+                      onChange={e => handleInputChange('expiresAt', e.target.value)}
+                    />
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-group-mode">Publicação na Fase de Grupos</label>
+                    <select
+                      id="settings-group-mode"
+                      value={formData.groupPublicationMode}
+                      onChange={e => handleInputChange('groupPublicationMode', e.target.value)}
+                    >
+                      <option value="match">A cada partida</option>
+                      <option value="round">Ao fim de cada rodada</option>
+                      <option value="every_2_rounds">A cada duas rodadas</option>
+                      <option value="every_3_rounds">A cada três rodadas</option>
+                      <option value="phase">Ao fim da fase de grupos</option>
+                      <option value="manual">Publicação manual</option>
+                    </select>
+                  </div>
+                  <div className="league-settings-field">
+                    <label htmlFor="settings-knockout-mode">Publicação no Mata-mata</label>
+                    <select
+                      id="settings-knockout-mode"
+                      value={formData.knockoutPublicationMode}
+                      onChange={e => handleInputChange('knockoutPublicationMode', e.target.value)}
+                    >
+                      <option value="match">A cada partida</option>
+                      <option value="stage">Ao fim de cada fase</option>
+                      <option value="manual">Publicação manual</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="league-settings-submit-wrap">
+                <button type="submit" className="btn league-primary-button" disabled={isPending}>
+                  {isPending ? 'Salvando...' : 'Confirmar e Salvar Configurações'}
+                </button>
+              </div>
+            </form>
+          )}
         </section>
       )}
     </div>

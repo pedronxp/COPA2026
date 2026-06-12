@@ -13,8 +13,8 @@ function fmt(value: Date) {
 }
 
 const entityLabels: Record<string, string> = {
-  user: 'Usuario',
-  league: 'Bolao',
+  user: 'Usuário',
+  league: 'Bolão',
   match: 'Partida',
   sync: 'Sync',
   password_reset_request: 'Senha',
@@ -33,14 +33,14 @@ export default async function AdminAuditPage({ searchParams }: PageProps<'/admin
       <AdminPageHeader
         eyebrow="Trilha operacional"
         title="Auditoria"
-        description="Revise acoes privilegiadas por tipo, ator e momento."
+        description="Revise ações privilegiadas por tipo, ator e momento."
       >
         <form className="admin-filter" action="/admin/audit">
-          <input name="action" defaultValue={action} placeholder="Acao" />
+          <input name="action" defaultValue={action} placeholder="Ação" />
           <select name="entityType" defaultValue={entityType} aria-label="Tipo de entidade">
             <option value="">Todas</option>
-            <option value="user">Usuario</option>
-            <option value="league">Bolao</option>
+            <option value="user">Usuário</option>
+            <option value="league">Bolão</option>
             <option value="match">Partida</option>
             <option value="sync">Sync</option>
             <option value="password_reset_request">Senha</option>
@@ -63,7 +63,7 @@ export default async function AdminAuditPage({ searchParams }: PageProps<'/admin
         />
       </div>
 
-      <AdminPanel description="Ultimos 100 eventos que correspondem aos filtros atuais." title="Eventos">
+      <AdminPanel description="Últimos 100 eventos que correspondem aos filtros atuais." title="Eventos">
         <div className="admin-table audit-table">
           {logs.map((log) => (
             <article className="admin-table-row audit-row" key={log.id}>

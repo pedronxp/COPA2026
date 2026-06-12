@@ -33,7 +33,7 @@ export default async function AdminMatchesPage() {
       <AdminPageHeader
         eyebrow="API e placares"
         title="Partidas"
-        description="Monitore sincronizacao, ajuste agenda automatica e corrija placares com auditoria."
+        description="Monitore sincronização, ajuste agenda automática e corrija placares com auditoria."
       >
         <form action={triggerSyncAction}>
           <button className="admin-button" type="submit">
@@ -63,7 +63,7 @@ export default async function AdminMatchesPage() {
             </AdminStatusBadge>
           }
           description={data.apiHealth.detail}
-          title="Sincronizacao automatica"
+          title="Sincronização automática"
         >
           <form className="admin-schedule-form" action={configureSyncAction}>
             <label className="admin-toggle">
@@ -92,8 +92,8 @@ export default async function AdminMatchesPage() {
               </select>
             </label>
             <div className="admin-schedule-meta">
-              <small>Proxima: {fmt(data.syncSchedule.nextRunAt)}</small>
-              <small>Ultimo sucesso: {fmt(data.syncSchedule.lastSuccessAt)}</small>
+              <small>Próxima: {fmt(data.syncSchedule.nextRunAt)}</small>
+              <small>Último sucesso: {fmt(data.syncSchedule.lastSuccessAt)}</small>
             </div>
             <button className="admin-button secondary" type="submit">
               <i className="bi bi-calendar-check" aria-hidden="true" />
@@ -102,7 +102,7 @@ export default async function AdminMatchesPage() {
           </form>
         </AdminPanel>
 
-        <AdminPanel description="Ultimos eventos da fonte externa e fallback." title="Historico de sync">
+        <AdminPanel description="Últimos eventos da fonte externa e fallback." title="Histórico de sync">
           <div className="admin-list compact-list">
             {data.syncLogs.slice(0, 5).map((log) => (
               <article className="admin-list-row" key={log.id}>
@@ -117,7 +117,7 @@ export default async function AdminMatchesPage() {
             ))}
             {data.syncLogs.length === 0 && (
               <AdminEmptyState
-                description="A proxima sincronizacao registrada aparecera aqui."
+                description="A próxima sincronização registrada aparecerá aqui."
                 icon="bi-cloud-arrow-down"
                 title="Nenhuma sync registrada"
               />
@@ -127,8 +127,8 @@ export default async function AdminMatchesPage() {
       </div>
 
       <AdminPanel
-        description="Use correcoes manuais apenas quando a fonte estiver atrasada ou incorreta."
-        title="Correcoes de partidas"
+        description="Use correções manuais apenas quando a fonte estiver atrasada ou incorreta."
+        title="Correções de partidas"
       >
         <div className="admin-table match-table">
           {data.matches.map((match) => (

@@ -26,6 +26,7 @@ const { prisma, recordAdminAudit } = vi.hoisted(() => ({
       aggregate: vi.fn(),
       groupBy: vi.fn(),
       update: vi.fn(),
+      deleteMany: vi.fn(),
     },
     prediction: {
       findMany: vi.fn(),

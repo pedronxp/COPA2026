@@ -699,6 +699,15 @@ export async function updateLeague(
   return serializable(async (tx) => {
     const league = await requireLeague(tx, reference);
     const actor = await requireAdmin(tx, league.id, userId);
+
+    if (league.editedByOwner) {
+      serviceError(
+        'Este bolão já foi configurado/editado uma vez pelo seu criador e está bloqueado para novas alterações.',
+        409,
+        'ALREADY_EDITED_BY_OWNER',
+      );
+    }
+
     const requestedStatus =
       typeof input.status === 'string' ? input.status : league.status;
 
@@ -785,6 +794,7 @@ export async function updateLeague(
         pointsDraw: configuration.pointsDraw,
         pointsBothScoreYes: configuration.pointsBothScoreYes,
         pointsBothScoreNo: configuration.pointsBothScoreNo,
+        editedByOwner: true,
       },
       select: {
         id: true,
@@ -814,6 +824,7 @@ export async function updateLeague(
         rulesLockedAt: true,
         lastPublishedAt: true,
         updatedAt: true,
+        editedByOwner: true,
       },
     });
   });

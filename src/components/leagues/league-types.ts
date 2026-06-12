@@ -40,6 +40,7 @@ export interface LeagueCardData {
   pointsBothScoreYes: number;
   pointsBothScoreNo: number;
   lastPublishedAt: string | null;
+  editedByOwner: boolean;
 }
 
 export interface LeagueCycleData {

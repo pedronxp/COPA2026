@@ -179,6 +179,7 @@ model League {
   pointsBothScoreNo       Int                     @default(0)
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @default(now()) @updatedAt
+  editedByOwner           Boolean                 @default(false)
   owner                   User                    @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members                 LeagueMember[]
   predictions             Prediction[]

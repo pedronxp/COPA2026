@@ -30,12 +30,12 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
   return (
     <section className="admin-stack">
       <AdminPageHeader
-        eyebrow="Operacao global"
-        title="Boloes"
-        description="Controle status, nomes e riscos operacionais dos boloes da plataforma."
+        eyebrow="Operação global"
+        title="Bolões"
+        description="Controle status, nomes e riscos operacionais dos bolões da plataforma."
       >
         <form className="admin-filter" action="/admin/leagues">
-          <input name="q" defaultValue={q} placeholder="Buscar bolao, slug ou convite" />
+          <input name="q" defaultValue={q} placeholder="Buscar bolão, slug ou convite" />
           <button className="admin-button secondary" type="submit">
             <i className="bi bi-search" aria-hidden="true" />
             Buscar
@@ -51,8 +51,8 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
       </div>
 
       <AdminPanel
-        description="Alteracoes aqui afetam a experiencia publica do bolao e sao auditadas."
-        title="Gestao de boloes"
+        description="Alterações aqui afetam a experiência pública do bolão e são auditadas."
+        title="Gestão de bolões"
       >
         <div className="admin-table league-table">
           {leagues.map((league) => (
@@ -67,7 +67,7 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
                 <small>{league._count.members} membros / {league._count.predictions} palpites</small>
               </div>
               <div className="admin-row-meta">
-                <span>Pontuacao</span>
+                <span>Pontuação</span>
                 <small>
                   {league.scoringPreset}: {league.pointsExact}/{league.pointsDiff}/
                   {league.pointsWinner}/{league.pointsDraw}
@@ -79,7 +79,7 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
                   href={`/admin/leagues/${league.slug || league.id}`}
                 >
                   <i className="bi bi-sliders" aria-hidden="true" />
-                  Governanca
+                  Governança
                 </Link>
                 <form className="admin-action-form league-edit-form" action={updateLeagueAction}>
                   <input type="hidden" name="leagueId" value={league.id} />
@@ -87,9 +87,9 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
                     name="name"
                     defaultValue={league.name}
                     className="admin-input-name"
-                    aria-label="Nome do bolao"
+                    aria-label="Nome do bolão"
                   />
-                  <select name="status" defaultValue={league.status} aria-label="Status do bolao">
+                  <select name="status" defaultValue={league.status} aria-label="Status do bolão">
                     <option value="draft">Rascunho</option>
                     <option value="active">Ativo</option>
                     <option value="closed">Encerrado</option>
@@ -108,9 +108,9 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
           ))}
           {leagues.length === 0 && (
             <AdminEmptyState
-              description="Tente buscar pelo nome, slug ou codigo de convite."
+              description="Tente buscar pelo nome, slug ou código de convite."
               icon="bi-search"
-              title="Nenhum bolao encontrado"
+              title="Nenhum bolão encontrado"
             />
           )}
         </div>

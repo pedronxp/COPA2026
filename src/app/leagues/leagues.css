@@ -2114,3 +2114,117 @@
     font-size: 0.74rem;
   }
 }
+
+/* Configurações do bolão (Criador) */
+.league-edited-blocked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #a0aec0;
+}
+
+.league-edited-blocked i {
+  font-size: 3rem;
+  color: #e53e3e;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 0 10px rgba(229, 62, 62, 0.2));
+}
+
+.league-edited-blocked h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #edf2f7;
+  margin-bottom: 8px;
+}
+
+.league-edited-blocked p {
+  max-width: 420px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.league-settings-form {
+  display: grid;
+  gap: 24px;
+  margin-top: 15px;
+}
+
+.league-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.league-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  background: #0d131f;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+}
+
+.league-settings-section h3 {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--league-cyan);
+  border-bottom: 1px solid #2a3547;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.league-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.league-settings-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8fa1b7;
+}
+
+.league-settings-field input,
+.league-settings-field select,
+.league-settings-field textarea {
+  min-height: 38px;
+  padding: 8px 12px;
+  background: #0b0f17;
+  border: 1px solid #2e3b4e;
+  border-radius: 6px;
+  color: #edf2f7;
+  font-size: 0.82rem;
+}
+
+.league-settings-field input:focus,
+.league-settings-field select:focus,
+.league-settings-field textarea:focus {
+  border-color: var(--league-cyan);
+  outline: none;
+}
+
+.league-settings-rules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.league-settings-submit-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.league-settings-submit-wrap button {
+  min-height: 44px;
+  padding: 0 24px;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+

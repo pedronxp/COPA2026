@@ -22,7 +22,7 @@ export default async function AdminDashboardPage() {
   const data = await getAdminDashboardData();
 
   const syncDetail = [
-    `Ultima sync: ${formatDate(data.latestSync?.syncedAt)}`,
+    `Última sync: ${formatDate(data.latestSync?.syncedAt)}`,
     `${data.latestSync?.matchesCreated ?? 0} criadas`,
     `${data.latestSync?.matchesUpdated ?? 0} atualizadas`,
   ].join(' / ');
@@ -30,9 +30,9 @@ export default async function AdminDashboardPage() {
   return (
     <section className="admin-stack">
       <AdminPageHeader
-        eyebrow="Centro de operacoes"
+        eyebrow="Centro de operações"
         title="Painel administrativo"
-        description="Visao consolidada de suporte, moderacao, competicao e integridade."
+        description="Visão consolidada de suporte, moderação, competição e integridade."
       >
         <Link className="admin-button secondary" href="/dashboard">
           <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
@@ -45,14 +45,14 @@ export default async function AdminDashboardPage() {
           detail={`${data.users.restricted} restritos`}
           href="/admin/users"
           icon="bi-people"
-          label="Usuarios"
+          label="Usuários"
           value={data.users.total}
         />
         <AdminMetric
           detail={`${data.leagues.active} ativos`}
           href="/admin/leagues"
           icon="bi-trophy"
-          label="Boloes"
+          label="Bolões"
           value={data.leagues.total}
         />
         <AdminMetric
@@ -66,7 +66,7 @@ export default async function AdminDashboardPage() {
           detail="pedidos pendentes"
           href="/admin/resets"
           icon="bi-key"
-          label="Redefinicoes"
+          label="Redefinições"
           tone={data.pendingResets > 0 ? 'danger' : 'ok'}
           value={data.pendingResets}
         />
@@ -80,7 +80,7 @@ export default async function AdminDashboardPage() {
             </AdminStatusBadge>
           }
           description={data.apiHealth.detail}
-          title="Saude da API"
+          title="Saúde da API"
         >
           <div className="admin-health admin-health-card">
             <span className={`admin-status-dot ${data.apiHealth.tone}`} />
@@ -89,7 +89,7 @@ export default async function AdminDashboardPage() {
               <p>{syncDetail}</p>
               <p>
                 Agendamento {data.syncSchedule.enabled ? 'ativo' : 'desativado'} a cada{' '}
-                {data.syncSchedule.intervalMinutes} minutos. Proxima:{' '}
+                {data.syncSchedule.intervalMinutes} minutos. Próxima:{' '}
                 {formatDate(data.syncSchedule.nextRunAt)}.
               </p>
             </div>
@@ -104,15 +104,15 @@ export default async function AdminDashboardPage() {
           <div className="admin-quick-actions">
             <Link href="/admin/resets">
               <i className="bi bi-key" aria-hidden="true" />
-              <span>Revisar solicitacoes</span>
+              <span>Revisar solicitações</span>
             </Link>
             <Link href="/admin/users">
               <i className="bi bi-person-lock" aria-hidden="true" />
-              <span>Moderacao de usuarios</span>
+              <span>Moderação de usuários</span>
             </Link>
             <Link href="/admin/matches">
               <i className="bi bi-arrow-repeat" aria-hidden="true" />
-              <span>Sincronizacao e placares</span>
+              <span>Sincronização e placares</span>
             </Link>
           </div>
         </AdminPanel>
@@ -122,7 +122,7 @@ export default async function AdminDashboardPage() {
         <div className="admin-list">
           {data.recentAudit.length === 0 ? (
             <AdminEmptyState
-              description="As acoes privilegiadas aparecerao aqui assim que forem executadas."
+              description="As ações privilegiadas aparecerão aqui assim que forem executadas."
               icon="bi-shield-check"
               title="Nenhum evento registrado"
             />
