@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { parsePredictionMarketPicks } from '@/lib/prediction-markets';
 
 export async function saveLeaguePrediction(input: {
   userId: string;
@@ -6,6 +7,9 @@ export async function saveLeaguePrediction(input: {
   leagueId?: string;
   homeGuess: number;
   awayGuess: number;
+  resultPick: unknown;
+  totalGoalsPick: unknown;
+  bothTeamsScorePick: unknown;
 }) {
   const {
     userId,
@@ -13,6 +17,9 @@ export async function saveLeaguePrediction(input: {
     leagueId = 'global',
     homeGuess,
     awayGuess,
+    resultPick,
+    totalGoalsPick,
+    bothTeamsScorePick,
   } = input;
 
   if (
@@ -25,6 +32,12 @@ export async function saveLeaguePrediction(input: {
   ) {
     throw new Error('O placar deve conter números inteiros entre 0 e 99.');
   }
+
+  const marketPicks = parsePredictionMarketPicks({
+    resultPick,
+    totalGoalsPick,
+    bothTeamsScorePick,
+  });
 
   const [league, match] = await Promise.all([
     prisma.league.findUnique({ where: { id: leagueId } }),
@@ -61,7 +74,16 @@ export async function saveLeaguePrediction(input: {
 
       if (!existing) {
         const prediction = await tx.prediction.create({
-          data: { userId, matchId, leagueId, homeGuess, awayGuess },
+          data: {
+            userId,
+            matchId,
+            leagueId,
+            homeGuess,
+            awayGuess,
+            resultPick: marketPicks.resultPick,
+            totalGoalsPick: marketPicks.totalGoalsPick,
+            bothTeamsScorePick: marketPicks.bothTeamsScorePick,
+          },
         });
         await tx.league.updateMany({
           where: { id: leagueId, rulesLockedAt: null },
@@ -84,6 +106,9 @@ export async function saveLeaguePrediction(input: {
         data: {
           homeGuess,
           awayGuess,
+          resultPick: marketPicks.resultPick,
+          totalGoalsPick: marketPicks.totalGoalsPick,
+          bothTeamsScorePick: marketPicks.bothTeamsScorePick,
           editCount: { increment: 1 },
         },
       });

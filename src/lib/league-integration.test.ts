@@ -360,6 +360,9 @@ integration('league integration', () => {
           matchId: match.id,
           homeGuess: 1,
           awayGuess: 0,
+          resultPick: 'home',
+          totalGoalsPick: 'under_1_5',
+          bothTeamsScorePick: 'no',
         }),
       ).rejects.toThrow(/participar deste bol/);
 
@@ -370,6 +373,9 @@ integration('league integration', () => {
           matchId: match.id,
           homeGuess: 1,
           awayGuess: 0,
+          resultPick: 'home',
+          totalGoalsPick: 'under_1_5',
+          bothTeamsScorePick: 'no',
         }),
       ).resolves.toMatchObject({
         userId: owner.id,
