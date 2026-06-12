@@ -104,6 +104,9 @@ model Prediction {
   leagueId   String            @default("global")
   homeGuess  Int
   awayGuess  Int
+  resultPick String?
+  totalGoalsPick String?
+  bothTeamsScorePick String?
   editCount  Int               @default(0)
   createdAt  DateTime          @default(now())
   processed  Boolean           @default(false)
