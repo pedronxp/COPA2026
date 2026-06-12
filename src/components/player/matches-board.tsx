@@ -34,6 +34,15 @@ interface MatchesBoardProps {
   data: PlayerRouteData;
 }
 
+function formatMatchday(matchday: string | null | undefined) {
+  if (!matchday) return '';
+  const num = parseInt(matchday, 10);
+  if (!isNaN(num)) {
+    return `${num}ª rodada`;
+  }
+  return matchday;
+}
+
 function buildInitialGuesses(data: PlayerRouteData) {
   return Object.fromEntries(
     data.predictions.map((prediction) => [
@@ -84,11 +93,8 @@ function MatchStatsBar({ item }: { item: MatchViewModel }) {
         <span className="draw" style={{ width: `${stats.draw}%` }} />
         <span className="away" style={{ width: `${stats.away}%` }} />
       </div>
-      <div className="matches-stats-legend">
-        <span>{stats.total} palpites</span>
-        <span>Casa {stats.home}%</span>
-        <span>Empate {stats.draw}%</span>
-        <span>Fora {stats.away}%</span>
+      <div className="matches-stats-legend" style={{ justifyContent: 'center' }}>
+        <span>{stats.total} {stats.total === 1 ? 'palpite' : 'palpites'}</span>
       </div>
     </div>
   );
@@ -488,118 +494,122 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                     >
                       <div className="matches-row-main">
                         <div className="matches-row-time">
-                          <span>{formatTimePtBr(item.match.kickOff)}</span>
-                          <strong>{item.contextLabel}</strong>
+                          <strong>
+                            {item.contextLabel}
+                            {item.match.matchday && ` • ${formatMatchday(item.match.matchday)}`}
+                          </strong>
                           <small>{formatDateTimePtBr(item.match.kickOff)}</small>
                         </div>
 
-                        <div className="matches-teams">
-                          <TeamMark
-                            name={item.match.homeTeam}
-                            logo={item.match.homeTeamLogo}
-                            flag={item.match.homeFlag}
-                            align="end"
-                          />
-                          <div className="matches-prediction-center">
-                            {activeLeague.pointsExact > 0 || activeLeague.pointsDiff > 0 ? (
-                              <div className="matches-score-editor">
-                                <input
-                                  aria-label={`Palpite para ${item.match.homeTeam}`}
-                                  inputMode="numeric"
-                                  value={guess.home}
-                                  onChange={(event) =>
-                                    setGuess(item.match.id, 'home', event.target.value)
-                                  }
-                                  disabled={!item.canEdit}
-                                  placeholder="-"
-                                />
-                                <span>x</span>
-                                <input
-                                  aria-label={`Palpite para ${item.match.awayTeam}`}
-                                  inputMode="numeric"
-                                  value={guess.away}
-                                  onChange={(event) =>
-                                    setGuess(item.match.id, 'away', event.target.value)
-                                  }
-                                  disabled={!item.canEdit}
-                                  placeholder="-"
-                                />
-                              </div>
-                            ) : (
-                              <div className="matches-score-display">
-                                <span>{guess.home !== '' ? guess.home : '-'}</span>
-                                <span>x</span>
-                                <span>{guess.away !== '' ? guess.away : '-'}</span>
-                              </div>
-                            )}
-
-                            <div className="matches-market-selectors">
-                              <label>
-                                <span>Resultado</span>
-                                <select
-                                  value={picks.resultPick}
-                                  onChange={(event) =>
-                                    setMarketPick(item.match.id, 'resultPick', event.target.value)
-                                  }
-                                  disabled={!item.canEdit}
-                                  aria-label={`Resultado para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
-                                >
-                                  <option value="">Escolha</option>
-                                  {(['home', 'draw', 'away'] as const).map((value) => (
-                                    <option key={value} value={value}>
-                                      {RESULT_PICK_LABELS[value]}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label>
-                                <span>Total de gols</span>
-                                <select
-                                  value={picks.totalGoalsPick}
-                                  onChange={(event) =>
-                                    setMarketPick(item.match.id, 'totalGoalsPick', event.target.value)
-                                  }
-                                  disabled={!item.canEdit}
-                                  aria-label={`Total de gols para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
-                                >
-                                  <option value="">Escolha</option>
-                                  {TOTAL_GOALS_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label} - {option.description}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label>
-                                <span>Ambas marcam</span>
-                                <select
-                                  value={picks.bothTeamsScorePick}
-                                  onChange={(event) =>
-                                    setMarketPick(
-                                      item.match.id,
-                                      'bothTeamsScorePick',
-                                      event.target.value,
-                                    )
-                                  }
-                                  disabled={!item.canEdit}
-                                  aria-label={`Ambas marcam para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
-                                >
-                                  <option value="">Escolha</option>
-                                  {(['yes', 'no'] as const).map((value) => (
-                                    <option key={value} value={value}>
-                                      {BOTH_TEAMS_SCORE_LABELS[value]}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
+                        <div className="matches-row-content">
+                          <div className="matches-teams">
+                            <TeamMark
+                              name={item.match.homeTeam}
+                              logo={item.match.homeTeamLogo}
+                              flag={item.match.homeFlag}
+                              align="end"
+                            />
+                            <div className="matches-prediction-center">
+                              {activeLeague.pointsExact > 0 || activeLeague.pointsDiff > 0 ? (
+                                <div className="matches-score-editor">
+                                  <input
+                                    aria-label={`Palpite para ${item.match.homeTeam}`}
+                                    inputMode="numeric"
+                                    value={guess.home}
+                                    onChange={(event) =>
+                                      setGuess(item.match.id, 'home', event.target.value)
+                                    }
+                                    disabled={!item.canEdit}
+                                    placeholder="-"
+                                  />
+                                  <span>x</span>
+                                  <input
+                                    aria-label={`Palpite para ${item.match.awayTeam}`}
+                                    inputMode="numeric"
+                                    value={guess.away}
+                                    onChange={(event) =>
+                                      setGuess(item.match.id, 'away', event.target.value)
+                                    }
+                                    disabled={!item.canEdit}
+                                    placeholder="-"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="matches-score-display">
+                                  <span>{guess.home !== '' ? guess.home : '-'}</span>
+                                  <span>x</span>
+                                  <span>{guess.away !== '' ? guess.away : '-'}</span>
+                                </div>
+                              )}
                             </div>
+                            <TeamMark
+                              name={item.match.awayTeam}
+                              logo={item.match.awayTeamLogo}
+                              flag={item.match.awayFlag}
+                              align="start"
+                            />
                           </div>
-                          <TeamMark
-                            name={item.match.awayTeam}
-                            logo={item.match.awayTeamLogo}
-                            flag={item.match.awayFlag}
-                            align="start"
-                          />
+
+                          <div className="matches-market-selectors">
+                            <label>
+                              <span>Resultado</span>
+                              <select
+                                value={picks.resultPick}
+                                onChange={(event) =>
+                                  setMarketPick(item.match.id, 'resultPick', event.target.value)
+                                }
+                                disabled={!item.canEdit}
+                                aria-label={`Resultado para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                              >
+                                <option value="">Escolha</option>
+                                {(['home', 'draw', 'away'] as const).map((value) => (
+                                  <option key={value} value={value}>
+                                    {RESULT_PICK_LABELS[value]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Total de gols</span>
+                              <select
+                                value={picks.totalGoalsPick}
+                                onChange={(event) =>
+                                  setMarketPick(item.match.id, 'totalGoalsPick', event.target.value)
+                                }
+                                disabled={!item.canEdit}
+                                aria-label={`Total de gols para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                              >
+                                <option value="">Escolha</option>
+                                {TOTAL_GOALS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label} - {option.description}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Ambas marcam</span>
+                              <select
+                                value={picks.bothTeamsScorePick}
+                                onChange={(event) =>
+                                  setMarketPick(
+                                    item.match.id,
+                                    'bothTeamsScorePick',
+                                    event.target.value,
+                                  )
+                                }
+                                disabled={!item.canEdit}
+                                aria-label={`Ambas marcam para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                              >
+                                <option value="">Escolha</option>
+                                {(['yes', 'no'] as const).map((value) => (
+                                  <option key={value} value={value}>
+                                    {BOTH_TEAMS_SCORE_LABELS[value]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
                         </div>
                       </div>
 
