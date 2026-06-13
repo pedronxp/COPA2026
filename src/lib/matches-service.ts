@@ -873,6 +873,8 @@ export async function createSandboxUser(name: string, image: string): Promise<Us
     data: {
       name,
       email,
+      emailVerified: null,
+      passwordHash: null,
       image,
       points: 0,
       streak: 0,
@@ -889,4 +891,42 @@ export async function createSandboxUser(name: string, image: string): Promise<Us
     streak: dbUser.streak,
     misses: dbUser.misses,
   };
+}
+
+/**
+ * Retorna o status de todas as rodadas (matchdays) com base no status dos seus jogos.
+ */
+export async function getRoundStatuses(): Promise<Record<string, 'scheduled' | 'in_progress' | 'finished'>> {
+  const matches = await prisma.match.findMany({
+    where: { matchday: { not: null } },
+    select: { matchday: true, status: true },
+  });
+
+  const rounds: Record<string, { total: number; finished: number; scheduled: number }> = {};
+
+  for (const match of matches) {
+    const day = match.matchday!;
+    if (!rounds[day]) {
+      rounds[day] = { total: 0, finished: 0, scheduled: 0 };
+    }
+    rounds[day].total += 1;
+    if (match.status === 'finished') {
+      rounds[day].finished += 1;
+    } else if (match.status === 'scheduled') {
+      rounds[day].scheduled += 1;
+    }
+  }
+
+  const result: Record<string, 'scheduled' | 'in_progress' | 'finished'> = {};
+  for (const [day, stats] of Object.entries(rounds)) {
+    if (stats.finished === stats.total) {
+      result[day] = 'finished';
+    } else if (stats.scheduled === stats.total) {
+      result[day] = 'scheduled';
+    } else {
+      result[day] = 'in_progress';
+    }
+  }
+
+  return result;
 }

@@ -12,6 +12,7 @@ export type AdminRuleImpactMode = 'future_only' | 'recompute_scored';
 export interface AdminLeagueRuleInput extends LeagueScoringRules {
   scoringPreset: keyof typeof SCORING_PRESETS;
   scoringStartMatchday: number;
+  scoringStartMatchId: string | null;
   groupPublicationMode: (typeof GROUP_PUBLICATION_MODES)[number];
   knockoutPublicationMode: (typeof KNOCKOUT_PUBLICATION_MODES)[number];
 }
@@ -64,9 +65,15 @@ export function parseAdminLeagueRules(
     }
   }
 
+  const scoringStartMatchId =
+    typeof input.scoringStartMatchId === 'string'
+      ? input.scoringStartMatchId || null
+      : fallback.scoringStartMatchId;
+
   return {
     ...rules,
     scoringPreset,
+    scoringStartMatchId,
     scoringStartMatchday: boundedInteger(
       input.scoringStartMatchday,
       fallback.scoringStartMatchday,

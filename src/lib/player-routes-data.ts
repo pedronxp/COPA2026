@@ -10,6 +10,7 @@ import {
   getMatchStatsBatch,
   getMatches,
   getPredictions,
+  getRoundStatuses,
   type MatchData,
   type MatchStats,
   type PredictionData,
@@ -48,6 +49,7 @@ export interface PlayerRouteData {
   predictions: PredictionData[];
   members: PlayerMemberRow[];
   stats: Record<string, MatchStats>;
+  roundStatuses?: Record<string, 'scheduled' | 'in_progress' | 'finished'>;
 }
 
 export interface DashboardData extends PlayerRouteData {
@@ -156,17 +158,18 @@ async function getBasePlayerRouteData(
 ): Promise<PlayerRouteData> {
   const leagueContext = await getActiveLeagueContext(userId, requestedLeague);
   const leagueId = leagueContext.activeLeague.id;
-  const [matches, predictions, members] = await Promise.all([
+  const [matches, predictions, members, roundStatuses] = await Promise.all([
     getMatches(),
     getPredictions(userId, leagueId),
     getMembersForLeague(leagueId),
+    getRoundStatuses(),
   ]);
   const activeMatchIds = matches
     .filter((match) => match.status !== 'finished')
     .map((match) => match.id);
   const stats = await getMatchStatsBatch(activeMatchIds, leagueId);
 
-  return { leagueContext, generatedAt: Date.now(), matches, predictions, members, stats };
+  return { leagueContext, generatedAt: Date.now(), matches, predictions, members, stats, roundStatuses };
 }
 
 export async function getDashboardData(

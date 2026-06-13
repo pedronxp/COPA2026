@@ -7,6 +7,7 @@ const { prisma, recordAdminAudit } = vi.hoisted(() => ({
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     league: {
       findFirst: vi.fn(),
@@ -47,6 +48,7 @@ import {
   removeAdminLeagueMember,
   resetAdminUserPoolScore,
   updateAdminLeagueRules,
+  resetAdminLeagueScores,
 } from './admin-pool-governance-service';
 
 const actor = {
@@ -225,5 +227,61 @@ describe('admin pool governance service', () => {
       where: { id: 'user-1' },
       data: { points: 6, streak: 1, misses: 0 },
     });
+  });
+
+  it('resets global league scores entirely', async () => {
+    prisma.league.findUnique.mockResolvedValue({ id: 'global', name: 'Bolão Global' });
+    prisma.leaguePointEntry.deleteMany.mockResolvedValue({});
+    prisma.user.updateMany.mockResolvedValue({});
+    prisma.adminAuditLog.create.mockResolvedValue({});
+
+    await resetAdminLeagueScores({
+      actor,
+      leagueId: 'global',
+      reason: 'Reset para reinicio',
+    });
+
+    expect(prisma.leaguePointEntry.deleteMany).toHaveBeenCalledWith({
+      where: { leagueId: 'global' },
+    });
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      data: { points: 0, streak: 0, misses: 0 },
+    });
+    expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: 'league.global_score_reset_all' }),
+      }),
+    );
+  });
+
+  it('resets custom league scores entirely', async () => {
+    prisma.league.findUnique.mockResolvedValue({ id: 'league-1', name: 'Bolão Custom' });
+    prisma.leaguePointEntry.deleteMany.mockResolvedValue({});
+    prisma.leagueMember.updateMany.mockResolvedValue({});
+    prisma.adminAuditLog.create.mockResolvedValue({});
+
+    await resetAdminLeagueScores({
+      actor,
+      leagueId: 'league-1',
+      reason: 'Reset solicitado',
+    });
+
+    expect(prisma.leaguePointEntry.deleteMany).toHaveBeenCalledWith({
+      where: { leagueId: 'league-1' },
+    });
+    expect(prisma.leagueMember.updateMany).toHaveBeenCalledWith({
+      where: { leagueId: 'league-1' },
+      data: {
+        points: 0,
+        pendingPoints: 0,
+        exactScoreStreak: 0,
+        bestExactScoreStreak: 0,
+      },
+    });
+    expect(prisma.adminAuditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: 'league.score_reset_all' }),
+      }),
+    );
   });
 });

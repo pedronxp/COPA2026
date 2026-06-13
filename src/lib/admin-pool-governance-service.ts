@@ -30,6 +30,7 @@ function safeJson(input: unknown): Prisma.InputJsonObject {
 function ruleSnapshot(league: {
   scoringPreset: string;
   scoringStartMatchday: number;
+  scoringStartMatchId: string | null;
   groupPublicationMode: string;
   knockoutPublicationMode: string;
   windowHours: number;
@@ -46,6 +47,7 @@ function ruleSnapshot(league: {
   return {
     scoringPreset: league.scoringPreset as AdminLeagueRuleInput['scoringPreset'],
     scoringStartMatchday: league.scoringStartMatchday,
+    scoringStartMatchId: league.scoringStartMatchId,
     groupPublicationMode:
       league.groupPublicationMode as AdminLeagueRuleInput['groupPublicationMode'],
     knockoutPublicationMode:
@@ -67,6 +69,9 @@ function ruleUpdateData(rules: AdminLeagueRuleInput): Prisma.LeagueUpdateInput {
   return {
     scoringPreset: rules.scoringPreset,
     scoringStartMatchday: rules.scoringStartMatchday,
+    scoringStartMatch: rules.scoringStartMatchId
+      ? { connect: { id: rules.scoringStartMatchId } }
+      : { disconnect: true },
     groupPublicationMode: rules.groupPublicationMode,
     knockoutPublicationMode: rules.knockoutPublicationMode,
     windowHours: rules.windowHours,
@@ -90,6 +95,7 @@ export async function getAdminLeagueGovernance(reference: string) {
     where: { OR: [{ id: normalized }, { slug: normalized }] },
     include: {
       owner: { select: { id: true, name: true, email: true } },
+      scoringStartMatch: { select: { id: true, homeTeam: true, awayTeam: true } },
       members: {
         where: { status: 'active' },
         orderBy: [{ points: 'desc' }, { joinedAt: 'asc' }, { userId: 'asc' }],
@@ -125,7 +131,7 @@ export async function getAdminLeagueGovernance(reference: string) {
   });
   if (!league) throw new Error('Bolão não encontrado.');
 
-  const [pointStatus, recentAudit, globalUsers] = await Promise.all([
+  const [pointStatus, recentAudit, globalUsers, matchesList] = await Promise.all([
     prisma.leaguePointEntry.groupBy({
       by: ['status'],
       where: { leagueId: league.id },
@@ -152,6 +158,10 @@ export async function getAdminLeagueGovernance(reference: string) {
           },
         })
       : Promise.resolve([]),
+    prisma.match.findMany({
+      orderBy: { kickOff: 'asc' },
+      select: { id: true, homeTeam: true, awayTeam: true, kickOff: true, matchday: true },
+    }),
   ]);
 
   return {
@@ -161,6 +171,7 @@ export async function getAdminLeagueGovernance(reference: string) {
     pointStatus,
     recentAudit,
     globalUsers,
+    availableMatches: matchesList,
   };
 }
 
@@ -268,7 +279,10 @@ export async function recomputeAdminLeagueScoring(input: {
   reason: string;
 }) {
   const reason = requireReason(input.reason);
-  const league = await prisma.league.findUnique({ where: { id: input.leagueId } });
+  const league = await prisma.league.findUnique({
+    where: { id: input.leagueId },
+    include: { scoringStartMatch: true },
+  });
   if (!league) throw new Error('Bolão não encontrado.');
 
   return prisma.$transaction(async (tx) => {
@@ -298,14 +312,20 @@ export async function recomputeAdminLeagueScoring(input: {
         league,
       );
 
-      if (prediction.pointEntry.points !== score.total) updatedEntries += 1;
+      const isBeforeStartMatch =
+        league.scoringStartMatch &&
+        prediction.match.kickOff.getTime() < league.scoringStartMatch.kickOff.getTime();
+
+      const calculatedPoints = isBeforeStartMatch ? 0 : score.total;
+
+      if (prediction.pointEntry.points !== calculatedPoints) updatedEntries += 1;
       affectedUsers.push(prediction.userId);
       await tx.leaguePointEntry.update({
         where: { id: prediction.pointEntry.id },
         data: {
-          points: score.total,
+          points: calculatedPoints,
           metadata: {
-            score: score as unknown as Prisma.InputJsonValue,
+            score: { ...score, total: calculatedPoints } as unknown as Prisma.InputJsonValue,
             prediction: { home: prediction.homeGuess, away: prediction.awayGuess },
             result: {
               home: prediction.match.homeScore,
@@ -568,4 +588,65 @@ export async function removeAdminLeagueMember(input: {
   ]);
 
   return { removed: true };
+}
+
+export async function resetAdminLeagueScores(input: {
+  actor: SessionUser;
+  leagueId: string;
+  reason: string;
+}) {
+  const reason = requireReason(input.reason);
+  const league = await prisma.league.findUnique({
+    where: { id: input.leagueId },
+    select: { id: true, name: true },
+  });
+  if (!league) throw new Error('Bolão não encontrado.');
+
+  if (league.id === 'global') {
+    await prisma.$transaction([
+      prisma.leaguePointEntry.deleteMany({
+        where: { leagueId: 'global' },
+      }),
+      prisma.user.updateMany({
+        data: { points: 0, streak: 0, misses: 0 },
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          actorId: input.actor.id,
+          action: 'league.global_score_reset_all',
+          entityType: 'league',
+          entityId: 'global',
+          summary: `${input.actor.email} zerou TODOS os pontos do bolão global.`,
+          metadata: safeJson({ reason }),
+        },
+      }),
+    ]);
+    return { reset: true };
+  }
+
+  await prisma.$transaction([
+    prisma.leaguePointEntry.deleteMany({
+      where: { leagueId: league.id },
+    }),
+    prisma.leagueMember.updateMany({
+      where: { leagueId: league.id },
+      data: {
+        points: 0,
+        pendingPoints: 0,
+        exactScoreStreak: 0,
+        bestExactScoreStreak: 0,
+      },
+    }),
+    prisma.adminAuditLog.create({
+      data: {
+        actorId: input.actor.id,
+        action: 'league.score_reset_all',
+        entityType: 'league',
+        entityId: league.id,
+        summary: `${input.actor.email} zerou TODOS os pontos do bolão ${league.name}.`,
+        metadata: safeJson({ reason }),
+      },
+    }),
+  ]);
+  return { reset: true };
 }

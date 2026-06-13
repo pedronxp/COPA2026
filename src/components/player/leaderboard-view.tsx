@@ -62,7 +62,11 @@ function PodiumCard({
           {avatarVal}
         </div>
       )}
-      <h3>{member.name}</h3>
+      <h3>
+        <Link href={`/profile/${member.id}`} className="hover-underline" style={{ color: 'inherit', textDecoration: 'none' }}>
+          {member.name}
+        </Link>
+      </h3>
       <strong>{member.points} pts</strong>
       
       <div className="leaderboard-podium-meta" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
@@ -264,7 +268,9 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                       <div>
                         <div className="leaderboard-player-name-wrapper">
                           <b>
-                            {member.name}
+                            <Link href={`/profile/${member.id}`} className="hover-underline" style={{ color: 'inherit', textDecoration: 'none' }}>
+                              {member.name}
+                            </Link>
                             {isCurrent && <span style={{ color: 'var(--neon-green)', fontWeight: 600, fontSize: '0.75rem', marginLeft: '4px' }}>(Você)</span>}
                           </b>
                           {member.streak >= 2 && (

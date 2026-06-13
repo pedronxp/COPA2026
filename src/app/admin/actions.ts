@@ -18,6 +18,7 @@ import {
   removeAdminLeagueMember,
   resetAdminUserPoolScore,
   updateAdminLeagueRules,
+  resetAdminLeagueScores,
 } from '@/lib/admin-pool-governance-service';
 
 function text(formData: FormData, key: string) {
@@ -127,6 +128,7 @@ function leagueRuleValues(formData: FormData) {
   return {
     scoringPreset: text(formData, 'scoringPreset'),
     scoringStartMatchday: intValue(formData, 'scoringStartMatchday'),
+    scoringStartMatchId: text(formData, 'scoringStartMatchId'),
     groupPublicationMode: text(formData, 'groupPublicationMode'),
     knockoutPublicationMode: text(formData, 'knockoutPublicationMode'),
     windowHours: intValue(formData, 'windowHours'),
@@ -202,6 +204,20 @@ export async function resetPoolScoreAction(formData: FormData) {
     actor,
     leagueId,
     targetUserId: text(formData, 'targetUserId'),
+    reason: text(formData, 'reason'),
+  });
+
+  revalidateLeagueGovernance(leagueId, slug);
+}
+
+export async function resetLeagueScoresAction(formData: FormData) {
+  const actor = await requireAdminPage('leagues:manage');
+  const leagueId = text(formData, 'leagueId');
+  const slug = text(formData, 'slug');
+
+  await resetAdminLeagueScores({
+    actor,
+    leagueId,
     reason: text(formData, 'reason'),
   });
 

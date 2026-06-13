@@ -247,7 +247,7 @@ export async function getProfileData(userId: string): Promise<ProfileData> {
 }
 
 export async function getUserPublicProfile(targetUserId: string, viewerUserId: string) {
-  const [user, targetMemberships, totalPredictions, exactScoresCount] = await Promise.all([
+  const [user, targetMemberships, globalPredictions] = await Promise.all([
     withRetry(() =>
       prisma.user.findUnique({
         where: { id: targetUserId },
@@ -283,16 +283,19 @@ export async function getUserPublicProfile(targetUserId: string, viewerUserId: s
         },
       })
     ),
-    withRetry(() => prisma.prediction.count({ where: { userId: targetUserId } })),
     withRetry(() =>
-      prisma.prediction.count({
-        where: {
-          userId: targetUserId,
-          processed: true,
+      prisma.prediction.findMany({
+        where: { userId: targetUserId, leagueId: 'global' },
+        include: {
           match: {
-            status: 'finished',
-            homeScore: { not: null },
-            awayScore: { not: null },
+            select: {
+              status: true,
+              homeScore: true,
+              awayScore: true,
+            },
+          },
+          pointEntry: {
+            select: { points: true },
           },
         },
       })
@@ -319,6 +322,24 @@ export async function getUserPublicProfile(targetUserId: string, viewerUserId: s
       status: m.league.status,
     }));
 
+  const totalPredictions = globalPredictions.length;
+  const processedPredictions = globalPredictions.filter((p) => p.processed).length;
+  const correctPredictions = globalPredictions.filter(
+    (p) => p.processed && (p.pointEntry?.points ?? 0) > 0
+  ).length;
+
+  const exactScores = globalPredictions.filter(
+    (p) =>
+      p.processed &&
+      p.homeGuess === p.match.homeScore &&
+      p.awayGuess === p.match.awayScore
+  ).length;
+
+  const accuracyPercentage =
+    processedPredictions > 0
+      ? Math.round((correctPredictions / processedPredictions) * 100)
+      : 0;
+
   return {
     user: {
       id: user.id,
@@ -331,7 +352,9 @@ export async function getUserPublicProfile(targetUserId: string, viewerUserId: s
     leagues: visibleLeagues,
     stats: {
       totalPredictions,
-      exactScores: exactScoresCount,
+      processedPredictions,
+      exactScores,
+      accuracyPercentage,
     },
   };
 }

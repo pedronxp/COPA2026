@@ -108,7 +108,14 @@ export async function processLeagueScoringForMatch(matchId: string) {
 
   const predictions = await prisma.prediction.findMany({
     where: { matchId },
-    include: { league: true, pointEntry: true },
+    include: {
+      league: {
+        include: {
+          scoringStartMatch: true,
+        },
+      },
+      pointEntry: true,
+    },
   });
   const affectedLeagueIds: string[] = [];
 
@@ -132,7 +139,12 @@ export async function processLeagueScoringForMatch(matchId: string) {
       rules,
       marketPicks,
     );
-    const newPoints = score.total;
+
+    const isBeforeStartMatch =
+      prediction.league.scoringStartMatch &&
+      match.kickOff.getTime() < prediction.league.scoringStartMatch.kickOff.getTime();
+
+    const newPoints = isBeforeStartMatch ? 0 : score.total;
     const cycleKey = getCycleKey(prediction.league, match);
     const isGlobal = prediction.leagueId === 'global';
     const publishImmediately =

@@ -92,6 +92,7 @@ model Match {
   predictions        Prediction[]
   lineup             MatchLineup?
   leaguePointEntries LeaguePointEntry[]
+  leaguesStartingHere League[]           @relation("LeagueStartMatch")
 
   @@index([stage, kickOff])
   @@index([group, kickOff])
@@ -163,6 +164,7 @@ model League {
   visualTheme             String                  @default("pulse")
   scoringPreset           String                  @default("standard")
   scoringStartMatchday    Int                     @default(1)
+  scoringStartMatchId     String?
   groupPublicationMode    String                  @default("match")
   knockoutPublicationMode String                  @default("match")
   rulesLockedAt           DateTime?
@@ -191,6 +193,7 @@ model League {
   pointEntries            LeaguePointEntry[]
   rankingCycles           LeagueRankingCycle[]
   rankingSnapshots        LeagueRankingSnapshot[]
+  scoringStartMatch       Match?                  @relation("LeagueStartMatch", fields: [scoringStartMatchId], references: [id], onDelete: SetNull)
 
   @@index([visibility, status, createdAt])
   @@index([ownerId, createdAt])

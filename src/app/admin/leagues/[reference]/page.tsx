@@ -8,6 +8,7 @@ import {
   removeLeagueMemberAction,
   resetPoolScoreAction,
   updateLeagueRulesAction,
+  resetLeagueScoresAction,
 } from '@/app/admin/actions';
 import { SCORING_PRESETS } from '@/lib/league-domain';
 import {
@@ -193,8 +194,19 @@ export default async function AdminLeagueGovernancePage({
             </select>
           </label>
           <label className="admin-field">
-            <span>Início</span>
+            <span>Início (Rodada)</span>
             <input name="scoringStartMatchday" type="number" min={1} max={99} defaultValue={league.scoringStartMatchday} />
+          </label>
+          <label className="admin-field">
+            <span>Partida de início</span>
+            <select name="scoringStartMatchId" defaultValue={league.scoringStartMatchId || ''}>
+              <option value="">Nenhuma (Início do campeonato)</option>
+              {league.availableMatches?.map((match) => (
+                <option value={match.id} key={match.id}>
+                  {match.homeTeam} vs {match.awayTeam} ({match.matchday ? `${match.matchday}ª rodada` : 'Mata-mata'})
+                </option>
+              ))}
+            </select>
           </label>
           <label className="admin-field">
             <span>Janela</span>
@@ -303,6 +315,19 @@ export default async function AdminLeagueGovernancePage({
         </AdminPanel>
       </div>
 
+      <AdminPanel className="admin-danger-zone" title="Zerar todas as pontuações do bolão">
+        <form className="admin-action-form admin-reset-all-form" action={resetLeagueScoresAction}>
+          <HiddenContext league={league} />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
+            <input name="reason" required minLength={3} placeholder="Motivo/Justificativa obrigatória do reset" style={{ flex: 1, minWidth: '280px' }} />
+            <button className="admin-button danger" type="submit">
+              <i className="bi bi-eraser" aria-hidden="true" />
+              Zerar todos os pontos do bolão
+            </button>
+          </div>
+        </form>
+      </AdminPanel>
+
       <AdminPanel
         title={league.isGlobal ? 'Pontuação global' : 'Membros'}
         description={league.isGlobal ? 'Ações afetam User.points, streak e misses.' : 'Ações afetam somente a participação neste bolão.'}
@@ -406,6 +431,11 @@ export default async function AdminLeagueGovernancePage({
             }
           } else if (form.classList.contains('admin-bonus-form')) {
             var msg = 'Atenção: Isso desativará as regras opcionais de Ambos Marcam (definindo-as para zero). Deseja continuar?';
+            if (!confirm(msg)) {
+              event.preventDefault();
+            }
+          } else if (form.classList.contains('admin-reset-all-form')) {
+            var msg = 'ATENÇÃO CRÍTICA: Isso excluirá permanentemente todos os lançamentos de pontos e zerará os pontos de TODOS os participantes deste bolão! Esta ação é irreversível. Deseja realmente prosseguir?';
             if (!confirm(msg)) {
               event.preventDefault();
             }

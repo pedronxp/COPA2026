@@ -828,7 +828,44 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                         <div className="matches-row-time">
                           <strong>
                             {item.contextLabel}
-                            {item.match.matchday && ` • ${formatMatchday(item.match.matchday)}`}
+                            {item.match.matchday && (
+                              <>
+                                {' • '}
+                                {formatMatchday(item.match.matchday)}
+                                {(() => {
+                                  const rStatus = data.roundStatuses?.[item.match.matchday];
+                                  if (!rStatus) return null;
+                                  const label =
+                                    rStatus === 'finished'
+                                      ? 'Finalizada'
+                                      : rStatus === 'in_progress'
+                                        ? 'Em andamento'
+                                        : 'Não iniciada';
+                                  const style =
+                                    rStatus === 'finished'
+                                      ? { color: 'var(--neon-green)', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)' }
+                                      : rStatus === 'in_progress'
+                                        ? { color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)' }
+                                        : { color: '#94a3b8', background: 'rgba(148, 163, 184, 0.12)', border: '1px solid rgba(148, 163, 184, 0.3)' };
+                                  return (
+                                    <span
+                                      style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: '700',
+                                        marginLeft: '6px',
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        textTransform: 'uppercase',
+                                        display: 'inline-block',
+                                        ...style,
+                                      }}
+                                    >
+                                      {label}
+                                    </span>
+                                  );
+                                })()}
+                              </>
+                            )}
                           </strong>
                           <small>{formatDateTimePtBr(item.match.kickOff)}</small>
                         </div>
