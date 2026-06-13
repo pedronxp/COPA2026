@@ -8,6 +8,7 @@ import { JoinLeagueButton } from './join-league-button';
 import { SCORING_PRESETS } from '@/lib/league-domain';
 import { formatStagePtBr } from '@/lib/pt-br-format';
 import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
+import { TeamMark } from '@/components/player/team-mark';
 
 type DetailTab = 'overview' | 'ranking' | 'rules' | 'members' | 'publication' | 'settings';
 
@@ -637,18 +638,22 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                     </div>
 
                     {/* Placar e times */}
-                    <div className="d-flex align-items-center justify-content-center gap-3 py-2 text-white">
-                      <div className="d-flex align-items-center gap-2 w-40 justify-content-end text-end font-display fw-semibold" style={{ fontSize: '0.9rem' }}>
-                        <span>{item.match.homeTeam}</span>
-                        <span style={{ fontSize: '1.25rem' }}>{item.match.homeFlag || '⚽'}</span>
-                      </div>
-                      <div className="px-3 py-1 bg-dark bg-opacity-40 border border-secondary border-opacity-10 rounded text-info font-display fw-bold" style={{ fontSize: '1.1rem', letterSpacing: '0.05em' }}>
+                    <div className="league-match-score-row">
+                      <TeamMark
+                        name={item.match.homeTeam}
+                        logo={item.match.homeTeamLogo}
+                        flag={item.match.homeFlag}
+                        align="end"
+                      />
+                      <div className="league-match-score-pill">
                         {item.match.homeScore} x {item.match.awayScore}
                       </div>
-                      <div className="d-flex align-items-center gap-2 w-40 justify-content-start text-start font-display fw-semibold" style={{ fontSize: '0.9rem' }}>
-                        <span style={{ fontSize: '1.25rem' }}>{item.match.awayFlag || '⚽'}</span>
-                        <span>{item.match.awayTeam}</span>
-                      </div>
+                      <TeamMark
+                        name={item.match.awayTeam}
+                        logo={item.match.awayTeamLogo}
+                        flag={item.match.awayFlag}
+                        align="start"
+                      />
                     </div>
 
                     {/* Palpites corretos dos membros */}

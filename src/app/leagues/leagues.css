@@ -2372,3 +2372,63 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* Estilo responsivo para a exibição de partidas no Histórico */
+.league-match-score-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+  text-align: center;
+  color: #ffffff;
+}
+
+.league-match-score-pill {
+  padding: 6px 14px;
+  background: rgba(13, 20, 31, 0.6);
+  border: 1px solid rgba(48, 61, 80, 0.4);
+  border-radius: 6px;
+  color: var(--league-cyan, #20b8d8);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.league-match-score-row .player-team-badge {
+  width: 30px;
+  height: 30px;
+}
+
+.league-match-score-row .player-team-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f8fafc;
+  max-width: 140px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  .league-match-score-row {
+    gap: 8px;
+  }
+  
+  .league-match-score-pill {
+    padding: 4px 10px;
+    font-size: 0.95rem;
+  }
+  
+  .league-match-score-row .player-team-badge {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .league-match-score-row .player-team-name {
+    font-size: 0.76rem;
+    max-width: 90px;
+  }
+}
