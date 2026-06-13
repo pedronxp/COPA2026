@@ -1,5 +1,5 @@
 import type { ResultsData } from '@/lib/player-routes-data';
-import { calculatePredictionPoints, calculatePredictionScore } from '@/lib/matches-service';
+import { calculatePredictionScore } from '@/lib/scoring-domain';
 import { formatDateTimePtBr, formatStagePtBr } from '@/lib/pt-br-format';
 import { TeamMark } from './team-mark';
 
