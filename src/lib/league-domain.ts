@@ -95,37 +95,11 @@ export function deriveOwnerEditState(input: {
   hasPredictions?: boolean;
   requestedCompetitiveChange?: boolean;
 }): OwnerEditState {
-  const rulesLocked = Boolean(input.rulesLockedAt || input.hasPredictions);
-
-  if (input.ownerEditUsedAt) {
-    return {
-      available: false,
-      usedAt: input.ownerEditUsedAt,
-      usedById: input.ownerEditUsedById,
-      rulesLocked,
-      lockReason: 'used',
-      lockMessage:
-        'A edição única deste bolão já foi usada. Novas alterações do dono estão bloqueadas.',
-    };
-  }
-
-  if (input.requestedCompetitiveChange && rulesLocked) {
-    return {
-      available: false,
-      usedAt: null,
-      usedById: null,
-      rulesLocked,
-      lockReason: 'rules_locked',
-      lockMessage:
-        'As regras competitivas foram bloqueadas pelo primeiro palpite. A edição única ainda pode ser usada apenas para dados gerais.',
-    };
-  }
-
   return {
     available: true,
     usedAt: null,
     usedById: null,
-    rulesLocked,
+    rulesLocked: false,
     lockReason: null,
     lockMessage: null,
   };

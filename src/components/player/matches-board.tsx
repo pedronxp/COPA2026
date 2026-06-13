@@ -29,6 +29,228 @@ import {
   type ResultPick,
   type TotalGoalsPick,
 } from '@/lib/prediction-markets';
+import { calculatePredictionScore } from '@/lib/scoring-domain';
+
+function renderScoreBadges(scoreDetails: any) {
+  if (!scoreDetails) return null;
+  const badges = [];
+
+  if (scoreDetails.exactScore > 0) {
+    badges.push(
+      <span 
+        key="exact"
+        style={{
+          background: 'rgba(16, 185, 129, 0.12)',
+          color: '#10b981',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-bullseye" style={{ fontSize: '0.72rem' }} /> Placar Exato
+      </span>
+    );
+  }
+
+  if (scoreDetails.result > 0) {
+    let label = 'Resultado';
+    if (scoreDetails.resultKind === 'home') label = 'Vencedor Casa';
+    if (scoreDetails.resultKind === 'away') label = 'Vencedor Fora';
+    if (scoreDetails.resultKind === 'draw') label = 'Empate';
+    
+    badges.push(
+      <span 
+        key="result"
+        style={{
+          background: 'rgba(139, 92, 246, 0.12)',
+          color: '#a78bfa',
+          border: '1px solid rgba(139, 92, 246, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-trophy" style={{ fontSize: '0.72rem' }} /> {label}
+      </span>
+    );
+  }
+
+  if (scoreDetails.totalGoals > 0) {
+    badges.push(
+      <span 
+        key="goals"
+        style={{
+          background: 'rgba(6, 182, 212, 0.12)',
+          color: '#22d3ee',
+          border: '1px solid rgba(6, 182, 212, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-hash" style={{ fontSize: '0.72rem' }} /> Total de Gols
+      </span>
+    );
+  }
+
+  if (scoreDetails.bothTeamsScore > 0) {
+    badges.push(
+      <span 
+        key="both"
+        style={{
+          background: 'rgba(20, 184, 166, 0.12)',
+          color: '#2dd4bf',
+          border: '1px solid rgba(20, 184, 166, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-arrow-left-right" style={{ fontSize: '0.72rem' }} /> Ambas Marcam
+      </span>
+    );
+  }
+
+  if (badges.length === 0) {
+    badges.push(
+      <span 
+        key="none"
+        style={{
+          background: 'rgba(100, 116, 139, 0.1)',
+          color: '#94a3b8',
+          border: '1px solid rgba(100, 116, 139, 0.2)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '500',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-x-circle" style={{ fontSize: '0.72rem' }} /> Sem Pontos
+      </span>
+    );
+  }
+
+  return (
+    <div className="d-flex flex-wrap gap-1 mt-2 justify-content-center align-items-center">
+      {badges}
+    </div>
+  );
+}
+
+function renderCompactScoreBadges(scoreDetails: any) {
+  if (!scoreDetails) return null;
+  const badges = [];
+
+  if (scoreDetails.exactScore > 0) {
+    badges.push(
+      <span 
+        key="exact"
+        title="Placar Exato"
+        style={{
+          background: 'rgba(16, 185, 129, 0.12)',
+          color: '#10b981',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          padding: '1px 4px',
+          borderRadius: '3px',
+          fontSize: '0.6rem',
+          fontWeight: '600'
+        }}
+      >
+        Exato
+      </span>
+    );
+  }
+
+  if (scoreDetails.result > 0) {
+    badges.push(
+      <span 
+        key="result"
+        title="Resultado"
+        style={{
+          background: 'rgba(139, 92, 246, 0.12)',
+          color: '#a78bfa',
+          border: '1px solid rgba(139, 92, 246, 0.25)',
+          padding: '1px 4px',
+          borderRadius: '3px',
+          fontSize: '0.6rem',
+          fontWeight: '600'
+        }}
+      >
+        Vencedor
+      </span>
+    );
+  }
+
+  if (scoreDetails.totalGoals > 0) {
+    badges.push(
+      <span 
+        key="goals"
+        title="Total de Gols"
+        style={{
+          background: 'rgba(6, 182, 212, 0.12)',
+          color: '#22d3ee',
+          border: '1px solid rgba(6, 182, 212, 0.25)',
+          padding: '1px 4px',
+          borderRadius: '3px',
+          fontSize: '0.6rem',
+          fontWeight: '600'
+        }}
+      >
+        Gols
+      </span>
+    );
+  }
+
+  if (scoreDetails.bothTeamsScore > 0) {
+    badges.push(
+      <span 
+        key="both"
+        title="Ambas Marcam"
+        style={{
+          background: 'rgba(20, 184, 166, 0.12)',
+          color: '#2dd4bf',
+          border: '1px solid rgba(20, 184, 166, 0.25)',
+          padding: '1px 4px',
+          borderRadius: '3px',
+          fontSize: '0.6rem',
+          fontWeight: '600'
+        }}
+      >
+        Ambas
+      </span>
+    );
+  }
+
+  if (badges.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="d-flex gap-1 mt-1 justify-content-end align-items-center">
+      {badges}
+    </div>
+  );
+}
 
 interface MatchesBoardProps {
   data: PlayerRouteData;
@@ -927,13 +1149,51 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               </div>
             </div>
 
-            {/* Info footer */}
-            <div className="mb-4 text-center text-secondary" style={{ fontSize: '0.78rem' }}>
-              <i className="bi bi-info-circle me-1 text-info" aria-hidden="true" />
-              <span>
-                Palpite editado <strong>{viewPredictionModal.editCount}</strong> de <strong>{viewPredictionModal.maxEdits}</strong> vezes permitidas.
-              </span>
-            </div>
+            {/* Highlight points or edit count */}
+            {(() => {
+              const matchHomeScore = viewPredictionModal?.match?.homeScore;
+              const matchAwayScore = viewPredictionModal?.match?.awayScore;
+              const isFinished = viewPredictionModal?.match?.status === 'finished' && matchHomeScore !== null && matchAwayScore !== null;
+              
+              const myScoreDetails = isFinished && viewPredictionModal
+                ? calculatePredictionScore(
+                    viewPredictionModal.prediction.homeGuess,
+                    viewPredictionModal.prediction.awayGuess,
+                    matchHomeScore,
+                    matchAwayScore,
+                    activeLeague,
+                    {
+                      resultPick: viewPredictionModal.prediction.resultPick as any,
+                      totalGoalsPick: viewPredictionModal.prediction.totalGoalsPick as any,
+                      bothTeamsScorePick: viewPredictionModal.prediction.bothTeamsScorePick as any,
+                    }
+                  )
+                : null;
+
+              return isFinished ? (
+                <div 
+                  className="p-3 mb-4 rounded border text-center animate__animated animate__fadeIn"
+                  style={{
+                    background: myScoreDetails && myScoreDetails.total > 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.05)',
+                    borderColor: myScoreDetails && myScoreDetails.total > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(100, 116, 139, 0.15)'
+                  }}
+                >
+                  <div className="fs-6 fw-bold text-white mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+                    Você marcou <span className={myScoreDetails && myScoreDetails.total > 0 ? 'text-neon-green fs-5' : 'text-secondary fs-5'}>
+                      {myScoreDetails?.total ?? 0}
+                    </span> pontos nesta partida!
+                  </div>
+                  {renderScoreBadges(myScoreDetails)}
+                </div>
+              ) : (
+                <div className="mb-4 text-center text-secondary" style={{ fontSize: '0.78rem' }}>
+                  <i className="bi bi-info-circle me-1 text-info" aria-hidden="true" />
+                  <span>
+                    Palpite editado <strong>{viewPredictionModal.editCount}</strong> de <strong>{viewPredictionModal.maxEdits}</strong> vezes permitidas.
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Outros palpites do grupo */}
             <div className="mt-4 pt-3 border-top border-secondary border-opacity-20 text-start mb-4">
@@ -960,63 +1220,96 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                 </div>
               ) : memberPredictions && memberPredictions.length > 0 ? (
                 <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
-                  {memberPredictions.map((memberPred: any) => {
-                    const isItMe = memberPred.userId === viewPredictionModal.prediction.userId;
-                    if (isItMe) return null; // Não mostrar a si mesmo na lista do grupo, já está em cima
-                    
-                    const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-                    const hue = charCode % 360;
-                    const avatarStyle = {
-                      background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
-                      color: '#ffffff',
-                      fontSize: '0.75rem',
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold',
-                      flexShrink: 0
-                    };
+                  {(() => {
+                    const matchHomeScore = viewPredictionModal?.match?.homeScore;
+                    const matchAwayScore = viewPredictionModal?.match?.awayScore;
+                    const isFinished = viewPredictionModal?.match?.status === 'finished' && matchHomeScore !== null && matchAwayScore !== null;
 
-                    return (
-                      <div 
-                        key={memberPred.userId} 
-                        className="d-flex align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
-                        style={{ fontSize: '0.8rem' }}
-                      >
-                        <div className="d-flex align-items-center gap-2">
-                          {memberPred.image ? (
-                            <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
-                          ) : (
-                            <div style={avatarStyle}>
-                              {memberPred.name.charAt(0).toUpperCase()}
+                    return memberPredictions.map((memberPred: any) => {
+                      const isItMe = memberPred.userId === viewPredictionModal.prediction.userId;
+                      if (isItMe) return null; // Não mostrar a si mesmo na lista do grupo, já está em cima
+                      
+                      const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                      const hue = charCode % 360;
+                      const avatarStyle = {
+                        background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                      };
+
+                      const memberScoreDetails = isFinished && memberPred.hasPrediction
+                        ? calculatePredictionScore(
+                            memberPred.homeGuess,
+                            memberPred.awayGuess,
+                            matchHomeScore,
+                            matchAwayScore,
+                            activeLeague,
+                            {
+                              resultPick: memberPred.resultPick as any,
+                              totalGoalsPick: memberPred.totalGoalsPick as any,
+                              bothTeamsScorePick: memberPred.bothTeamsScorePick as any,
+                            }
+                          )
+                        : null;
+                      const memberPoints = memberScoreDetails?.total ?? memberPred.points ?? 0;
+
+                      return (
+                        <div 
+                          key={memberPred.userId} 
+                          className="d-flex align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
+                          style={{ fontSize: '0.8rem' }}
+                        >
+                          <div className="d-flex align-items-center gap-2">
+                            {memberPred.image ? (
+                              <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
+                            ) : (
+                              <div style={avatarStyle}>
+                                {memberPred.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="d-flex flex-column">
+                              <span className="text-white fw-medium">{memberPred.name}</span>
+                              <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
+                              </small>
                             </div>
-                          )}
-                          <div className="d-flex flex-column">
-                            <span className="text-white fw-medium">{memberPred.name}</span>
-                            <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                              {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
-                            </small>
+                          </div>
+
+                          <div className="text-end">
+                            {memberPred.hasPrediction ? (
+                              <div className="d-flex flex-column align-items-end">
+                                <div className="d-flex align-items-center gap-1.5 justify-content-end">
+                                  <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
+                                  {isFinished && (
+                                    <span className={memberPoints > 0 ? 'text-success fw-bold' : 'text-secondary'} style={{ fontSize: '0.7rem' }}>
+                                      {memberPoints > 0 ? `+${memberPoints}` : '0'} pts
+                                    </span>
+                                  )}
+                                </div>
+                                {isFinished ? (
+                                  renderCompactScoreBadges(memberScoreDetails)
+                                ) : (
+                                  <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                    {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Resultado'}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted italic" style={{ fontSize: '0.75rem' }}>Sem palpite</span>
+                            )}
                           </div>
                         </div>
-
-                        <div className="text-end">
-                          {memberPred.hasPrediction ? (
-                            <div className="d-flex flex-column align-items-end">
-                              <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
-                              <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                                {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Resultado'}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted italic" style={{ fontSize: '0.75rem' }}>Sem palpite</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               ) : (
                 <div className="text-center py-3 text-secondary" style={{ fontSize: '0.8rem' }}>

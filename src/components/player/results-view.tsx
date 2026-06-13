@@ -1,7 +1,133 @@
 import type { ResultsData } from '@/lib/player-routes-data';
-import { calculatePredictionPoints } from '@/lib/matches-service';
+import { calculatePredictionPoints, calculatePredictionScore } from '@/lib/matches-service';
 import { formatDateTimePtBr, formatStagePtBr } from '@/lib/pt-br-format';
 import { TeamMark } from './team-mark';
+
+function renderScoreBadges(scoreDetails: any) {
+  if (!scoreDetails) return null;
+  const badges = [];
+
+  if (scoreDetails.exactScore > 0) {
+    badges.push(
+      <span 
+        key="exact"
+        style={{
+          background: 'rgba(16, 185, 129, 0.12)',
+          color: '#10b981',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-bullseye" style={{ fontSize: '0.72rem' }} /> Placar Exato
+      </span>
+    );
+  }
+
+  if (scoreDetails.result > 0) {
+    let label = 'Resultado';
+    if (scoreDetails.resultKind === 'home') label = 'Vencedor Casa';
+    if (scoreDetails.resultKind === 'away') label = 'Vencedor Fora';
+    if (scoreDetails.resultKind === 'draw') label = 'Empate';
+    
+    badges.push(
+      <span 
+        key="result"
+        style={{
+          background: 'rgba(139, 92, 246, 0.12)',
+          color: '#a78bfa',
+          border: '1px solid rgba(139, 92, 246, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-trophy" style={{ fontSize: '0.72rem' }} /> {label}
+      </span>
+    );
+  }
+
+  if (scoreDetails.totalGoals > 0) {
+    badges.push(
+      <span 
+        key="goals"
+        style={{
+          background: 'rgba(6, 182, 212, 0.12)',
+          color: '#22d3ee',
+          border: '1px solid rgba(6, 182, 212, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-hash" style={{ fontSize: '0.72rem' }} /> Total de Gols
+      </span>
+    );
+  }
+
+  if (scoreDetails.bothTeamsScore > 0) {
+    badges.push(
+      <span 
+        key="both"
+        style={{
+          background: 'rgba(20, 184, 166, 0.12)',
+          color: '#2dd4bf',
+          border: '1px solid rgba(20, 184, 166, 0.25)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-arrow-left-right" style={{ fontSize: '0.72rem' }} /> Ambas Marcam
+      </span>
+    );
+  }
+
+  if (badges.length === 0) {
+    badges.push(
+      <span 
+        key="none"
+        style={{
+          background: 'rgba(100, 116, 139, 0.1)',
+          color: '#94a3b8',
+          border: '1px solid rgba(100, 116, 139, 0.2)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          fontSize: '0.68rem',
+          fontWeight: '500',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px'
+        }}
+      >
+        <i className="bi bi-x-circle" style={{ fontSize: '0.72rem' }} /> Sem Pontos
+      </span>
+    );
+  }
+
+  return (
+    <div className="d-flex flex-wrap gap-1 mt-2 justify-content-start align-items-center">
+      {badges}
+    </div>
+  );
+}
 
 export function ResultsView({ data }: { data: ResultsData }) {
   const activeLeague = data.leagueContext.activeLeague;
@@ -34,16 +160,22 @@ export function ResultsView({ data }: { data: ResultsData }) {
       <section className="player-results-grid">
         {finishedMatches.map((match) => {
           const prediction = predictionByMatch.get(match.id);
-          const points =
+          const scoreDetails =
             prediction && match.homeScore !== null && match.awayScore !== null
-              ? calculatePredictionPoints(
+              ? calculatePredictionScore(
                   prediction.homeGuess,
                   prediction.awayGuess,
                   match.homeScore,
                   match.awayScore,
                   activeLeague,
+                  {
+                    resultPick: prediction.resultPick as any,
+                    totalGoalsPick: prediction.totalGoalsPick as any,
+                    bothTeamsScorePick: prediction.bothTeamsScorePick as any,
+                  }
                 )
-              : 0;
+              : null;
+          const points = scoreDetails?.total ?? 0;
 
           return (
             <article className="player-panel player-result-card" key={match.id}>
@@ -66,14 +198,19 @@ export function ResultsView({ data }: { data: ResultsData }) {
                   align="start"
                 />
               </div>
-              <footer>
+              <footer style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                 {prediction ? (
                   <>
-                    <span>Seu palpite: {prediction.homeGuess} x {prediction.awayGuess}</span>
-                    <strong className={points > 0 ? 'positive' : ''}>+{points} pts</strong>
+                    <div className="d-flex justify-content-between align-items-center w-100">
+                      <span className="text-secondary">Seu palpite: <strong className="text-white">{prediction.homeGuess} x {prediction.awayGuess}</strong></span>
+                      <strong className={points > 0 ? 'text-success fw-bold fs-5' : 'text-secondary fw-semibold'}>
+                        {points > 0 ? `+${points}` : '0'} pts
+                      </strong>
+                    </div>
+                    {renderScoreBadges(scoreDetails)}
                   </>
                 ) : (
-                  <span>Sem palpite nesta partida</span>
+                  <span className="text-muted italic">Sem palpite nesta partida</span>
                 )}
               </footer>
             </article>

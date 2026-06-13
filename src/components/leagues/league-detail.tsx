@@ -166,8 +166,8 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
     knockoutPublicationMode: league.knockoutPublicationMode,
     expiresAt: league.expiresAt ? new Date(league.expiresAt).toISOString().split('T')[0] : '',
   });
-  const ownerEditLocked = league.ownerEdit.lockReason === 'used';
-  const competitiveFieldsDisabled = league.ownerEdit.rulesLocked;
+  const ownerEditLocked = false;
+  const competitiveFieldsDisabled = false;
 
   const activeTabs = league.userRole === 'owner'
     ? [...tabs, { id: 'settings' as DetailTab, label: 'Configurações', icon: 'gear' }]
@@ -379,7 +379,35 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
       )}
 
       {tab === 'publication' && (
-        <section className="league-publication-layout">
+        <section className="league-publication-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+          <div 
+            className="league-panel p-4 animate__animated animate__fadeIn"
+            style={{
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%)',
+              border: '1px solid rgba(14, 165, 233, 0.2)',
+              borderRadius: '8px',
+              gridColumn: '1 / -1'
+            }}
+          >
+            <h5 className="text-info fw-bold mb-2.5 d-flex align-items-center gap-2" style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem' }}>
+              <i className="bi bi-info-circle-fill text-info" style={{ fontSize: '1.1rem' }}></i> Entendendo as Publicações e Ciclos
+            </h5>
+            <p className="text-secondary mb-3" style={{ fontSize: '0.8rem', lineHeight: '1.45' }}>
+              No nosso bolão, a pontuação funciona em etapas estruturadas para garantir a transparência e a integridade de cada palpite:
+            </p>
+            <ul className="text-secondary ps-3 mb-0 d-flex flex-column gap-2" style={{ fontSize: '0.78rem', lineHeight: '1.45', listStyleType: 'disc' }}>
+              <li>
+                <strong className="text-white">Janela de Palpite:</strong> Cada partida é bloqueada para palpites 30 minutes antes do início. Após essa janela (Time Gate), todos os palpites do grupo ficam abertos para visualização.
+              </li>
+              <li>
+                <strong className="text-white">Política de Publicação:</strong> Define quando a pontuação dos jogos é oficialmente agregada ao ranking do bolão. Pode ser programada a cada partida concluída, ao término de cada fase ou publicada manualmente pelo dono.
+              </li>
+              <li>
+                <strong className="text-white">Ciclos Recentes:</strong> São as atualizações oficiais de pontos. Quando um jogo acaba, as pontuações entram em modo <span className="text-warning fw-semibold">pendente</span>. Ao publicar o <strong className="text-white">Ciclo</strong>, os pontos e saldos dos membros são consolidados e atualizados na classificação.
+              </li>
+            </ul>
+          </div>
+
           <div className="league-panel">
             <span className="league-eyebrow">Política de publicação</span>
             <div className="league-publication-policy">
@@ -424,22 +452,13 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
             </div>
           ) : (
             <form onSubmit={handleSettingsSubmit} className="league-settings-form">
-              <div className="league-owner-edit-callout">
-                <i className="bi bi-pencil-square" aria-hidden="true"></i>
+              <div className="league-owner-edit-callout" style={{ background: 'rgba(14, 165, 233, 0.08)', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                <i className="bi bi-info-circle text-info" aria-hidden="true"></i>
                 <div>
-                  <strong>Edição única disponível</strong>
-                  <p>Você pode salvar uma alteração de nome e configurações uma única vez. Depois de confirmar, este botão ficará bloqueado.</p>
+                  <strong>Edição de Configurações Liberada</strong>
+                  <p>Você pode alterar o nome, presets de pontos e regras competitivas a qualquer momento. Modificações na pontuação das regras acionam um recálculo automático e retroativo dos palpites finalizados.</p>
                 </div>
               </div>
-              {competitiveFieldsDisabled && (
-                <div className="league-owner-edit-callout warning">
-                  <i className="bi bi-lock-fill" aria-hidden="true"></i>
-                  <div>
-                    <strong>Regras competitivas travadas</strong>
-                    <p>Já existem palpites neste bolão. A edição única ainda pode ajustar dados gerais, mas pontuação, janelas e publicação ficam somente para consulta.</p>
-                  </div>
-                </div>
-              )}
               {settingsError && (
                 <div className="league-form-feedback error" style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#ef4444', fontSize: '0.82rem' }}>
                   <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" style={{ marginRight: '8px' }}></i>
@@ -717,7 +736,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
 
               <div className="league-settings-submit-wrap">
                 <button type="submit" className="btn league-primary-button" disabled={isPending}>
-                  {isPending ? 'Salvando...' : 'Revisar e confirmar edição única'}
+                  {isPending ? 'Salvando...' : 'Revisar e Salvar Configurações'}
                 </button>
               </div>
             </form>
@@ -737,16 +756,11 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
             </div>
             <div>
               <span className="league-eyebrow">Confirmação obrigatória</span>
-              <h2 id="owner-edit-confirm-title">Usar a edição única do bolão?</h2>
+              <h2 id="owner-edit-confirm-title">Salvar alterações do bolão?</h2>
               <p>
-                Esta ação salva as alterações e consome a única edição disponível para o dono.
-                Depois disso, novas mudanças pelo dono ficarão bloqueadas com cadeado.
+                Esta ação salvará as configurações atuais do bolão. Se você alterar valores de pontuação competitiva,
+                o sistema recalculará retroativamente os pontos e saldos de todos os palpites finalizados no bolão.
               </p>
-              {competitiveFieldsDisabled && (
-                <p className="league-confirm-modal-note">
-                  As regras competitivas já estão travadas por palpites; somente os dados gerais serão alterados.
-                </p>
-              )}
             </div>
             <div className="league-confirm-modal-actions">
               <button
@@ -763,7 +777,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                 onClick={submitOwnerEdit}
                 disabled={isPending}
               >
-                {isPending ? 'Salvando...' : 'Salvar edição única'}
+                {isPending ? 'Salvando...' : 'Confirmar e Salvar'}
               </button>
             </div>
           </div>

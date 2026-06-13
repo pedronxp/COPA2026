@@ -6,13 +6,22 @@ const { prisma, tx } = vi.hoisted(() => {
       findFirst: vi.fn(),
       updateMany: vi.fn(),
       findUniqueOrThrow: vi.fn(),
+      findUnique: vi.fn(),
     },
     leagueMember: {
       findFirst: vi.fn(),
       count: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
     },
     prediction: {
       count: vi.fn(),
+      findMany: vi.fn(),
+    },
+    leaguePointEntry: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+      aggregate: vi.fn(),
     },
   };
 
@@ -65,7 +74,7 @@ function baseLeague(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe('league owner one-time edit service', () => {
+describe('league owner unlimited edit service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.$transaction.mockImplementation(async (operation) => operation(tx));
@@ -78,9 +87,14 @@ describe('league owner one-time edit service', () => {
     tx.leagueMember.count.mockResolvedValue(1);
     tx.prediction.count.mockResolvedValue(0);
     tx.league.updateMany.mockResolvedValue({ count: 1 });
+    
+    // Mocks padrão para o recompute service não estourar erro
+    tx.prediction.findMany.mockResolvedValue([]);
+    tx.leagueMember.findMany.mockResolvedValue([]);
+    tx.leaguePointEntry.aggregate.mockResolvedValue({ _sum: { points: 0 } });
   });
 
-  it('consumes the owner edit when the first valid edit is saved', async () => {
+  it('allows saving owner edits multiple times', async () => {
     const league = baseLeague();
     tx.league.findFirst.mockResolvedValue(league);
     tx.league.findUniqueOrThrow.mockResolvedValue({
@@ -100,7 +114,7 @@ describe('league owner one-time edit service', () => {
 
     expect(tx.league.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'league-1', ownerEditUsedAt: null },
+        where: { id: 'league-1' },
         data: expect.objectContaining({
           name: 'Liga Nova',
           editedByOwner: true,
@@ -111,58 +125,36 @@ describe('league owner one-time edit service', () => {
     );
   });
 
-  it('rejects direct owner edit requests after the allowance is consumed', async () => {
-    tx.league.findFirst.mockResolvedValue(
-      baseLeague({
-        ownerEditUsedAt: new Date('2026-06-13T13:00:00Z'),
-        ownerEditUsedById: 'owner-1',
-      }),
-    );
-
-    await expect(
-      updateLeague('liga-teste', 'owner-1', { name: 'Outra Liga' }),
-    ).rejects.toMatchObject({
-      status: 409,
-      code: 'OWNER_EDIT_USED',
-    });
-    expect(tx.league.updateMany).not.toHaveBeenCalled();
-  });
-
-  it('rejects competitive rule changes when predictions already locked rules', async () => {
-    tx.league.findFirst.mockResolvedValue(
-      baseLeague({
-        rulesLockedAt: new Date('2026-06-13T13:00:00Z'),
-      }),
-    );
-
-    await expect(
-      updateLeague('liga-teste', 'owner-1', { pointsExact: 7 }),
-    ).rejects.toMatchObject({
-      status: 409,
-      code: 'RULES_LOCKED',
-    });
-    expect(tx.league.updateMany).not.toHaveBeenCalled();
-  });
-
-  it('still allows a one-time general edit when only competitive rules are locked', async () => {
-    const league = baseLeague({
-      rulesLockedAt: new Date('2026-06-13T13:00:00Z'),
-    });
+  it('allows competitive rule changes and recomputes scoring retroactively', async () => {
+    const league = baseLeague();
     tx.league.findFirst.mockResolvedValue(league);
     tx.league.findUniqueOrThrow.mockResolvedValue({
       ...league,
-      name: 'Liga Geral Nova',
-      ownerEditUsedAt: new Date('2026-06-13T14:00:00Z'),
-      ownerEditUsedById: 'owner-1',
+      pointsExact: 7,
+      editedByOwner: true,
     });
 
-    await updateLeague('liga-teste', 'owner-1', { name: 'Liga Geral Nova' });
+    await updateLeague('liga-teste', 'owner-1', { pointsExact: 7 });
 
-    expect(tx.prediction.count).not.toHaveBeenCalled();
-    expect(tx.league.updateMany).toHaveBeenCalledWith(
+    // Deve acionar o recálculo retroativo
+    expect(tx.prediction.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ name: 'Liga Geral Nova' }),
+        where: expect.objectContaining({ leagueId: 'league-1' }),
       }),
     );
+  });
+
+  it('does not trigger recompute if only general fields change', async () => {
+    const league = baseLeague();
+    tx.league.findFirst.mockResolvedValue(league);
+    tx.league.findUniqueOrThrow.mockResolvedValue({
+      ...league,
+      name: 'Nome Diferente',
+    });
+
+    await updateLeague('liga-teste', 'owner-1', { name: 'Nome Diferente' });
+
+    // Não deve chamar findMany de prediction, pois nenhuma regra competitiva mudou
+    expect(tx.prediction.findMany).not.toHaveBeenCalled();
   });
 });

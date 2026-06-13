@@ -95,12 +95,10 @@ describe('league domain', () => {
         rulesLockedAt: null,
       }),
     ).toMatchObject({
-      available: false,
-      lockReason: 'used',
-      lockMessage:
-        'A edição única deste bolão já foi usada. Novas alterações do dono estão bloqueadas.',
-      usedAt,
-      usedById: 'owner-1',
+      available: true,
+      lockReason: null,
+      usedAt: null,
+      usedById: null,
     });
   });
 
@@ -113,10 +111,8 @@ describe('league domain', () => {
     });
 
     expect(state).toMatchObject({
-      available: false,
-      lockReason: 'rules_locked',
-      lockMessage:
-        'As regras competitivas foram bloqueadas pelo primeiro palpite. A edição única ainda pode ser usada apenas para dados gerais.',
+      available: true,
+      lockReason: null,
     });
   });
 

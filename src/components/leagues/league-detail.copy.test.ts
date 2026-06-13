@@ -5,9 +5,9 @@ describe('league owner edit copy', () => {
   it('keeps the confirmation modal and lock state in Brazilian Portuguese', async () => {
     const source = await readFile(new URL('./league-detail.tsx', import.meta.url), 'utf8');
 
-    expect(source).toContain('Usar a edição única do bolão?');
-    expect(source).toContain('Salvar edição única');
-    expect(source).toContain('Edição do dono bloqueada');
-    expect(source).toContain('Regras competitivas travadas');
+    expect(source).toContain('Salvar alterações do bolão?');
+    expect(source).toContain('Confirmar e Salvar');
+    expect(source).toContain('Edição de Configurações Liberada');
+    expect(source).toContain('Entendendo as Publicações e Ciclos');
   });
 });

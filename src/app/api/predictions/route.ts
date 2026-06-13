@@ -64,7 +64,10 @@ export async function GET(request: Request) {
       });
 
       const predictions = await prisma.prediction.findMany({
-        where: { matchId, leagueId }
+        where: { matchId, leagueId },
+        include: {
+          pointEntry: true
+        }
       });
 
       const predictionsMap = new Map(predictions.map(p => [p.userId, p]));
@@ -82,6 +85,7 @@ export async function GET(request: Request) {
           resultPick: pred?.resultPick ?? null,
           totalGoalsPick: pred?.totalGoalsPick ?? null,
           bothTeamsScorePick: pred?.bothTeamsScorePick ?? null,
+          points: pred?.pointEntry?.points ?? (pred ? 0 : null),
         };
       });
 

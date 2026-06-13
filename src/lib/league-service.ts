@@ -14,6 +14,7 @@ import {
   normalizeInviteCode,
   validateLeagueConfiguration,
 } from '@/lib/league-domain';
+import { recomputeLeagueScoring } from './recompute-service';
 
 type DbClient = Prisma.TransactionClient;
 
@@ -712,20 +713,6 @@ export async function updateLeague(
     const league = await requireLeague(tx, reference);
     await requireOwner(tx, league.id, userId);
 
-    const existingOwnerEditState = deriveOwnerEditState({
-      ownerEditUsedAt: league.ownerEditUsedAt,
-      ownerEditUsedById: league.ownerEditUsedById,
-      rulesLockedAt: league.rulesLockedAt,
-    });
-    if (!existingOwnerEditState.available) {
-      serviceError(
-        existingOwnerEditState.lockMessage ||
-          'A edição única deste bolão já foi usada.',
-        409,
-        'OWNER_EDIT_USED',
-      );
-    }
-
     const requestedStatus =
       typeof input.status === 'string' ? input.status : league.status;
 
@@ -747,26 +734,6 @@ export async function updateLeague(
       league as Record<string, unknown>,
       normalizedValues,
     );
-    if (competitiveChange) {
-      const hasPredictions =
-        league.rulesLockedAt !== null ||
-        (await tx.prediction.count({ where: { leagueId: league.id }, take: 1 })) > 0;
-      if (hasPredictions) {
-        const ownerEditState = deriveOwnerEditState({
-          ownerEditUsedAt: league.ownerEditUsedAt,
-          ownerEditUsedById: league.ownerEditUsedById,
-          rulesLockedAt: league.rulesLockedAt,
-          hasPredictions,
-          requestedCompetitiveChange: true,
-        });
-        serviceError(
-          ownerEditState.lockMessage ||
-            'As regras competitivas foram bloqueadas pelo primeiro palpite.',
-          409,
-          'RULES_LOCKED',
-        );
-      }
-    }
 
     const memberCount = await tx.leagueMember.count({
       where: { leagueId: league.id, ...ACTIVE_MEMBER },
@@ -782,7 +749,7 @@ export async function updateLeague(
 
     const consumedAt = new Date();
     const result = await tx.league.updateMany({
-      where: { id: league.id, ownerEditUsedAt: null },
+      where: { id: league.id },
       data: {
         name: configuration.name,
         description: configuration.description,
@@ -814,10 +781,15 @@ export async function updateLeague(
 
     if (result.count !== 1) {
       serviceError(
-        'A edição única deste bolão já foi usada. Recarregue a página para ver o estado atual.',
+        'Não foi possível atualizar o bolão. Recarregue a página para ver o estado atual.',
         409,
         'OWNER_EDIT_USED',
       );
+    }
+
+    if (competitiveChange) {
+      // Recalcula retroativamente todas as pontuações e saldos do bolão
+      await recomputeLeagueScoring(tx, league.id);
     }
 
     return tx.league.findUniqueOrThrow({
