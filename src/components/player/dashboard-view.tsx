@@ -337,34 +337,34 @@ export function DashboardView({ user, data }: DashboardViewProps) {
               ) : (
                 <div key={currentOption.id} className="ranking-podium-container">
                   {second && (
-                    <div className="ranking-podium-step step-2 animate__animated animate__fadeInUp">
+                    <Link href={`/profile/${second.id}`} className="ranking-podium-step step-2 animate__animated animate__fadeInUp" style={{ textDecoration: 'none' }}>
                       <div className="podium-avatar-container">
                         {renderAvatar(second)}
                         <span className="podium-badge tone-silver">2</span>
                       </div>
                       <span className="podium-name">{second.name}</span>
                       <strong className="podium-points">{second.points} pts</strong>
-                    </div>
+                    </Link>
                   )}
                   {leader && (
-                    <div className="ranking-podium-step step-1 animate__animated animate__fadeInUp">
+                    <Link href={`/profile/${leader.id}`} className="ranking-podium-step step-1 animate__animated animate__fadeInUp" style={{ textDecoration: 'none' }}>
                       <div className="podium-avatar-container">
                         {renderAvatar(leader)}
                         <span className="podium-badge tone-gold"><i className="bi bi-crown-fill" /></span>
                       </div>
                       <span className="podium-name">{leader.name}</span>
                       <strong className="podium-points">{leader.points} pts</strong>
-                    </div>
+                    </Link>
                   )}
                   {third && (
-                    <div className="ranking-podium-step step-3 animate__animated animate__fadeInUp">
+                    <Link href={`/profile/${third.id}`} className="ranking-podium-step step-3 animate__animated animate__fadeInUp" style={{ textDecoration: 'none' }}>
                       <div className="podium-avatar-container">
                         {renderAvatar(third)}
                         <span className="podium-badge tone-bronze">3</span>
                       </div>
                       <span className="podium-name">{third.name}</span>
                       <strong className="podium-points">{third.points} pts</strong>
-                    </div>
+                    </Link>
                   )}
                 </div>
               )}

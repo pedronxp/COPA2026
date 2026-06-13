@@ -18,6 +18,7 @@ import {
   AdminPanel,
   AdminStatusBadge,
 } from '@/components/admin/admin-ui';
+import { HelpTooltip } from '@/components/leagues/help-tooltip';
 
 const statusLabels: Record<string, string> = {
   draft: 'Rascunho',
@@ -184,7 +185,10 @@ export default async function AdminLeagueGovernancePage({
         <form className="admin-action-form admin-rules-form" action={updateLeagueRulesAction}>
           <HiddenContext league={league} />
           <label className="admin-field">
-            <span>Preset</span>
+            <span className="d-flex align-items-center">
+              Preset
+              <HelpTooltip text="Preset de pontuação padrão da Copa. Define a pontuação base que você pode ajustar. Mudar o preset altera as regras de pontuação." />
+            </span>
             <select name="scoringPreset" defaultValue={league.scoringPreset}>
               {Object.keys(SCORING_PRESETS).map((preset) => (
                 <option value={preset} key={preset}>
@@ -194,11 +198,17 @@ export default async function AdminLeagueGovernancePage({
             </select>
           </label>
           <label className="admin-field">
-            <span>Início (Rodada)</span>
+            <span className="d-flex align-items-center">
+              Início (Rodada)
+              <HelpTooltip text="Número da rodada em que a pontuação da liga será iniciada. Não altera rodadas anteriores." />
+            </span>
             <input name="scoringStartMatchday" type="number" min={1} max={99} defaultValue={league.scoringStartMatchday} />
           </label>
           <label className="admin-field">
-            <span>Partida de início</span>
+            <span className="d-flex align-items-center">
+              Partida de início
+              <HelpTooltip text="Partida específica para iniciar a pontuação. Se vazia, vale desde o primeiro jogo." />
+            </span>
             <select name="scoringStartMatchId" defaultValue={league.scoringStartMatchId || ''}>
               <option value="">Nenhuma (Início do campeonato)</option>
               {league.availableMatches?.map((match) => (
@@ -209,47 +219,80 @@ export default async function AdminLeagueGovernancePage({
             </select>
           </label>
           <label className="admin-field">
-            <span>Janela</span>
+            <span className="d-flex align-items-center">
+              Janela
+              <HelpTooltip text="Ajusta as horas para fechamento de apostas. Alterar isto muda o momento de bloqueio dos palpites daqui para frente." />
+            </span>
             <input name="windowHours" type="number" min={1} max={168} defaultValue={league.windowHours} />
           </label>
           <label className="admin-field">
-            <span>Edições</span>
+            <span className="d-flex align-items-center">
+              Edições
+              <HelpTooltip text="Número de vezes que cada participante pode editar o mesmo palpite." />
+            </span>
             <input name="maxEdits" type="number" min={0} max={999} defaultValue={league.maxEdits} />
           </label>
           <label className="admin-field">
-            <span>Exato</span>
+            <span className="d-flex align-items-center">
+              Exato
+              <HelpTooltip text="Pontos extras por acerto do placar exato. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsExact" type="number" min={0} max={100} defaultValue={league.pointsExact} />
           </label>
           <label className="admin-field">
-            <span>Saldo</span>
+            <span className="d-flex align-items-center">
+              Saldo
+              <HelpTooltip text="Pontos extras por acerto do vencedor e saldo de gols. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsDiff" type="number" min={0} max={100} defaultValue={league.pointsDiff} />
           </label>
           <label className="admin-field">
-            <span>Vencedor</span>
+            <span className="d-flex align-items-center">
+              Vencedor
+              <HelpTooltip text="Pontos extras por acerto apenas do vencedor. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsWinner" type="number" min={0} max={100} defaultValue={league.pointsWinner} />
           </label>
           <label className="admin-field">
-            <span>Casa</span>
+            <span className="d-flex align-items-center">
+              Casa
+              <HelpTooltip text="Pontos extras por acerto de gols do mandante. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsWinnerHome" type="number" min={0} max={100} defaultValue={league.pointsWinnerHome} />
           </label>
           <label className="admin-field">
-            <span>Fora</span>
+            <span className="d-flex align-items-center">
+              Fora
+              <HelpTooltip text="Pontos extras por acerto de gols do visitante. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsWinnerAway" type="number" min={0} max={100} defaultValue={league.pointsWinnerAway} />
           </label>
           <label className="admin-field">
-            <span>Empate</span>
+            <span className="d-flex align-items-center">
+              Empate
+              <HelpTooltip text="Pontos extras por acerto de empate. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsDraw" type="number" min={0} max={100} defaultValue={league.pointsDraw} />
           </label>
           <label className="admin-field">
-            <span>Ambos sim</span>
+            <span className="d-flex align-items-center">
+              Ambos sim
+              <HelpTooltip text="Pontos por acertar que ambos os times marcam. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsBothScoreYes" type="number" min={0} max={100} defaultValue={league.pointsBothScoreYes} />
           </label>
           <label className="admin-field">
-            <span>Ambos não</span>
+            <span className="d-flex align-items-center">
+              Ambos não
+              <HelpTooltip text="Pontos por acertar que pelo menos um time não marca. Se o Impacto for 'Recalcular', todos os jogos passados serão atualizados com este valor." />
+            </span>
             <input name="pointsBothScoreNo" type="number" min={0} max={100} defaultValue={league.pointsBothScoreNo} />
           </label>
           <label className="admin-field">
-            <span>Grupos</span>
+            <span className="d-flex align-items-center">
+              Grupos
+              <HelpTooltip text="Frequência de publicação dos resultados e atualização do ranking na fase de grupos." />
+            </span>
             <select name="groupPublicationMode" defaultValue={league.groupPublicationMode}>
               <option value="match">Partida</option>
               <option value="round">Rodada</option>
@@ -260,7 +303,10 @@ export default async function AdminLeagueGovernancePage({
             </select>
           </label>
           <label className="admin-field">
-            <span>Mata-mata</span>
+            <span className="d-flex align-items-center">
+              Mata-mata
+              <HelpTooltip text="Frequência de publicação dos resultados e atualização do ranking no mata-mata." />
+            </span>
             <select name="knockoutPublicationMode" defaultValue={league.knockoutPublicationMode}>
               <option value="match">Partida</option>
               <option value="stage">Etapa</option>
@@ -268,14 +314,20 @@ export default async function AdminLeagueGovernancePage({
             </select>
           </label>
           <label className="admin-field">
-            <span>Impacto</span>
+            <span className="d-flex align-items-center">
+              Impacto
+              <HelpTooltip text="Define se as regras alteradas afetam os pontos de partidas anteriores (Recalcular) ou apenas dos próximos jogos (Futuro)." />
+            </span>
             <select name="impactMode" defaultValue="future_only">
               <option value="future_only">Futuro</option>
               <option value="recompute_scored">Recalcular</option>
             </select>
           </label>
           <label className="admin-field">
-            <span>Motivo</span>
+            <span className="d-flex align-items-center">
+              Motivo
+              <HelpTooltip text="Justificativa obrigatória para registrar a alteração no histórico de auditoria." />
+            </span>
             <input name="reason" required minLength={3} placeholder="Motivo auditável" />
           </label>
           <div className="admin-form-footer">

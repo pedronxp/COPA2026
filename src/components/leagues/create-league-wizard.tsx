@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { SCORING_PRESETS } from '@/lib/league-domain';
+import { HelpTooltip } from './help-tooltip';
 
 const steps = ['Identidade', 'Acesso', 'Pontuação', 'Publicação', 'Revisão'];
 
@@ -294,11 +295,17 @@ export function CreateLeagueWizard() {
             </p>
             <div className="league-field-grid">
               <label className="league-field">
-                <span>Janela de palpites (horas)</span>
+                <span className="d-flex align-items-center">
+                  Janela de palpites (horas)
+                  <HelpTooltip text="Tempo limite (em horas) antes do início de cada partida para salvar/alterar palpites." />
+                </span>
                 <input type="number" min={1} max={168} value={data.windowHours} onChange={(event) => update('windowHours', Number(event.target.value))} />
               </label>
               <label className="league-field">
-                <span>Edições por palpite</span>
+                <span className="d-flex align-items-center">
+                  Edições por palpite
+                  <HelpTooltip text="Número máximo de edições permitidas para cada palpite individual salvo." />
+                </span>
                 <input type="number" min={0} max={999} value={data.maxEdits} onChange={(event) => update('maxEdits', Number(event.target.value))} />
               </label>
             </div>
@@ -313,11 +320,17 @@ export function CreateLeagueWizard() {
             </div>
             <div className="league-field-grid">
               <label className="league-field">
-                <span>Começar a pontuar na rodada</span>
+                <span className="d-flex align-items-center">
+                  Começar a pontuar na rodada
+                  <HelpTooltip text="A rodada a partir da qual os pontos começarão a ser computados e somados para a classificação geral." />
+                </span>
                 <input type="number" min={1} max={99} value={data.scoringStartMatchday} onChange={(event) => update('scoringStartMatchday', Number(event.target.value))} />
               </label>
               <label className="league-field">
-                <span>Fase de grupos</span>
+                <span className="d-flex align-items-center">
+                  Fase de grupos
+                  <HelpTooltip text="Determina com que frequência o ranking atualizado será divulgado para os membros durante a fase de grupos." />
+                </span>
                 <select value={data.groupPublicationMode} onChange={(event) => update('groupPublicationMode', event.target.value)}>
                   <option value="match">A cada partida</option>
                   <option value="round">Ao fim da rodada</option>
@@ -328,7 +341,10 @@ export function CreateLeagueWizard() {
                 </select>
               </label>
               <label className="league-field">
-                <span>Mata-mata</span>
+                <span className="d-flex align-items-center">
+                  Mata-mata
+                  <HelpTooltip text="Determina com que frequência o ranking atualizado será divulgado para os membros durante a fase de mata-mata." />
+                </span>
                 <select value={data.knockoutPublicationMode} onChange={(event) => update('knockoutPublicationMode', event.target.value)}>
                   <option value="match">A cada partida</option>
                   <option value="stage">Ao fim da fase</option>

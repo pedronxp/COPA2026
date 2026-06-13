@@ -6761,7 +6761,7 @@ body {
   justify-content: center;
   align-items: flex-end;
   gap: 12px;
-  height: 120px;
+  height: 130px;
   margin-top: 10px;
 }
 
@@ -6784,18 +6784,18 @@ body {
 }
 
 .ranking-podium-step.step-1 {
-  height: 105px;
+  height: 115px;
   border-color: rgba(251, 191, 36, 0.3);
   box-shadow: 0 4px 20px rgba(251, 191, 36, 0.1);
 }
 
 .ranking-podium-step.step-2 {
-  height: 90px;
+  height: 100px;
   border-color: rgba(203, 213, 225, 0.2);
 }
 
 .ranking-podium-step.step-3 {
-  height: 80px;
+  height: 90px;
   border-color: rgba(217, 119, 6, 0.2);
 }
 
@@ -7687,6 +7687,7 @@ body {
 }
 
 .admin-rules-form {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   align-items: start;
   padding: 18px 20px 20px;

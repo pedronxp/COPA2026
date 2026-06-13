@@ -9,6 +9,7 @@ import { SCORING_PRESETS } from '@/lib/league-domain';
 import { formatStagePtBr } from '@/lib/pt-br-format';
 import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
 import { TeamMark } from '@/components/player/team-mark';
+import { HelpTooltip } from './help-tooltip';
 
 type DetailTab = 'overview' | 'ranking' | 'rules' | 'members' | 'publication' | 'settings';
 
@@ -1007,7 +1008,10 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                 <div className="league-settings-section">
                   <h3>Funcionamento</h3>
                   <div className="league-settings-field">
-                    <label htmlFor="settings-window">Janela de palpites (horas)</label>
+                    <label htmlFor="settings-window" className="d-flex align-items-center">
+                      Janela de palpites (horas)
+                      <HelpTooltip text="Tempo limite (em horas) antes do início de cada partida para salvar/alterar palpites." />
+                    </label>
                     <input
                       id="settings-window"
                       type="number"
@@ -1019,7 +1023,10 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                     />
                   </div>
                   <div className="league-settings-field">
-                    <label htmlFor="settings-max-edits">Limite de edições por palpite</label>
+                    <label htmlFor="settings-max-edits" className="d-flex align-items-center">
+                      Limite de edições por palpite
+                      <HelpTooltip text="Número máximo de edições permitidas para cada palpite individual salvo." />
+                    </label>
                     <select
                       id="settings-max-edits"
                       value={formData.maxEdits}
@@ -1033,7 +1040,10 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                     </select>
                   </div>
                   <div className="league-settings-field">
-                    <label htmlFor="settings-start-matchday">Rodada de início</label>
+                    <label htmlFor="settings-start-matchday" className="d-flex align-items-center">
+                      Rodada de início
+                      <HelpTooltip text="A rodada a partir da qual os pontos começarão a ser computados e somados para a classificação geral." />
+                    </label>
                     <input
                       id="settings-start-matchday"
                       type="number"
@@ -1045,7 +1055,10 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                     />
                   </div>
                   <div className="league-settings-field">
-                    <label htmlFor="settings-expires-at">Encerramento</label>
+                    <label htmlFor="settings-expires-at" className="d-flex align-items-center">
+                      Encerramento
+                      <HelpTooltip text="Data limite para novos palpites e admissão de novos membros no bolão." />
+                    </label>
                     <input
                       id="settings-expires-at"
                       type="date"
@@ -1055,7 +1068,10 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                     />
                   </div>
                   <div className="league-settings-field">
-                    <label htmlFor="settings-group-mode">Publicação na Fase de Grupos</label>
+                    <label htmlFor="settings-group-mode" className="d-flex align-items-center">
+                      Publicação na Fase de Grupos
+                      <HelpTooltip text="Determina com que frequência o ranking atualizado será divulgado para os membros durante a fase de grupos." />
+                    </label>
                     <select
                       id="settings-group-mode"
                       value={formData.groupPublicationMode}
@@ -1071,7 +1087,10 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                     </select>
                   </div>
                   <div className="league-settings-field">
-                    <label htmlFor="settings-knockout-mode">Publicação no Mata-mata</label>
+                    <label htmlFor="settings-knockout-mode" className="d-flex align-items-center">
+                      Publicação no Mata-mata
+                      <HelpTooltip text="Determina com que frequência o ranking atualizado será divulgado para os membros durante a fase de mata-mata." />
+                    </label>
                     <select
                       id="settings-knockout-mode"
                       value={formData.knockoutPublicationMode}
