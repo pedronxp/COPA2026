@@ -73,6 +73,7 @@ export default function AuthForm({ mode, nextPath }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [avatar, setAvatar] = useState(avatarOptions[0].value);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -101,8 +102,13 @@ export default function AuthForm({ mode, nextPath }: AuthFormProps) {
       return;
     }
 
-    if ((isRegister || recoverMode) && password.length < 6) {
-      setNotice({ type: 'danger', text: 'Use uma senha com pelo menos 6 caracteres.' });
+    if ((isRegister || recoverMode) && password.length < 8) {
+      setNotice({ type: 'danger', text: 'Use uma senha com pelo menos 8 caracteres.' });
+      return;
+    }
+
+    if (isRegister && !acceptTerms) {
+      setNotice({ type: 'danger', text: 'Você precisa aceitar os termos de coleta de dados para prosseguir.' });
       return;
     }
 
@@ -126,7 +132,7 @@ export default function AuthForm({ mode, nextPath }: AuthFormProps) {
       const response = await fetch(isRegister ? '/api/auth/register' : '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isRegister ? { name, email, password, image: avatar } : { email, password }),
+        body: JSON.stringify(isRegister ? { name, email, password, image: avatar, acceptedPrivacyPolicy: true } : { email, password }),
       });
 
       const data = await readAuthResponse(response, isRegister ? 'Erro no cadastro.' : 'Erro ao realizar login.');
@@ -242,7 +248,7 @@ export default function AuthForm({ mode, nextPath }: AuthFormProps) {
           autoComplete={isRegister || recoverMode ? 'new-password' : 'current-password'}
           required
         />
-        <div className="form-text text-secondary">Mínimo de 6 caracteres.</div>
+        <div className="form-text text-secondary">Mínimo de 8 caracteres.</div>
       </div>
 
       {isRegister && !recoverMode && (
@@ -262,6 +268,31 @@ export default function AuthForm({ mode, nextPath }: AuthFormProps) {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {isRegister && !recoverMode && (
+        <div className="mb-4 form-check text-start">
+          <input
+            id="auth-accept-terms"
+            type="checkbox"
+            className="form-check-input"
+            checked={acceptTerms}
+            onChange={(event) => setAcceptTerms(event.target.checked)}
+            required
+            style={{
+              backgroundColor: acceptTerms ? '#10b981' : 'transparent',
+              borderColor: acceptTerms ? '#10b981' : 'rgba(255, 255, 255, 0.25)',
+              cursor: 'pointer',
+            }}
+          />
+          <label
+            className="form-check-label small"
+            htmlFor="auth-accept-terms"
+            style={{ color: '#94a3b8', cursor: 'pointer', userSelect: 'none' }}
+          >
+            Aceito a coleta do meu e-mail e senha. Entendo que estes dados são usados exclusivamente para fins de autenticação e acesso seguro ao sistema do bolão, não possuem fins lucrativos, não são compartilhados com terceiros e que os administradores não têm acesso à minha senha (armazenada de forma criptografada).
+          </label>
         </div>
       )}
 

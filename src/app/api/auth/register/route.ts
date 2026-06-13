@@ -17,6 +17,14 @@ export async function POST(request: Request) {
     const email = readStringField(body, 'email');
     const password = readStringField(body, 'password');
     const image = readStringField(body, 'image');
+    const acceptedPrivacyPolicy = !!body.acceptedPrivacyPolicy;
+
+    if (!acceptedPrivacyPolicy) {
+      return NextResponse.json(
+        { error: 'Você precisa aceitar os termos de coleta de dados.' },
+        { status: 400 },
+      );
+    }
 
     if (!email || !password) {
       return NextResponse.json({ error: 'E-mail e senha sao obrigatorios.' }, { status: 400 });

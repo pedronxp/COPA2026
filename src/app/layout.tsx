@@ -3,6 +3,7 @@ import { Outfit } from "next/font/google";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
+import { CookieConsent } from "@/components/cookie-consent";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -35,7 +36,9 @@ export default function RootLayout({
       </head>
       <body className="h-full bg-dark-bg text-light-text font-sans">
         {children}
+        <CookieConsent />
       </body>
     </html>
   );
 }
+
