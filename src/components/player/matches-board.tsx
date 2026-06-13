@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PlayerRouteData } from '@/lib/player-routes-data';
 import type { PredictionData } from '@/lib/matches-service';
@@ -235,6 +235,45 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
   } | null>(null);
   const [activeRuleHelp, setActiveRuleHelp] = useState<keyof typeof RULE_EXPLANATIONS | null>(null);
   const activeLeague = data.leagueContext.activeLeague;
+
+  const [memberPredictions, setMemberPredictions] = useState<any[] | null>(null);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [memberLoadError, setMemberLoadError] = useState<string | null>(null);
+
+  const isMatchClosed = useMemo(() => {
+    if (!viewPredictionModal) return false;
+    const now = Date.now();
+    const kickoff = new Date(viewPredictionModal.match.kickOff).getTime();
+    const limit = kickoff - 30 * 60 * 1000;
+    return viewPredictionModal.match.status !== 'scheduled' || now > limit;
+  }, [viewPredictionModal]);
+
+  useEffect(() => {
+    if (!viewPredictionModal || !isMatchClosed) {
+      setMemberPredictions(null);
+      setMemberLoadError(null);
+      return;
+    }
+
+    async function loadMembers() {
+      setLoadingMembers(true);
+      setMemberLoadError(null);
+      try {
+        const res = await fetch(`/api/predictions?leagueId=${activeLeague.id}&matchId=${viewPredictionModal.match.id}`);
+        const resData = await res.json();
+        if (!res.ok) {
+          throw new Error(resData.error || 'Não foi possível carregar os palpites dos outros membros.');
+        }
+        setMemberPredictions(resData.predictions);
+      } catch (err: any) {
+        setMemberLoadError(err.message);
+      } finally {
+        setLoadingMembers(false);
+      }
+    }
+
+    loadMembers();
+  }, [viewPredictionModal, isMatchClosed, activeLeague.id]);
 
   const viewModels = useMemo(
     () =>
@@ -892,6 +931,96 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               <span>
                 Palpite editado <strong>{viewPredictionModal.editCount}</strong> de <strong>{viewPredictionModal.maxEdits}</strong> vezes permitidas.
               </span>
+            </div>
+
+            {/* Outros palpites do grupo */}
+            <div className="mt-4 pt-3 border-top border-secondary border-opacity-20 text-start mb-4">
+              <h5 className="text-info fw-bold mb-3" style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>
+                <i className="bi bi-people-fill me-1"></i> Palpites do Grupo
+              </h5>
+              
+              {!isMatchClosed ? (
+                <div className="p-3 rounded bg-dark bg-opacity-30 border border-secondary border-opacity-10 text-center text-secondary" style={{ fontSize: '0.8rem' }}>
+                  <i className="bi bi-lock-fill me-1 text-warning" aria-hidden="true" />
+                  Os palpites dos outros membros deste bolão só ficarão visíveis 30 minutos antes do início da partida.
+                </div>
+              ) : loadingMembers ? (
+                <div className="text-center py-4 text-secondary">
+                  <div className="spinner-border spinner-border-sm text-info me-2" role="status">
+                    <span className="visually-hidden">Carregando...</span>
+                  </div>
+                  <span style={{ fontSize: '0.85rem' }}>Carregando palpites dos competidores...</span>
+                </div>
+              ) : memberLoadError ? (
+                <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>
+                  <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />
+                  {memberLoadError}
+                </div>
+              ) : memberPredictions && memberPredictions.length > 0 ? (
+                <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {memberPredictions.map((memberPred: any) => {
+                    const isItMe = memberPred.userId === viewPredictionModal.prediction.userId;
+                    if (isItMe) return null; // Não mostrar a si mesmo na lista do grupo, já está em cima
+                    
+                    const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                    const hue = charCode % 360;
+                    const avatarStyle = {
+                      background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+                      color: '#ffffff',
+                      fontSize: '0.75rem',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    };
+
+                    return (
+                      <div 
+                        key={memberPred.userId} 
+                        className="d-flex align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        <div className="d-flex align-items-center gap-2">
+                          {memberPred.image ? (
+                            <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
+                          ) : (
+                            <div style={avatarStyle}>
+                              {memberPred.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="d-flex flex-column">
+                            <span className="text-white fw-medium">{memberPred.name}</span>
+                            <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                              {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
+                            </small>
+                          </div>
+                        </div>
+
+                        <div className="text-end">
+                          {memberPred.hasPrediction ? (
+                            <div className="d-flex flex-column align-items-end">
+                              <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
+                              <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Resultado'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted italic" style={{ fontSize: '0.75rem' }}>Sem palpite</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-3 text-secondary" style={{ fontSize: '0.8rem' }}>
+                  Nenhum outro membro ativo no bolão.
+                </div>
+              )}
             </div>
 
             <button 
