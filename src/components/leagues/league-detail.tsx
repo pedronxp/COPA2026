@@ -706,23 +706,53 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                                   </span>
                                   <div className="d-flex flex-wrap gap-1">
                                     {winner.hits.map((hit: any, hIdx: number) => {
-                                      const badgeClass = 
-                                        hit.type === 'exact' 
-                                          ? 'bg-success bg-opacity-15 text-success border-success border-opacity-20' 
-                                          : hit.type === 'result'
-                                            ? 'bg-primary bg-opacity-15 text-primary border-primary border-opacity-20'
-                                            : hit.type === 'totalGoals'
-                                              ? 'bg-info bg-opacity-15 text-info border-info border-opacity-20'
-                                              : 'bg-secondary bg-opacity-15 text-secondary border-secondary border-opacity-20';
+                                      let bg = 'rgba(100, 116, 139, 0.12)';
+                                      let color = '#94a3b8';
+                                      let border = '1px solid rgba(100, 116, 139, 0.25)';
+                                      let icon = '🤝';
+
+                                      if (hit.type === 'exact') {
+                                        bg = 'rgba(16, 185, 129, 0.12)';
+                                        color = '#10b981';
+                                        border = '1px solid rgba(16, 185, 129, 0.25)';
+                                        icon = '🎯';
+                                      } else if (hit.type === 'result') {
+                                        bg = 'rgba(139, 92, 246, 0.12)';
+                                        color = '#a78bfa';
+                                        border = '1px solid rgba(139, 92, 246, 0.25)';
+                                        icon = '🏆';
+                                      } else if (hit.type === 'totalGoals') {
+                                        bg = 'rgba(6, 182, 212, 0.12)';
+                                        color = '#22d3ee';
+                                        border = '1px solid rgba(6, 182, 212, 0.25)';
+                                        icon = '⚽';
+                                      } else if (hit.type === 'bothTeamsScore') {
+                                        bg = 'rgba(20, 184, 166, 0.12)';
+                                        color = '#2dd4bf';
+                                        border = '1px solid rgba(20, 184, 166, 0.25)';
+                                        icon = '🤝';
+                                      }
 
                                       return (
                                         <span 
                                           key={hIdx} 
-                                          className={`badge border ${badgeClass} px-2 py-0.5`}
-                                          style={{ fontSize: '0.62rem', fontWeight: 500 }}
+                                          style={{
+                                            background: bg,
+                                            color: color,
+                                            border: border,
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.62rem',
+                                            fontWeight: '600',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                          title={hit.label}
                                         >
-                                          {hit.type === 'exact' ? '🎯' : hit.type === 'result' ? '🏆' : hit.type === 'totalGoals' ? '⚽' : '🤝'}{' '}
-                                          {hit.label} (+{hit.points})
+                                          <span>{icon}</span>
+                                          <span>{hit.label} (+{hit.points})</span>
                                         </span>
                                       );
                                     })}
