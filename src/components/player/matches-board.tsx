@@ -1313,24 +1313,32 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               <>
                 {/* Campo de Busca */}
                 <div className="mb-3">
-                  <div className="input-group">
-                    <span className="input-group-text bg-dark border-secondary border-opacity-20 text-secondary" style={{ borderRight: 'none' }}>
+                  <div className="input-group" style={{ borderRadius: '20px', overflow: 'hidden' }}>
+                    <span 
+                      className="input-group-text bg-dark border-secondary border-opacity-20 text-secondary" 
+                      style={{ borderRight: 'none', borderRadius: '20px 0 0 20px' }}
+                    >
                       <i className="bi bi-search" />
                     </span>
                     <input
                       type="text"
                       className="form-control bg-dark border-secondary border-opacity-20 text-white"
-                      style={{ fontSize: '0.85rem', borderLeft: 'none' }}
+                      style={{ 
+                        fontSize: '0.85rem', 
+                        borderLeft: 'none', 
+                        borderRight: groupSearchQuery ? 'none' : undefined,
+                        borderRadius: groupSearchQuery ? '0' : '0 20px 20px 0' 
+                      }}
                       placeholder="Buscar participante..."
                       value={groupSearchQuery}
                       onChange={(e) => setGroupSearchQuery(e.target.value)}
                     />
                     {groupSearchQuery && (
                       <button
-                        className="btn btn-outline-secondary border-secondary border-opacity-20"
+                        className="btn btn-outline-secondary border-secondary border-opacity-20 text-secondary bg-dark"
                         type="button"
                         onClick={() => setGroupSearchQuery('')}
-                        style={{ borderLeft: 'none' }}
+                        style={{ borderLeft: 'none', borderRadius: '0 20px 20px 0' }}
                       >
                         <i className="bi bi-x" />
                       </button>
@@ -1368,9 +1376,9 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                           const avatarStyle = {
                             background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
                             color: '#ffffff',
-                            fontSize: '0.75rem',
-                            width: '24px',
-                            height: '24px',
+                            fontSize: '0.8rem',
+                            width: '28px',
+                            height: '28px',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
@@ -1394,46 +1402,81 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                               )
                             : null;
                           const memberPoints = memberScoreDetails?.total ?? memberPred.points ?? 0;
+                          const isRealImage = memberPred.image && (memberPred.image.startsWith('http') || memberPred.image.startsWith('/'));
 
                           return (
                             <div 
                               key={memberPred.userId} 
-                              className="d-flex align-items-center justify-content-between p-2.5 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
-                              style={{ fontSize: '0.8rem' }}
+                              className="d-flex align-items-center justify-content-between p-2.5"
+                              style={{ 
+                                fontSize: '0.8rem',
+                                transition: 'all 0.15s ease',
+                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%)',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(255, 255, 255, 0.05)'
+                              }}
                             >
-                              <div className="d-flex align-items-center gap-2">
-                                {memberPred.image ? (
-                                  <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
+                              <div className="d-flex align-items-center gap-2.5">
+                                {isRealImage ? (
+                                  <img 
+                                    src={memberPred.image} 
+                                    alt={memberPred.name} 
+                                    className="rounded-circle flex-shrink-0"
+                                    style={{ width: '28px', height: '28px', objectFit: 'cover', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                                  />
                                 ) : (
                                   <div style={avatarStyle}>
                                     {memberPred.name.charAt(0).toUpperCase()}
                                   </div>
                                 )}
                                 <div className="d-flex flex-column">
-                                  <span className="text-white fw-medium">{memberPred.name}</span>
-                                  <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                                    {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
+                                  <span className="text-white fw-bold" style={{ fontSize: '0.82rem' }}>{memberPred.name}</span>
+                                  <small className="text-secondary" style={{ fontSize: '0.62rem', opacity: 0.8 }}>
+                                    {memberPred.role === 'owner' ? '👑 Criador' : memberPred.role === 'subadmin' ? '🛡️ Subadmin' : '👤 Membro'}
                                   </small>
                                 </div>
                               </div>
 
                               <div className="text-end">
-                                <div className="d-flex flex-column align-items-end">
-                                  <div className="d-flex align-items-center gap-1.5 justify-content-end">
-                                    <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
+                                <div className="d-flex flex-column align-items-end gap-1">
+                                  <div className="d-flex align-items-center gap-2 justify-content-end">
+                                    <div 
+                                      className="px-2 py-0.5 rounded text-center" 
+                                      style={{ 
+                                        background: 'rgba(15, 23, 42, 0.5)', 
+                                        border: '1px solid rgba(14, 165, 233, 0.2)',
+                                        minWidth: '52px' 
+                                      }}
+                                    >
+                                      <span className="text-info fw-bold" style={{ fontSize: '0.8rem' }}>
+                                        {memberPred.homeGuess} x {memberPred.awayGuess}
+                                      </span>
+                                    </div>
                                     {isFinished && (
-                                      <span className={memberPoints > 0 ? 'text-success fw-bold ms-1.5' : 'text-secondary ms-1.5'} style={{ fontSize: '0.7rem' }}>
+                                      <span 
+                                        className="badge fw-bold" 
+                                        style={{ 
+                                          fontSize: '0.68rem',
+                                          background: memberPoints > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.1)',
+                                          color: memberPoints > 0 ? '#10b981' : '#64748b',
+                                          border: memberPoints > 0 ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(100, 116, 139, 0.15)',
+                                          padding: '3px 6px',
+                                          borderRadius: '4px'
+                                        }}
+                                      >
                                         {memberPoints > 0 ? `+${memberPoints}` : '0'} pts
                                       </span>
                                     )}
                                   </div>
-                                  {isFinished ? (
-                                    renderCompactScoreBadges(memberScoreDetails)
-                                  ) : (
-                                    <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                                      {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Resultado'}
-                                    </span>
-                                  )}
+                                  <div className="d-flex align-items-center gap-1 justify-content-end">
+                                    {isFinished ? (
+                                      renderCompactScoreBadges(memberScoreDetails)
+                                    ) : (
+                                      <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                        {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Vencedor'}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1457,7 +1500,13 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                 setViewGroupPredictionsModal(null);
                 setGroupSearchQuery('');
               }}
-              style={{ borderRadius: '6px' }}
+              style={{ 
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 92, 246, 0.25) 100%)',
+                borderColor: 'rgba(139, 92, 246, 0.4)',
+                color: '#ddd6fe',
+                transition: 'all 0.2s ease',
+              }}
             >
               Fechar
             </button>
