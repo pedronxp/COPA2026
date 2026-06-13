@@ -455,6 +455,10 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     editCount: number;
     maxEdits: number;
   } | null>(null);
+  const [viewGroupPredictionsModal, setViewGroupPredictionsModal] = useState<{
+    match: MatchViewModel['match'];
+  } | null>(null);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
   const [activeRuleHelp, setActiveRuleHelp] = useState<keyof typeof RULE_EXPLANATIONS | null>(null);
   const activeLeague = data.leagueContext.activeLeague;
 
@@ -462,22 +466,26 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [memberLoadError, setMemberLoadError] = useState<string | null>(null);
 
+  const activeMatchForGroup = useMemo(() => {
+    return viewPredictionModal?.match || viewGroupPredictionsModal?.match || null;
+  }, [viewPredictionModal, viewGroupPredictionsModal]);
+
   const isMatchClosed = useMemo(() => {
-    if (!viewPredictionModal) return false;
+    if (!activeMatchForGroup) return false;
     const now = Date.now();
-    const kickoff = new Date(viewPredictionModal.match.kickOff).getTime();
+    const kickoff = new Date(activeMatchForGroup.kickOff).getTime();
     const limit = kickoff - 30 * 60 * 1000;
-    return viewPredictionModal.match.status !== 'scheduled' || now > limit;
-  }, [viewPredictionModal]);
+    return activeMatchForGroup.status !== 'scheduled' || now > limit;
+  }, [activeMatchForGroup]);
 
   useEffect(() => {
-    if (!viewPredictionModal || !isMatchClosed) {
+    if (!activeMatchForGroup || !isMatchClosed) {
       setMemberPredictions(null);
       setMemberLoadError(null);
       return;
     }
 
-    const targetMatchId = viewPredictionModal.match.id;
+    const targetMatchId = activeMatchForGroup.id;
 
     async function loadMembers() {
       setLoadingMembers(true);
@@ -497,7 +505,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
     }
 
     loadMembers();
-  }, [viewPredictionModal, isMatchClosed, activeLeague.id]);
+  }, [activeMatchForGroup, isMatchClosed, activeLeague.id]);
 
   const viewModels = useMemo(
     () =>
@@ -895,27 +903,57 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                   Seu palpite: <strong>{item.prediction.homeGuess} x {item.prediction.awayGuess}</strong>
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                className="btn-view-prediction"
-                                onClick={() =>
-                                  setViewPredictionModal({
-                                    match: item.match,
-                                    prediction: item.prediction!,
-                                    editCount: item.prediction!.editCount,
-                                    maxEdits: activeLeague.maxEdits,
-                                  })
-                                }
-                                title="Ver detalhes do palpite"
-                              >
-                                <i className="bi bi-eye" aria-hidden="true" />
-                                <span>Visualizar</span>
-                              </button>
+                              <div className="d-flex gap-1.5 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  className="btn-view-prediction"
+                                  onClick={() =>
+                                    setViewPredictionModal({
+                                      match: item.match,
+                                      prediction: item.prediction!,
+                                      editCount: item.prediction!.editCount,
+                                      maxEdits: activeLeague.maxEdits,
+                                    })
+                                  }
+                                  title="Ver detalhes do palpite"
+                                >
+                                  <i className="bi bi-eye" aria-hidden="true" />
+                                  <span>Visualizar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-view-group"
+                                  onClick={() =>
+                                    setViewGroupPredictionsModal({
+                                      match: item.match,
+                                    })
+                                  }
+                                  title="Ver palpites do grupo"
+                                >
+                                  <i className="bi bi-people" aria-hidden="true" />
+                                  <span>Grupo</span>
+                                </button>
+                              </div>
                             </div>
                           ) : (
-                            <span className={item.reachedLimit ? 'danger' : 'text-secondary'} style={{ fontSize: '0.85rem' }}>
-                              {item.reachedLimit ? 'Limite de alterações atingido' : 'Você ainda não palpitou'}
-                            </span>
+                            <div className="d-flex align-items-center justify-content-between w-100 gap-2">
+                              <span className={item.reachedLimit ? 'danger' : 'text-secondary'} style={{ fontSize: '0.85rem' }}>
+                                {item.reachedLimit ? 'Limite de alterações atingido' : 'Você ainda não palpitou'}
+                              </span>
+                              <button
+                                type="button"
+                                className="btn-view-group"
+                                onClick={() =>
+                                  setViewGroupPredictionsModal({
+                                    match: item.match,
+                                  })
+                                }
+                                title="Ver palpites do grupo"
+                              >
+                                <i className="bi bi-people" aria-hidden="true" />
+                                <span>Grupo</span>
+                              </button>
+                            </div>
                           )}
                           <button
                             type="button"
@@ -1195,132 +1233,230 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               );
             })()}
 
-            {/* Outros palpites do grupo */}
-            <div className="mt-4 pt-3 border-top border-secondary border-opacity-20 text-start mb-4">
-              <h5 className="text-info fw-bold mb-3" style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>
-                <i className="bi bi-people-fill me-1"></i> Palpites do Grupo
-              </h5>
-              
-              {!isMatchClosed ? (
-                <div className="p-3 rounded bg-dark bg-opacity-30 border border-secondary border-opacity-10 text-center text-secondary" style={{ fontSize: '0.8rem' }}>
-                  <i className="bi bi-lock-fill me-1 text-warning" aria-hidden="true" />
-                  Os palpites dos outros membros deste bolão só ficarão visíveis 30 minutos antes do início da partida.
-                </div>
-              ) : loadingMembers ? (
-                <div className="text-center py-4 text-secondary">
-                  <div className="spinner-border spinner-border-sm text-info me-2" role="status">
-                    <span className="visually-hidden">Carregando...</span>
-                  </div>
-                  <span style={{ fontSize: '0.85rem' }}>Carregando palpites dos competidores...</span>
-                </div>
-              ) : memberLoadError ? (
-                <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>
-                  <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />
-                  {memberLoadError}
-                </div>
-              ) : (() => {
-                const activePredictions = (memberPredictions || []).filter(
-                  (m: any) => m.hasPrediction && m.userId !== viewPredictionModal.prediction.userId
-                );
-
-                return activePredictions.length > 0 ? (
-                  <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {(() => {
-                      const matchHomeScore = viewPredictionModal?.match?.homeScore;
-                      const matchAwayScore = viewPredictionModal?.match?.awayScore;
-                      const isFinished = viewPredictionModal?.match?.status === 'finished' && matchHomeScore !== null && matchAwayScore !== null;
-
-                      return activePredictions.map((memberPred: any) => {
-                        const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-                        const hue = charCode % 360;
-                        const avatarStyle = {
-                          background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
-                          color: '#ffffff',
-                          fontSize: '0.75rem',
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 'bold',
-                          flexShrink: 0
-                        };
-
-                        const memberScoreDetails = isFinished && memberPred.hasPrediction
-                          ? calculatePredictionScore(
-                              memberPred.homeGuess,
-                              memberPred.awayGuess,
-                              matchHomeScore,
-                              matchAwayScore,
-                              activeLeague,
-                              {
-                                resultPick: memberPred.resultPick as any,
-                                totalGoalsPick: memberPred.totalGoalsPick as any,
-                                bothTeamsScorePick: memberPred.bothTeamsScorePick as any,
-                              }
-                            )
-                          : null;
-                        const memberPoints = memberScoreDetails?.total ?? memberPred.points ?? 0;
-
-                        return (
-                          <div 
-                            key={memberPred.userId} 
-                            className="d-flex align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
-                            style={{ fontSize: '0.8rem' }}
-                          >
-                            <div className="d-flex align-items-center gap-2">
-                              {memberPred.image ? (
-                                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
-                              ) : (
-                                <div style={avatarStyle}>
-                                  {memberPred.name.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="d-flex flex-column">
-                                <span className="text-white fw-medium">{memberPred.name}</span>
-                                <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                                  {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
-                                </small>
-                              </div>
-                            </div>
-
-                            <div className="text-end">
-                              <div className="d-flex flex-column align-items-end">
-                                <div className="d-flex align-items-center gap-1.5 justify-content-end">
-                                  <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
-                                  {isFinished && (
-                                    <span className={memberPoints > 0 ? 'text-success fw-bold' : 'text-secondary'} style={{ fontSize: '0.7rem' }}>
-                                      {memberPoints > 0 ? `+${memberPoints}` : '0'} pts
-                                    </span>
-                                  )}
-                                </div>
-                                {isFinished ? (
-                                  renderCompactScoreBadges(memberScoreDetails)
-                                ) : (
-                                  <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                                    {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Resultado'}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                ) : (
-                  <div className="text-center py-3 text-secondary" style={{ fontSize: '0.8rem' }}>
-                    Nenhum outro palpite registrado neste bolão para este jogo.
-                  </div>
-                );
-              })()}
-            </div>
-
             <button 
               type="button" 
               className="btn btn-neon-outline w-100 py-2.5 fw-bold"
               onClick={() => setViewPredictionModal(null)}
+              style={{ borderRadius: '6px' }}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewGroupPredictionsModal && (
+        <div 
+          className="fixed-overlay d-flex align-items-center justify-content-center animate__animated animate__fadeIn"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 9999,
+            backdropFilter: 'blur(4px)',
+            padding: '20px'
+          }}
+        >
+          <div 
+            className="glass-card p-4 border-info animate__animated animate__zoomIn"
+            style={{
+              maxWidth: '480px',
+              width: '100%',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(15, 23, 42, 0.98) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+            }}
+          >
+            {/* Header */}
+            <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary border-opacity-10">
+              <div className="d-flex align-items-center gap-2">
+                <div 
+                  className="d-flex align-items-center justify-content-center bg-purple bg-opacity-10 text-purple rounded-circle"
+                  style={{ width: '32px', height: '32px', border: '1px solid rgba(139, 92, 246, 0.2)', backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#ddd6fe' }}
+                >
+                  <i className="bi bi-people-fill" />
+                </div>
+                <h4 className="text-white fw-bold m-0" style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>Palpites do Grupo</h4>
+              </div>
+              <button
+                type="button"
+                className="border-0 bg-transparent text-secondary hover-text-white d-flex align-items-center justify-content-center"
+                onClick={() => {
+                  setViewGroupPredictionsModal(null);
+                  setGroupSearchQuery('');
+                }}
+                style={{ cursor: 'pointer', transition: 'color 0.2s', fontSize: '1.2rem', padding: '4px' }}
+                aria-label="Fechar modal"
+              >
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Jogo info */}
+            <div className="text-center mb-3">
+              <span className="text-secondary text-uppercase fw-semibold" style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}>
+                {viewGroupPredictionsModal.match.stage} • {viewGroupPredictionsModal.match.group ? `Grupo ${viewGroupPredictionsModal.match.group}` : 'Fase Final'}
+              </span>
+              <div className="d-flex align-items-center justify-content-center gap-2 mt-1">
+                <span className="text-white fw-bold" style={{ fontSize: '0.9rem' }}>{viewGroupPredictionsModal.match.homeTeam}</span>
+                <span className="text-secondary fw-bold" style={{ fontSize: '0.8rem' }}>vs</span>
+                <span className="text-white fw-bold" style={{ fontSize: '0.9rem' }}>{viewGroupPredictionsModal.match.awayTeam}</span>
+              </div>
+            </div>
+
+            {!isMatchClosed ? (
+              <div className="p-4 rounded bg-dark bg-opacity-30 border border-secondary border-opacity-10 text-center text-secondary my-4" style={{ fontSize: '0.85rem' }}>
+                <i className="bi bi-lock-fill me-1.5 text-warning fs-5" aria-hidden="true" />
+                <p className="mt-2 mb-0">Os palpites dos outros membros deste bolão só ficarão visíveis 30 minutos antes do início da partida.</p>
+              </div>
+            ) : (
+              <>
+                {/* Campo de Busca */}
+                <div className="mb-3">
+                  <div className="input-group">
+                    <span className="input-group-text bg-dark border-secondary border-opacity-20 text-secondary" style={{ borderRight: 'none' }}>
+                      <i className="bi bi-search" />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control bg-dark border-secondary border-opacity-20 text-white"
+                      style={{ fontSize: '0.85rem', borderLeft: 'none' }}
+                      placeholder="Buscar participante..."
+                      value={groupSearchQuery}
+                      onChange={(e) => setGroupSearchQuery(e.target.value)}
+                    />
+                    {groupSearchQuery && (
+                      <button
+                        className="btn btn-outline-secondary border-secondary border-opacity-20"
+                        type="button"
+                        onClick={() => setGroupSearchQuery('')}
+                        style={{ borderLeft: 'none' }}
+                      >
+                        <i className="bi bi-x" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {loadingMembers ? (
+                  <div className="text-center py-5 text-secondary">
+                    <div className="spinner-border spinner-border-sm text-info me-2" role="status">
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
+                    <span style={{ fontSize: '0.85rem' }}>Carregando palpites dos competidores...</span>
+                  </div>
+                ) : memberLoadError ? (
+                  <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>
+                    <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />
+                    {memberLoadError}
+                  </div>
+                ) : (() => {
+                  const filteredPredictions = (memberPredictions || [])
+                    .filter((m: any) => m.hasPrediction) // Somente membros que fizeram palpites
+                    .filter((m: any) => m.name.toLowerCase().includes(groupSearchQuery.toLowerCase())); // Filtro de busca
+
+                  return filteredPredictions.length > 0 ? (
+                    <div className="d-flex flex-column gap-2 mb-4" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {(() => {
+                        const matchHomeScore = viewGroupPredictionsModal.match.homeScore;
+                        const matchAwayScore = viewGroupPredictionsModal.match.awayScore;
+                        const isFinished = viewGroupPredictionsModal.match.status === 'finished' && matchHomeScore !== null && matchAwayScore !== null;
+
+                        return filteredPredictions.map((memberPred: any) => {
+                          const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                          const hue = charCode % 360;
+                          const avatarStyle = {
+                            background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+                            color: '#ffffff',
+                            fontSize: '0.75rem',
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            flexShrink: 0
+                          };
+
+                          const memberScoreDetails = isFinished && memberPred.hasPrediction
+                            ? calculatePredictionScore(
+                                memberPred.homeGuess,
+                                memberPred.awayGuess,
+                                matchHomeScore,
+                                matchAwayScore,
+                                activeLeague,
+                                {
+                                  resultPick: memberPred.resultPick as any,
+                                  totalGoalsPick: memberPred.totalGoalsPick as any,
+                                  bothTeamsScorePick: memberPred.bothTeamsScorePick as any,
+                                }
+                              )
+                            : null;
+                          const memberPoints = memberScoreDetails?.total ?? memberPred.points ?? 0;
+
+                          return (
+                            <div 
+                              key={memberPred.userId} 
+                              className="d-flex align-items-center justify-content-between p-2.5 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
+                              style={{ fontSize: '0.8rem' }}
+                            >
+                              <div className="d-flex align-items-center gap-2">
+                                {memberPred.image ? (
+                                  <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
+                                ) : (
+                                  <div style={avatarStyle}>
+                                    {memberPred.name.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="d-flex flex-column">
+                                  <span className="text-white fw-medium">{memberPred.name}</span>
+                                  <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                    {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
+                                  </small>
+                                </div>
+                              </div>
+
+                              <div className="text-end">
+                                <div className="d-flex flex-column align-items-end">
+                                  <div className="d-flex align-items-center gap-1.5 justify-content-end">
+                                    <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
+                                    {isFinished && (
+                                      <span className={memberPoints > 0 ? 'text-success fw-bold ms-1.5' : 'text-secondary ms-1.5'} style={{ fontSize: '0.7rem' }}>
+                                        {memberPoints > 0 ? `+${memberPoints}` : '0'} pts
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isFinished ? (
+                                    renderCompactScoreBadges(memberScoreDetails)
+                                  ) : (
+                                    <span className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                      {RESULT_PICK_LABELS[memberPred.resultPick as 'home'|'draw'|'away'] || 'Resultado'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-secondary mb-4" style={{ fontSize: '0.8rem' }}>
+                      Nenhum palpite correspondente encontrado.
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+
+            <button 
+              type="button" 
+              className="btn btn-neon-outline w-100 py-2.5 fw-bold"
+              onClick={() => {
+                setViewGroupPredictionsModal(null);
+                setGroupSearchQuery('');
+              }}
               style={{ borderRadius: '6px' }}
             >
               Fechar

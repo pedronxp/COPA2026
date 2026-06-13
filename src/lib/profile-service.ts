@@ -245,3 +245,94 @@ export async function getProfileData(userId: string): Promise<ProfileData> {
     })),
   };
 }
+
+export async function getUserPublicProfile(targetUserId: string, viewerUserId: string) {
+  const [user, targetMemberships, totalPredictions, exactScoresCount] = await Promise.all([
+    withRetry(() =>
+      prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          points: true,
+          streak: true,
+          misses: true,
+        },
+      })
+    ),
+    withRetry(() =>
+      prisma.leagueMember.findMany({
+        where: { userId: targetUserId, status: 'active' },
+        select: {
+          role: true,
+          points: true,
+          league: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              visibility: true,
+              status: true,
+              members: {
+                where: { userId: viewerUserId, status: 'active' },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      })
+    ),
+    withRetry(() => prisma.prediction.count({ where: { userId: targetUserId } })),
+    withRetry(() =>
+      prisma.prediction.count({
+        where: {
+          userId: targetUserId,
+          processed: true,
+          match: {
+            status: 'finished',
+            homeScore: { not: null },
+            awayScore: { not: null },
+          },
+        },
+      })
+    ),
+  ]);
+
+  if (!user) {
+    throw new Error('Usuário não encontrado.');
+  }
+
+  const visibleLeagues = targetMemberships
+    .filter(
+      (m) =>
+        m.league.visibility === 'public' ||
+        m.league.id === 'global' ||
+        m.league.members.length > 0
+    )
+    .map((m) => ({
+      id: m.league.id,
+      slug: m.league.slug || m.league.id,
+      name: m.league.name,
+      role: m.role,
+      points: m.league.id === 'global' ? user.points : m.points,
+      status: m.league.status,
+    }));
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name || 'Torcedor',
+      image: user.image || '⚽',
+      points: user.points,
+      streak: user.streak,
+      misses: user.misses,
+    },
+    leagues: visibleLeagues,
+    stats: {
+      totalPredictions,
+      exactScores: exactScoresCount,
+    },
+  };
+}
+

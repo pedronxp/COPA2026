@@ -7,6 +7,7 @@ import type { LeagueDetailData, LeagueRankingEntry } from './league-types';
 import { JoinLeagueButton } from './join-league-button';
 import { SCORING_PRESETS } from '@/lib/league-domain';
 import { formatStagePtBr } from '@/lib/pt-br-format';
+import { getFlagIsoCode, isEmoji } from '@/lib/emoji-flags';
 
 type DetailTab = 'overview' | 'ranking' | 'rules' | 'members' | 'publication' | 'settings';
 
@@ -15,7 +16,7 @@ const tabs: Array<{ id: DetailTab; label: string; icon: string }> = [
   { id: 'ranking', label: 'Ranking', icon: 'trophy' },
   { id: 'rules', label: 'Regras', icon: 'sliders' },
   { id: 'members', label: 'Membros', icon: 'people' },
-  { id: 'publication', label: 'Publicação', icon: 'broadcast' },
+  { id: 'publication', label: 'Histórico', icon: 'clock-history' },
 ];
 
 const groupModeLabels: Record<string, string> = {
@@ -52,6 +53,16 @@ function statusLabel(status: string) {
   return 'Em andamento';
 }
 
+function getAvatarStyle(name: string) {
+  const charCode = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = charCode % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+    color: '#ffffff',
+    textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+  };
+}
+
 function RankingTable({ 
   members, 
   currentUserId,
@@ -61,37 +72,142 @@ function RankingTable({
   currentUserId: string;
   onMemberClick?: (member: LeagueRankingEntry) => void;
 }) {
+  if (!members.length) {
+    return (
+      <div className="league-compact-empty">
+        <i className="bi bi-trophy" aria-hidden="true"></i>
+        <p>Este bolão ainda não tem participantes ativos para classificar.</p>
+      </div>
+    );
+  }
+
+  const leader = members[0];
+  const second = members[1];
+  const third = members[2];
+  const tableMembers = members.slice(3);
+
+  function PodiumCard({
+    member,
+    tone,
+    rank,
+  }: {
+    member: LeagueRankingEntry;
+    tone: 'gold' | 'silver' | 'bronze';
+    rank: number;
+  }) {
+    const avatarStyle = getAvatarStyle(member.name);
+    const isGold = tone === 'gold';
+    const isSuperCombo = member.exactScoreStreak >= 3;
+    const flagIso = member.image ? getFlagIsoCode(member.image) : null;
+    const emojiOnly = member.image ? isEmoji(member.image) : false;
+
+    return (
+      <article 
+        className={`leaderboard-podium-card ${tone} ${isSuperCombo ? 'super-combo' : ''}`}
+        style={{ cursor: onMemberClick ? 'pointer' : 'default' }}
+        onClick={onMemberClick ? () => onMemberClick(member) : undefined}
+        role="group" 
+        aria-label={`Pódio ${rank}º lugar: ${member.name}`}
+      >
+        <span className="leaderboard-rank-badge" aria-hidden="true">
+          {isGold ? <i className="bi bi-crown-fill" /> : `#${rank}`}
+        </span>
+        {flagIso ? (
+          <div className="leaderboard-avatar has-flag" aria-hidden="true">
+            <img
+              src={`https://flagcdn.com/w80/${flagIso}.png`}
+              alt={member.name}
+              className="avatar-flag-image"
+            />
+          </div>
+        ) : (
+          <div 
+            className={`leaderboard-avatar ${emojiOnly ? 'is-emoji' : ''}`} 
+            style={emojiOnly ? undefined : avatarStyle}
+            aria-hidden="true"
+          >
+            {member.image || member.name.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+        <h3>{member.name}</h3>
+        <strong>{member.points} pts</strong>
+        
+        <div className="leaderboard-podium-meta animate__animated animate__pulse animate__infinite animate__slower" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
+          {member.exactScoreStreak >= 3 && (
+            <span className="league-hot-streak py-0.5 px-2" title={`${member.exactScoreStreak} placares exatos seguidos`} style={{ fontSize: '0.65rem' }}>
+              <i className="bi bi-fire" aria-hidden="true" /> Em alta
+            </span>
+          )}
+          {member.pendingPoints > 0 && <small className="text-neon-green" style={{ fontSize: '0.65rem' }}>+{member.pendingPoints} pendentes</small>}
+        </div>
+      </article>
+    );
+  }
+
   return (
-    <div className="league-table-wrap">
-      <table className="league-ranking-table">
-        <thead><tr><th>Pos.</th><th>Competidor</th><th>Pontos</th></tr></thead>
-        <tbody>
-          {members.map((member, index) => (
-            <tr 
-              key={member.id} 
-              className={member.id === currentUserId ? 'current' : ''}
-              style={onMemberClick ? { cursor: 'pointer' } : undefined}
-              onClick={onMemberClick ? () => onMemberClick(member) : undefined}
-              title={onMemberClick ? `Ver palpites de ${member.name}` : undefined}
-            >
-              <td><span className={`league-rank-number rank-${index + 1}`}>{index + 1}</span></td>
-              <td>
-                <span className="league-member-cell">
-                  <span className="league-avatar" aria-hidden="true">{member.image || member.name.charAt(0)}</span>
-                  <span><strong>{member.name}</strong><small>{roleLabel(member.role)}{member.id === currentUserId ? ' / Você' : ''}</small></span>
-                  {member.exactScoreStreak >= 3 && (
-                    <span className="league-hot-streak" title={`${member.exactScoreStreak} placares exatos seguidos`}>
-                      <i className="bi bi-fire" aria-hidden="true"></i>
-                      Em alta
-                    </span>
-                  )}
-                </span>
-              </td>
-              <td><strong>{member.points}</strong><span> pts</span></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="league-ranking-container animate__animated animate__fadeIn">
+      {/* Pódio Visual de Líderes */}
+      <section className="leaderboard-podium mb-4 py-2" aria-label="Pódio dos líderes">
+        {second && <PodiumCard member={second} tone="silver" rank={2} />}
+        {leader && <PodiumCard member={leader} tone="gold" rank={1} />}
+        {third && <PodiumCard member={third} tone="bronze" rank={3} />}
+      </section>
+
+      {/* Tabela de Posições a partir da 4ª colocação */}
+      {tableMembers.length > 0 && (
+        <div className="league-table-wrap mt-3">
+          <table className="league-ranking-table">
+            <thead>
+              <tr>
+                <th>Pos.</th>
+                <th>Competidor</th>
+                <th>Pontos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableMembers.map((member, index) => {
+                const realRank = index + 4;
+                return (
+                  <tr 
+                    key={member.id} 
+                    className={member.id === currentUserId ? 'current' : ''}
+                    style={onMemberClick ? { cursor: 'pointer' } : undefined}
+                    onClick={onMemberClick ? () => onMemberClick(member) : undefined}
+                    title={onMemberClick ? `Ver perfil e palpites de ${member.name}` : undefined}
+                  >
+                    <td>
+                      <span className={`league-rank-number rank-${realRank}`}>
+                        {realRank}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="league-member-cell">
+                        <span className="league-avatar" aria-hidden="true">
+                          {member.image || member.name.charAt(0)}
+                        </span>
+                        <span>
+                          <strong>{member.name}</strong>
+                          <small>
+                            {roleLabel(member.role)}
+                            {member.id === currentUserId ? ' / Você' : ''}
+                          </small>
+                        </span>
+                        {member.exactScoreStreak >= 3 && (
+                          <span className="league-hot-streak" title={`${member.exactScoreStreak} placares exatos seguidos`}>
+                            <i className="bi bi-fire" aria-hidden="true"></i>
+                            Em alta
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td><strong>{member.points}</strong><span> pts</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -164,6 +280,43 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
   const [loadingPreds, setLoadingPreds] = useState(false);
   const [predsError, setPredsError] = useState<string | null>(null);
 
+  // Perfil Público do Competidor
+  const [selectedMemberTab, setSelectedMemberTab] = useState<'profile' | 'preds'>('profile');
+  const [publicProfile, setPublicProfile] = useState<any | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Histórico da Liga
+  const [historyData, setHistoryData] = useState<any[] | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Fetch Perfil Público do Competidor
+  useEffect(() => {
+    if (!selectedMember) {
+      setPublicProfile(null);
+      setSelectedMemberTab('profile');
+      return;
+    }
+    setLoadingProfile(true);
+    setProfileError(null);
+    fetch(`/api/profile?userId=${selectedMember.id}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Não foi possível carregar o perfil do competidor.');
+        return res.json();
+      })
+      .then(data => {
+        setPublicProfile(data.profile);
+      })
+      .catch(err => {
+        setProfileError(err.message);
+      })
+      .finally(() => {
+        setLoadingProfile(false);
+      });
+  }, [selectedMember]);
+
+  // Fetch Palpites do Competidor neste Bolão
   useEffect(() => {
     if (!selectedMember) {
       setMemberPreds([]);
@@ -186,6 +339,27 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
         setLoadingPreds(false);
       });
   }, [selectedMember, league.id]);
+
+  // Fetch Histórico da Liga (jogos concluídos e acertos)
+  useEffect(() => {
+    if (tab !== 'publication') return;
+    setLoadingHistory(true);
+    setHistoryError(null);
+    fetch(`/api/leagues/${league.slug || league.id}/history`)
+      .then(res => {
+        if (!res.ok) throw new Error('Não foi possível carregar o histórico do bolão.');
+        return res.json();
+      })
+      .then(data => {
+        setHistoryData(data);
+      })
+      .catch(err => {
+        setHistoryError(err.message);
+      })
+      .finally(() => {
+        setLoadingHistory(false);
+      });
+  }, [tab, league.slug, league.id]);
   const [formData, setFormData] = useState({
     name: league.name,
     description: league.description || '',
@@ -421,58 +595,159 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
       )}
 
       {tab === 'publication' && (
-        <section className="league-publication-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-          <div 
-            className="league-panel p-4 animate__animated animate__fadeIn"
-            style={{
-              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%)',
-              border: '1px solid rgba(14, 165, 233, 0.2)',
-              borderRadius: '8px',
-              gridColumn: '1 / -1'
-            }}
-          >
+        <section className="league-history-section animate__animated animate__fadeIn">
+          <div className="league-panel p-4 mb-4" style={{ background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%)', border: '1px solid rgba(14, 165, 233, 0.2)', borderRadius: '8px' }}>
             <h5 className="text-info fw-bold mb-2.5 d-flex align-items-center gap-2" style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem' }}>
-              <i className="bi bi-info-circle-fill text-info" style={{ fontSize: '1.1rem' }}></i> Entendendo as Publicações e Ciclos
+              <i className="bi bi-clock-history text-info" style={{ fontSize: '1.1rem' }}></i> Histórico de Palpites do Grupo
             </h5>
-            <p className="text-secondary mb-3" style={{ fontSize: '0.8rem', lineHeight: '1.45' }}>
-              No nosso bolão, a pontuação funciona em etapas estruturadas para garantir a transparência e a integridade de cada palpite:
+            <p className="text-secondary mb-0" style={{ fontSize: '0.8rem', lineHeight: '1.45' }}>
+              Abaixo são listados os jogos finalizados e consolidados neste bolão, mostrando detalhadamente onde cada participante pontuou.
             </p>
-            <ul className="text-secondary ps-3 mb-0 d-flex flex-column gap-2" style={{ fontSize: '0.78rem', lineHeight: '1.45', listStyleType: 'disc' }}>
-              <li>
-                <strong className="text-white">Janela de Palpite:</strong> Cada partida é bloqueada para palpites 30 minutes antes do início. Após essa janela (Time Gate), todos os palpites do grupo ficam abertos para visualização.
-              </li>
-              <li>
-                <strong className="text-white">Política de Publicação:</strong> Define quando a pontuação dos jogos é oficialmente agregada ao ranking do bolão. Pode ser programada a cada partida concluída, ao término de cada fase ou publicada manualmente pelo dono.
-              </li>
-              <li>
-                <strong className="text-white">Ciclos Recentes:</strong> São as atualizações oficiais de pontos. Quando um jogo acaba, as pontuações entram em modo <span className="text-warning fw-semibold">pendente</span>. Ao publicar o <strong className="text-white">Ciclo</strong>, os pontos e saldos dos membros são consolidados e atualizados na classificação.
-              </li>
-            </ul>
           </div>
 
-          <div className="league-panel">
-            <span className="league-eyebrow">Política de publicação</span>
-            <div className="league-publication-policy">
-              <div><span><i className="bi bi-diagram-3" aria-hidden="true"></i></span><div><small>Fase de grupos</small><strong>{groupModeLabels[league.groupPublicationMode] || league.groupPublicationMode}</strong></div></div>
-              <div><span><i className="bi bi-trophy" aria-hidden="true"></i></span><div><small>Mata-mata</small><strong>{knockoutModeLabels[league.knockoutPublicationMode] || league.knockoutPublicationMode}</strong></div></div>
+          {loadingHistory ? (
+            <div className="text-center py-5 text-secondary">
+              <div className="spinner-border spinner-border-sm text-info me-2" role="status">
+                <span className="visually-hidden">Carregando...</span>
+              </div>
+              <span>Carregando histórico do bolão...</span>
             </div>
-          </div>
-          <div className="league-panel">
-            <div className="league-panel-heading"><div><span className="league-eyebrow">Histórico</span><h2>Ciclos recentes</h2></div>{league.pendingEntryCount > 0 && <span className="league-pending-label">{league.pendingEntryCount} pendentes</span>}</div>
-            {league.cycles.length ? (
-              <ol className="league-cycle-list">
-                {league.cycles.map((cycle) => (
-                  <li key={cycle.id}>
-                    <span className={`league-cycle-dot ${cycle.status}`}></span>
-                    <div><strong>{cycle.key.replaceAll(':', ' / ')}</strong><small>{cycle.publishedAt ? formatDate(cycle.publishedAt, true) : `Criado em ${formatDate(cycle.createdAt)}`}</small></div>
-                    <span className={`league-status ${cycle.status}`}>{statusLabel(cycle.status)}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="league-compact-empty"><i className="bi bi-hourglass-split" aria-hidden="true"></i><p>O primeiro ciclo aparecerá quando houver resultados.</p></div>
-            )}
-          </div>
+          ) : historyError ? (
+            <div className="p-4 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center">
+              <i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true" />
+              {historyError}
+            </div>
+          ) : historyData && historyData.length > 0 ? (
+            <div className="d-flex flex-column gap-4">
+              {historyData.map((item: any) => {
+                const matchDate = new Date(item.match.kickOff);
+                const formattedDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short' }).format(matchDate);
+
+                return (
+                  <div key={item.match.id} className="league-panel p-3 border border-secondary border-opacity-10 rounded">
+                    {/* Cabeçalho do jogo */}
+                    <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom border-secondary border-opacity-10 pb-2.5 mb-3">
+                      <span className="badge bg-dark border border-secondary border-opacity-20 text-secondary px-2.5 py-1" style={{ fontSize: '0.7rem' }}>
+                        {formatStagePtBr(item.match.stage)}
+                        {item.match.group ? ` • Grupo ${item.match.group}` : ''}
+                      </span>
+                      <small className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                        <i className="bi bi-calendar-event me-1"></i> {formattedDate}
+                      </small>
+                    </div>
+
+                    {/* Placar e times */}
+                    <div className="d-flex align-items-center justify-content-center gap-3 py-2 text-white">
+                      <div className="d-flex align-items-center gap-2 w-40 justify-content-end text-end font-display fw-semibold" style={{ fontSize: '0.9rem' }}>
+                        <span>{item.match.homeTeam}</span>
+                        <span style={{ fontSize: '1.25rem' }}>{item.match.homeFlag || '⚽'}</span>
+                      </div>
+                      <div className="px-3 py-1 bg-dark bg-opacity-40 border border-secondary border-opacity-10 rounded text-info font-display fw-bold" style={{ fontSize: '1.1rem', letterSpacing: '0.05em' }}>
+                        {item.match.homeScore} x {item.match.awayScore}
+                      </div>
+                      <div className="d-flex align-items-center gap-2 w-40 justify-content-start text-start font-display fw-semibold" style={{ fontSize: '0.9rem' }}>
+                        <span style={{ fontSize: '1.25rem' }}>{item.match.awayFlag || '⚽'}</span>
+                        <span>{item.match.awayTeam}</span>
+                      </div>
+                    </div>
+
+                    {/* Palpites corretos dos membros */}
+                    <div className="mt-3">
+                      <div className="text-secondary fw-semibold mb-2.5 d-flex align-items-center gap-1.5" style={{ fontSize: '0.78rem' }}>
+                        <i className="bi bi-award-fill text-warning"></i>
+                        <span>Acertos do grupo nesta partida:</span>
+                      </div>
+
+                      {item.winners.length > 0 ? (
+                        <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                          {item.winners.map((winner: any) => {
+                            const charCode = winner.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                            const hue = charCode % 360;
+                            const avatarStyle = {
+                              background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+                              color: '#ffffff',
+                              fontSize: '0.75rem',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold',
+                              flexShrink: 0
+                            };
+
+                            return (
+                              <div key={winner.userId} className="d-flex flex-wrap align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-30 border border-secondary border-opacity-5 gap-2">
+                                <div 
+                                  className="d-flex align-items-center gap-2"
+                                  style={{ cursor: 'pointer' }}
+                                  onClick={() => setSelectedMember({ id: winner.userId, name: winner.name, image: winner.image } as any)}
+                                  title={`Ver perfil de ${winner.name}`}
+                                >
+                                  {winner.image ? (
+                                    <span style={{ fontSize: '1.15rem' }}>{winner.image}</span>
+                                  ) : (
+                                    <div style={avatarStyle}>
+                                      {winner.name.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div className="d-flex flex-column">
+                                    <span className="text-white fw-bold" style={{ fontSize: '0.8rem' }}>{winner.name}</span>
+                                    <span className="text-secondary" style={{ fontSize: '0.68rem' }}>
+                                      Palpitou: <strong>{winner.prediction.homeGuess} x {winner.prediction.awayGuess}</strong>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="d-flex align-items-center gap-2">
+                                  <span className="text-neon-green fw-bold me-1" style={{ fontSize: '0.82rem' }}>
+                                    +{winner.totalPoints} pts
+                                  </span>
+                                  <div className="d-flex flex-wrap gap-1">
+                                    {winner.hits.map((hit: any, hIdx: number) => {
+                                      const badgeClass = 
+                                        hit.type === 'exact' 
+                                          ? 'bg-success bg-opacity-15 text-success border-success border-opacity-20' 
+                                          : hit.type === 'result'
+                                            ? 'bg-primary bg-opacity-15 text-primary border-primary border-opacity-20'
+                                            : hit.type === 'totalGoals'
+                                              ? 'bg-info bg-opacity-15 text-info border-info border-opacity-20'
+                                              : 'bg-secondary bg-opacity-15 text-secondary border-secondary border-opacity-20';
+
+                                      return (
+                                        <span 
+                                          key={hIdx} 
+                                          className={`badge border ${badgeClass} px-2 py-0.5`}
+                                          style={{ fontSize: '0.62rem', fontWeight: 500 }}
+                                        >
+                                          {hit.type === 'exact' ? '🎯' : hit.type === 'result' ? '🏆' : hit.type === 'totalGoals' ? '⚽' : '🤝'}{' '}
+                                          {hit.label} (+{hit.points})
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-dark bg-opacity-25 rounded border border-secondary border-opacity-5 text-center text-secondary" style={{ fontSize: '0.78rem' }}>
+                          Ninguém pontuou nesta partida.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="league-compact-empty">
+              <i className="bi bi-hourglass-split" aria-hidden="true"></i>
+              <p>Nenhuma partida finalizada e publicada neste bolão ainda.</p>
+            </div>
+          )}
         </section>
       )}
 
@@ -827,7 +1102,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
       )}
       {selectedMember && (
         <div 
-          className="league-modal-backdrop" 
+          className="league-modal-backdrop animate__animated animate__fadeIn animate__fast" 
           role="presentation"
           onClick={() => setSelectedMember(null)}
           style={{
@@ -843,7 +1118,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
           }}
         >
           <div 
-            className="league-confirm-modal animate__animated animate__zoomIn"
+            className="league-confirm-modal animate__animated animate__zoomIn animate__fast"
             role="dialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
@@ -855,7 +1130,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
               borderRadius: '12px',
               boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
               padding: '24px',
-              maxHeight: '80vh',
+              maxHeight: '85vh',
               display: 'flex',
               flexDirection: 'column'
             }}
@@ -867,7 +1142,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                   {selectedMember.image || selectedMember.name.charAt(0)}
                 </span>
                 <h3 className="text-white fw-bold m-0" style={{ fontSize: '1rem', fontFamily: 'var(--font-display)' }}>
-                  Palpites de {selectedMember.name}
+                  Perfil de {selectedMember.name}
                 </h3>
               </div>
               <button 
@@ -881,69 +1156,159 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
               </button>
             </div>
 
-            {/* Content list */}
+            {/* Header Tabs */}
+            <div className="d-flex border-bottom border-secondary border-opacity-10 mb-3 text-center" style={{ fontSize: '0.8rem' }}>
+              <button
+                type="button"
+                className={`flex-fill border-0 bg-transparent py-2 fw-semibold ${selectedMemberTab === 'profile' ? 'text-info border-bottom border-2 border-info' : 'text-secondary'}`}
+                onClick={() => setSelectedMemberTab('profile')}
+                style={{ cursor: 'pointer' }}
+              >
+                <i className="bi bi-person-fill me-1"></i> Perfil
+              </button>
+              <button
+                type="button"
+                className={`flex-fill border-0 bg-transparent py-2 fw-semibold ${selectedMemberTab === 'preds' ? 'text-info border-bottom border-2 border-info' : 'text-secondary'}`}
+                onClick={() => setSelectedMemberTab('preds')}
+                style={{ cursor: 'pointer' }}
+              >
+                <i className="bi bi-clock-history me-1"></i> Palpites no Bolão
+              </button>
+            </div>
+
+            {/* Content area */}
             <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
-              {loadingPreds ? (
-                <div className="text-center py-5 text-secondary">
-                  <div className="spinner-border spinner-border-sm text-info me-2" role="status">
-                    <span className="visually-hidden">Carregando...</span>
-                  </div>
-                  <span>Carregando palpites...</span>
-                </div>
-              ) : predsError ? (
-                <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>{predsError}</div>
-              ) : memberPreds.length === 0 ? (
-                <div className="text-center py-5 text-secondary" style={{ fontSize: '0.85rem' }}>
-                  Nenhum palpite registrado ou visível para este participante.
-                </div>
-              ) : (
-                <div className="d-flex flex-column gap-2">
-                  {memberPreds.map((pred: any) => {
-                    const isFinished = pred.match.status === 'finished';
-                    const hasPlacar = pred.match.homeScore !== null && pred.match.awayScore !== null;
-                    
-                    return (
-                      <div 
-                        key={pred.id} 
-                        className="p-2.5 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-10"
-                        style={{ fontSize: '0.8rem' }}
-                      >
-                        {/* Info da partida */}
-                        <div className="d-flex justify-content-between text-secondary mb-1.5" style={{ fontSize: '0.68rem' }}>
-                          <span>{pred.match.group ? `Grupo ${pred.match.group}` : formatStagePtBr(pred.match.stage)}</span>
-                          <span>{isFinished ? 'Jogo Encerrado' : 'Aguardando'}</span>
+              {selectedMemberTab === 'profile' && (
+                <div>
+                  {loadingProfile ? (
+                    <div className="text-center py-5 text-secondary">
+                      <div className="spinner-border spinner-border-sm text-info me-2" role="status">
+                        <span className="visually-hidden">Carregando...</span>
+                      </div>
+                      <span>Carregando perfil público...</span>
+                    </div>
+                  ) : profileError ? (
+                    <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>
+                      {profileError}
+                    </div>
+                  ) : publicProfile ? (
+                    <div className="animate__animated animate__fadeIn">
+                      {/* Estatísticas */}
+                      <div className="d-flex justify-content-around bg-dark bg-opacity-40 p-3 rounded border border-secondary border-opacity-10 mb-4 text-center">
+                        <div>
+                          <small className="text-secondary d-block" style={{ fontSize: '0.68rem', fontWeight: 600 }}>PONTOS</small>
+                          <strong className="text-info font-display" style={{ fontSize: '1.2rem' }}>{publicProfile.user.points}</strong>
                         </div>
-
-                        {/* Placar Real vs Palpite */}
-                        <div className="d-flex justify-content-between align-items-center gap-3">
-                          <div className="d-flex flex-column align-items-start" style={{ width: '45%' }}>
-                            <span className="text-white fw-medium text-truncate" style={{ maxWidth: '140px' }}>{pred.match.homeTeam}</span>
-                            <span className="text-white fw-medium text-truncate" style={{ maxWidth: '140px' }}>{pred.match.awayTeam}</span>
-                          </div>
-
-                          <div className="text-center bg-dark bg-opacity-60 px-2 py-1.5 rounded border border-secondary border-opacity-5" style={{ minWidth: '100px' }}>
-                            <div className="text-secondary" style={{ fontSize: '0.62rem', fontWeight: '600' }}>PALPITE</div>
-                            <div className="text-info fw-bold fs-6">{pred.homeGuess !== null ? `${pred.homeGuess} x ${pred.awayGuess}` : 'Oculto 🔒'}</div>
-                            {hasPlacar && (
-                              <div className="text-secondary" style={{ fontSize: '0.62rem', marginTop: '2px' }}>
-                                Placar: {pred.match.homeScore}x{pred.match.awayScore}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="text-end" style={{ width: '25%' }}>
-                            {hasPlacar && pred.homeGuess !== null ? (
-                              <span className={pred.points > 0 ? 'text-success fw-bold' : 'text-secondary'} style={{ fontSize: '0.9rem' }}>
-                                +{pred.points} pts
-                              </span>
-                            ) : (
-                              <span className="text-secondary">-</span>
-                            )}
-                          </div>
+                        <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '15px' }}>
+                          <small className="text-secondary d-block" style={{ fontSize: '0.68rem', fontWeight: 600 }}>PLACAR EXATO</small>
+                          <strong className="text-success font-display" style={{ fontSize: '1.2rem' }}>{publicProfile.stats.exactScores}</strong>
+                        </div>
+                        <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '15px' }}>
+                          <small className="text-secondary d-block" style={{ fontSize: '0.68rem', fontWeight: 600 }}>PALPITES</small>
+                          <strong className="text-white font-display" style={{ fontSize: '1.2rem' }}>{publicProfile.stats.totalPredictions}</strong>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Outros bolões */}
+                      <h4 className="text-secondary fw-semibold mb-2.5 d-flex align-items-center gap-1.5" style={{ fontSize: '0.78rem' }}>
+                        <i className="bi bi-shield-shaded text-info"></i>
+                        <span>Participa de {publicProfile.leagues.length} bolões:</span>
+                      </h4>
+
+                      {publicProfile.leagues.length > 0 ? (
+                        <div className="d-flex flex-column gap-2" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                          {publicProfile.leagues.map((lg: any) => (
+                            <div key={lg.id} className="d-flex justify-content-between align-items-center p-2 rounded bg-dark bg-opacity-25 border border-secondary border-opacity-5" style={{ fontSize: '0.75rem' }}>
+                              <div className="d-flex flex-column">
+                                <span className="text-white fw-bold">{lg.name}</span>
+                                <small className="text-secondary">
+                                  {lg.role === 'owner' ? 'Criador' : lg.role === 'subadmin' ? 'Subadmin' : 'Participante'}
+                                </small>
+                              </div>
+                              <div className="text-end">
+                                <span className="text-info fw-bold">{lg.points} pts</span>
+                                <small className="d-block text-secondary" style={{ fontSize: '0.6rem' }}>
+                                  {lg.status === 'active' ? 'Ativo' : 'Finalizado'}
+                                </small>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-dark bg-opacity-20 rounded border border-secondary border-opacity-5 text-center text-secondary" style={{ fontSize: '0.75rem' }}>
+                          Não participa de outros bolões públicos ou compartilhados.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {selectedMemberTab === 'preds' && (
+                <div>
+                  {loadingPreds ? (
+                    <div className="text-center py-5 text-secondary">
+                      <div className="spinner-border spinner-border-sm text-info me-2" role="status">
+                        <span className="visually-hidden">Carregando...</span>
+                      </div>
+                      <span>Carregando palpites...</span>
+                    </div>
+                  ) : predsError ? (
+                    <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>{predsError}</div>
+                  ) : memberPreds.length === 0 ? (
+                    <div className="text-center py-5 text-secondary" style={{ fontSize: '0.85rem' }}>
+                      Nenhum palpite registrado ou visível para este participante.
+                    </div>
+                  ) : (
+                    <div className="d-flex flex-column gap-2" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                      {memberPreds.map((pred: any) => {
+                        const isFinished = pred.match.status === 'finished';
+                        const hasPlacar = pred.match.homeScore !== null && pred.match.awayScore !== null;
+                        
+                        return (
+                          <div 
+                            key={pred.id} 
+                            className="p-2.5 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-10"
+                            style={{ fontSize: '0.8rem' }}
+                          >
+                            {/* Info da partida */}
+                            <div className="d-flex justify-content-between text-secondary mb-1.5" style={{ fontSize: '0.68rem' }}>
+                              <span>{pred.match.group ? `Grupo ${pred.match.group}` : formatStagePtBr(pred.match.stage)}</span>
+                              <span>{isFinished ? 'Jogo Encerrado' : 'Aguardando'}</span>
+                            </div>
+
+                            {/* Placar Real vs Palpite */}
+                            <div className="d-flex justify-content-between align-items-center gap-3">
+                              <div className="d-flex flex-column align-items-start" style={{ width: '45%' }}>
+                                <span className="text-white fw-medium text-truncate" style={{ maxWidth: '140px' }}>{pred.match.homeTeam}</span>
+                                <span className="text-white fw-medium text-truncate" style={{ maxWidth: '140px' }}>{pred.match.awayTeam}</span>
+                              </div>
+
+                              <div className="text-center bg-dark bg-opacity-60 px-2 py-1.5 rounded border border-secondary border-opacity-5" style={{ minWidth: '100px' }}>
+                                <div className="text-secondary" style={{ fontSize: '0.62rem', fontWeight: '600' }}>PALPITE</div>
+                                <div className="text-info fw-bold fs-6">{pred.homeGuess !== null ? `${pred.homeGuess} x ${pred.awayGuess}` : 'Oculto 🔒'}</div>
+                                {hasPlacar && (
+                                  <div className="text-secondary" style={{ fontSize: '0.62rem', marginTop: '2px' }}>
+                                    Placar: {pred.match.homeScore}x{pred.match.awayScore}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="text-end" style={{ width: '25%' }}>
+                                {hasPlacar && pred.homeGuess !== null ? (
+                                  <span className={pred.points > 0 ? 'text-success fw-bold' : 'text-secondary'} style={{ fontSize: '0.9rem' }}>
+                                    +{pred.points} pts
+                                  </span>
+                                ) : (
+                                  <span className="text-secondary">-</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -954,7 +1319,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
               onClick={() => setSelectedMember(null)}
               style={{ borderRadius: '6px', fontSize: '0.85rem', background: '#334155', border: 'none', color: '#fff' }}
             >
-              Voltar
+              Fechar
             </button>
           </div>
         </div>

@@ -8,6 +8,6 @@ describe('league owner edit copy', () => {
     expect(source).toContain('Salvar alterações do bolão?');
     expect(source).toContain('Confirmar e Salvar');
     expect(source).toContain('Edição de Configurações Liberada');
-    expect(source).toContain('Entendendo as Publicações e Ciclos');
+    expect(source).toContain('Histórico de Palpites do Grupo');
   });
 });
