@@ -199,6 +199,14 @@ export function PlayerAppShell({
                 <span>{item.label}</span>
               </Link>
             ))}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="player-mobile-logout-btn"
+            >
+              <i className="bi bi-box-arrow-right" aria-hidden="true" />
+              <span>Sair da conta</span>
+            </button>
           </div>
         </details>
       </nav>

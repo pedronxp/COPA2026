@@ -3683,6 +3683,29 @@ body {
   font-size: 0.82rem;
 }
 
+.player-mobile-more-menu button.player-mobile-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  color: #ef4444; /* Vermelho suave */
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.player-mobile-more-menu button.player-mobile-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
 .leaderboard-page {
   gap: 14px;
 }
