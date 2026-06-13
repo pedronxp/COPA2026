@@ -630,7 +630,7 @@ export function DashboardView({ user, data }: DashboardViewProps) {
           <div className="player-rule-grid" style={{ marginTop: '8px' }}>
             {[
               { label: 'Exato', points: activeLeague.pointsExact, icon: 'bi-bullseye' },
-              { label: 'Saldo', points: activeLeague.pointsDiff, icon: 'bi-sliders' },
+              { label: 'Total Gols', points: activeLeague.pointsDiff, icon: 'bi-sliders' },
               { label: 'Casa', points: activeLeague.pointsWinnerHome, icon: 'bi-house-door' },
               { label: 'Empate', points: activeLeague.pointsDraw, icon: 'bi-shuffle' },
               { label: 'Fora', points: activeLeague.pointsWinnerAway, icon: 'bi-airplane' },

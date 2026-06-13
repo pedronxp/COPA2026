@@ -1218,73 +1218,74 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                   <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />
                   {memberLoadError}
                 </div>
-              ) : memberPredictions && memberPredictions.length > 0 ? (
-                <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
-                  {(() => {
-                    const matchHomeScore = viewPredictionModal?.match?.homeScore;
-                    const matchAwayScore = viewPredictionModal?.match?.awayScore;
-                    const isFinished = viewPredictionModal?.match?.status === 'finished' && matchHomeScore !== null && matchAwayScore !== null;
+              ) : (() => {
+                const activePredictions = (memberPredictions || []).filter(
+                  (m: any) => m.hasPrediction && m.userId !== viewPredictionModal.prediction.userId
+                );
 
-                    return memberPredictions.map((memberPred: any) => {
-                      const isItMe = memberPred.userId === viewPredictionModal.prediction.userId;
-                      if (isItMe) return null; // Não mostrar a si mesmo na lista do grupo, já está em cima
-                      
-                      const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-                      const hue = charCode % 360;
-                      const avatarStyle = {
-                        background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
-                        color: '#ffffff',
-                        fontSize: '0.75rem',
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 'bold',
-                        flexShrink: 0
-                      };
+                return activePredictions.length > 0 ? (
+                  <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {(() => {
+                      const matchHomeScore = viewPredictionModal?.match?.homeScore;
+                      const matchAwayScore = viewPredictionModal?.match?.awayScore;
+                      const isFinished = viewPredictionModal?.match?.status === 'finished' && matchHomeScore !== null && matchAwayScore !== null;
 
-                      const memberScoreDetails = isFinished && memberPred.hasPrediction
-                        ? calculatePredictionScore(
-                            memberPred.homeGuess,
-                            memberPred.awayGuess,
-                            matchHomeScore,
-                            matchAwayScore,
-                            activeLeague,
-                            {
-                              resultPick: memberPred.resultPick as any,
-                              totalGoalsPick: memberPred.totalGoalsPick as any,
-                              bothTeamsScorePick: memberPred.bothTeamsScorePick as any,
-                            }
-                          )
-                        : null;
-                      const memberPoints = memberScoreDetails?.total ?? memberPred.points ?? 0;
+                      return activePredictions.map((memberPred: any) => {
+                        const charCode = memberPred.name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                        const hue = charCode % 360;
+                        const avatarStyle = {
+                          background: `linear-gradient(135deg, hsl(${hue}, 70%, 45%), hsl(${(hue + 45) % 360}, 75%, 35%))`,
+                          color: '#ffffff',
+                          fontSize: '0.75rem',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 'bold',
+                          flexShrink: 0
+                        };
 
-                      return (
-                        <div 
-                          key={memberPred.userId} 
-                          className="d-flex align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
-                          style={{ fontSize: '0.8rem' }}
-                        >
-                          <div className="d-flex align-items-center gap-2">
-                            {memberPred.image ? (
-                              <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
-                            ) : (
-                              <div style={avatarStyle}>
-                                {memberPred.name.charAt(0).toUpperCase()}
+                        const memberScoreDetails = isFinished && memberPred.hasPrediction
+                          ? calculatePredictionScore(
+                              memberPred.homeGuess,
+                              memberPred.awayGuess,
+                              matchHomeScore,
+                              matchAwayScore,
+                              activeLeague,
+                              {
+                                resultPick: memberPred.resultPick as any,
+                                totalGoalsPick: memberPred.totalGoalsPick as any,
+                                bothTeamsScorePick: memberPred.bothTeamsScorePick as any,
+                              }
+                            )
+                          : null;
+                        const memberPoints = memberScoreDetails?.total ?? memberPred.points ?? 0;
+
+                        return (
+                          <div 
+                            key={memberPred.userId} 
+                            className="d-flex align-items-center justify-content-between p-2 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-5"
+                            style={{ fontSize: '0.8rem' }}
+                          >
+                            <div className="d-flex align-items-center gap-2">
+                              {memberPred.image ? (
+                                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{memberPred.image}</span>
+                              ) : (
+                                <div style={avatarStyle}>
+                                  {memberPred.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="d-flex flex-column">
+                                <span className="text-white fw-medium">{memberPred.name}</span>
+                                <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
+                                  {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
+                                </small>
                               </div>
-                            )}
-                            <div className="d-flex flex-column">
-                              <span className="text-white fw-medium">{memberPred.name}</span>
-                              <small className="text-secondary" style={{ fontSize: '0.65rem' }}>
-                                {memberPred.role === 'owner' ? 'Criador' : memberPred.role === 'subadmin' ? 'Subadmin' : 'Membro'}
-                              </small>
                             </div>
-                          </div>
 
-                          <div className="text-end">
-                            {memberPred.hasPrediction ? (
+                            <div className="text-end">
                               <div className="d-flex flex-column align-items-end">
                                 <div className="d-flex align-items-center gap-1.5 justify-content-end">
                                   <span className="text-info fw-bold">{memberPred.homeGuess} x {memberPred.awayGuess}</span>
@@ -1302,20 +1303,18 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                   </span>
                                 )}
                               </div>
-                            ) : (
-                              <span className="text-muted italic" style={{ fontSize: '0.75rem' }}>Sem palpite</span>
-                            )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              ) : (
-                <div className="text-center py-3 text-secondary" style={{ fontSize: '0.8rem' }}>
-                  Nenhum outro membro ativo no bolão.
-                </div>
-              )}
+                        );
+                      });
+                    })()}
+                  </div>
+                ) : (
+                  <div className="text-center py-3 text-secondary" style={{ fontSize: '0.8rem' }}>
+                    Nenhum outro palpite registrado neste bolão para este jogo.
+                  </div>
+                );
+              })()}
             </div>
 
             <button 

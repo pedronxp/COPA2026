@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import type { LeagueDetailData, LeagueRankingEntry } from './league-types';
 import { JoinLeagueButton } from './join-league-button';
 import { SCORING_PRESETS } from '@/lib/league-domain';
+import { formatStagePtBr } from '@/lib/pt-br-format';
 
 type DetailTab = 'overview' | 'ranking' | 'rules' | 'members' | 'publication' | 'settings';
 
@@ -51,14 +52,28 @@ function statusLabel(status: string) {
   return 'Em andamento';
 }
 
-function RankingTable({ members, currentUserId }: { members: LeagueRankingEntry[]; currentUserId: string }) {
+function RankingTable({ 
+  members, 
+  currentUserId,
+  onMemberClick
+}: { 
+  members: LeagueRankingEntry[]; 
+  currentUserId: string;
+  onMemberClick?: (member: LeagueRankingEntry) => void;
+}) {
   return (
     <div className="league-table-wrap">
       <table className="league-ranking-table">
         <thead><tr><th>Pos.</th><th>Competidor</th><th>Pontos</th></tr></thead>
         <tbody>
           {members.map((member, index) => (
-            <tr key={member.id} className={member.id === currentUserId ? 'current' : ''}>
+            <tr 
+              key={member.id} 
+              className={member.id === currentUserId ? 'current' : ''}
+              style={onMemberClick ? { cursor: 'pointer' } : undefined}
+              onClick={onMemberClick ? () => onMemberClick(member) : undefined}
+              title={onMemberClick ? `Ver palpites de ${member.name}` : undefined}
+            >
               <td><span className={`league-rank-number rank-${index + 1}`}>{index + 1}</span></td>
               <td>
                 <span className="league-member-cell">
@@ -144,6 +159,33 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSuccess, setSettingsSuccess] = useState<boolean>(false);
   const [showOwnerEditConfirm, setShowOwnerEditConfirm] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<LeagueRankingEntry | null>(null);
+  const [memberPreds, setMemberPreds] = useState<any[]>([]);
+  const [loadingPreds, setLoadingPreds] = useState(false);
+  const [predsError, setPredsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedMember) {
+      setMemberPreds([]);
+      return;
+    }
+    setLoadingPreds(true);
+    setPredsError(null);
+    fetch(`/api/predictions?leagueId=${league.id}&targetUserId=${selectedMember.id}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Não foi possível carregar o histórico de palpites.');
+        return res.json();
+      })
+      .then(data => {
+        setMemberPreds(data);
+      })
+      .catch(err => {
+        setPredsError(err.message);
+      })
+      .finally(() => {
+        setLoadingPreds(false);
+      });
+  }, [selectedMember, league.id]);
   const [formData, setFormData] = useState({
     name: league.name,
     description: league.description || '',
@@ -304,7 +346,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
           <div className="league-detail-primary">
             <div className="league-panel">
               <div className="league-panel-heading"><div><span className="league-eyebrow">Classificação</span><h2>Primeiras posições</h2></div><button type="button" onClick={() => setTab('ranking')}>Ver ranking <i className="bi bi-arrow-right" aria-hidden="true"></i></button></div>
-              <RankingTable members={league.members.slice(0, 5)} currentUserId={league.currentUserId} />
+              <RankingTable members={league.members.slice(0, 5)} currentUserId={league.currentUserId} onMemberClick={setSelectedMember} />
             </div>
           </div>
           <aside className="league-detail-aside">
@@ -327,7 +369,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
       {tab === 'ranking' && (
         <section className="league-panel league-tab-panel">
           <div className="league-panel-heading"><div><span className="league-eyebrow">Ranking publicado</span><h2>Classificação geral</h2></div><span className="league-update-label"><i className="bi bi-clock-history" aria-hidden="true"></i>{formatDate(league.lastPublishedAt, true)}</span></div>
-          <RankingTable members={league.members} currentUserId={league.currentUserId} />
+          <RankingTable members={league.members} currentUserId={league.currentUserId} onMemberClick={setSelectedMember} />
           {!league.isMember && <p className="league-public-note"><i className="bi bi-info-circle" aria-hidden="true"></i>Visitantes veem apenas as cinco primeiras posições.</p>}
         </section>
       )}
@@ -338,7 +380,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
             <div className="league-panel-heading"><div><span className="league-eyebrow">Pontuação</span><h2>Como os acertos valem pontos</h2></div>{league.rulesLockedAt && <span className="league-lock-label"><i className="bi bi-lock-fill" aria-hidden="true"></i>Regras travadas</span>}</div>
             <div className="league-rules-score-grid">
               <div><span className="exact"><i className="bi bi-bullseye" aria-hidden="true"></i></span><p>Placar exato</p><strong>+{league.pointsExact}</strong></div>
-              <div><span><i className="bi bi-arrows-expand" aria-hidden="true"></i></span><p>Saldo correto</p><strong>+{league.pointsDiff}</strong></div>
+              <div><span><i className="bi bi-arrows-expand" aria-hidden="true"></i></span><p>Total de gols</p><strong>+{league.pointsDiff}</strong></div>
               <div><span><i className="bi bi-house-door" aria-hidden="true"></i></span><p>Vitória Casa</p><strong>+{league.pointsWinnerHome}</strong></div>
               <div><span><i className="bi bi-dash-circle" aria-hidden="true"></i></span><p>Empate correto</p><strong>+{league.pointsDraw}</strong></div>
               <div><span><i className="bi bi-airplane" aria-hidden="true"></i></span><p>Vitória Fora</p><strong>+{league.pointsWinnerAway}</strong></div>
@@ -577,7 +619,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       />
                     </div>
                     <div className="league-settings-field">
-                      <label htmlFor="rule-diff">Saldo de gols</label>
+                      <label htmlFor="rule-diff">Total de Gols (Over/Under)</label>
                       <input
                         id="rule-diff"
                         type="number"
@@ -780,6 +822,140 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                 {isPending ? 'Salvando...' : 'Confirmar e Salvar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {selectedMember && (
+        <div 
+          className="league-modal-backdrop" 
+          role="presentation"
+          onClick={() => setSelectedMember(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 9999,
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div 
+            className="league-confirm-modal animate__animated animate__zoomIn"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '500px',
+              width: '100%',
+              background: '#0f172a',
+              border: '1px solid rgba(14, 165, 233, 0.25)',
+              borderRadius: '12px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              padding: '24px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Header */}
+            <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary border-opacity-10">
+              <div className="d-flex align-items-center gap-2">
+                <span className="league-avatar" aria-hidden="true" style={{ width: '28px', height: '28px', fontSize: '0.8rem' }}>
+                  {selectedMember.image || selectedMember.name.charAt(0)}
+                </span>
+                <h3 className="text-white fw-bold m-0" style={{ fontSize: '1rem', fontFamily: 'var(--font-display)' }}>
+                  Palpites de {selectedMember.name}
+                </h3>
+              </div>
+              <button 
+                type="button" 
+                className="border-0 bg-transparent text-secondary hover-text-white d-flex align-items-center justify-content-center" 
+                onClick={() => setSelectedMember(null)}
+                aria-label="Fechar"
+                style={{ cursor: 'pointer', fontSize: '1.2rem', padding: '4px' }}
+              >
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Content list */}
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+              {loadingPreds ? (
+                <div className="text-center py-5 text-secondary">
+                  <div className="spinner-border spinner-border-sm text-info me-2" role="status">
+                    <span className="visually-hidden">Carregando...</span>
+                  </div>
+                  <span>Carregando palpites...</span>
+                </div>
+              ) : predsError ? (
+                <div className="p-3 rounded bg-danger bg-opacity-10 border border-danger border-opacity-20 text-danger text-center" style={{ fontSize: '0.8rem' }}>{predsError}</div>
+              ) : memberPreds.length === 0 ? (
+                <div className="text-center py-5 text-secondary" style={{ fontSize: '0.85rem' }}>
+                  Nenhum palpite registrado ou visível para este participante.
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-2">
+                  {memberPreds.map((pred: any) => {
+                    const isFinished = pred.match.status === 'finished';
+                    const hasPlacar = pred.match.homeScore !== null && pred.match.awayScore !== null;
+                    
+                    return (
+                      <div 
+                        key={pred.id} 
+                        className="p-2.5 rounded bg-dark bg-opacity-40 border border-secondary border-opacity-10"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        {/* Info da partida */}
+                        <div className="d-flex justify-content-between text-secondary mb-1.5" style={{ fontSize: '0.68rem' }}>
+                          <span>{pred.match.group ? `Grupo ${pred.match.group}` : formatStagePtBr(pred.match.stage)}</span>
+                          <span>{isFinished ? 'Jogo Encerrado' : 'Aguardando'}</span>
+                        </div>
+
+                        {/* Placar Real vs Palpite */}
+                        <div className="d-flex justify-content-between align-items-center gap-3">
+                          <div className="d-flex flex-column align-items-start" style={{ width: '45%' }}>
+                            <span className="text-white fw-medium text-truncate" style={{ maxWidth: '140px' }}>{pred.match.homeTeam}</span>
+                            <span className="text-white fw-medium text-truncate" style={{ maxWidth: '140px' }}>{pred.match.awayTeam}</span>
+                          </div>
+
+                          <div className="text-center bg-dark bg-opacity-60 px-2 py-1.5 rounded border border-secondary border-opacity-5" style={{ minWidth: '100px' }}>
+                            <div className="text-secondary" style={{ fontSize: '0.62rem', fontWeight: '600' }}>PALPITE</div>
+                            <div className="text-info fw-bold fs-6">{pred.homeGuess !== null ? `${pred.homeGuess} x ${pred.awayGuess}` : 'Oculto 🔒'}</div>
+                            {hasPlacar && (
+                              <div className="text-secondary" style={{ fontSize: '0.62rem', marginTop: '2px' }}>
+                                Placar: {pred.match.homeScore}x{pred.match.awayScore}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="text-end" style={{ width: '25%' }}>
+                            {hasPlacar && pred.homeGuess !== null ? (
+                              <span className={pred.points > 0 ? 'text-success fw-bold' : 'text-secondary'} style={{ fontSize: '0.9rem' }}>
+                                +{pred.points} pts
+                              </span>
+                            ) : (
+                              <span className="text-secondary">-</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            <button 
+              type="button" 
+              className="btn btn-secondary mt-3 py-2 w-100" 
+              onClick={() => setSelectedMember(null)}
+              style={{ borderRadius: '6px', fontSize: '0.85rem', background: '#334155', border: 'none', color: '#fff' }}
+            >
+              Voltar
+            </button>
           </div>
         </div>
       )}

@@ -15,6 +15,83 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const leagueId = searchParams.get('leagueId') || undefined;
     const matchId = searchParams.get('matchId') || undefined;
+    const targetUserId = searchParams.get('targetUserId') || undefined;
+
+    if (targetUserId && leagueId) {
+      if (leagueId !== 'global') {
+        const membership = await prisma.leagueMember.findUnique({
+          where: { leagueId_userId: { leagueId, userId: auth.user.id } },
+          select: { status: true }
+        });
+        if (!membership || membership.status !== 'active') {
+          return NextResponse.json({ error: 'Acesso negado. Você não é membro ativo deste bolão.' }, { status: 403 });
+        }
+      }
+
+      const predictions = await prisma.prediction.findMany({
+        where: { leagueId, userId: targetUserId },
+        include: {
+          match: true,
+          pointEntry: true
+        },
+        orderBy: {
+          match: {
+            kickOff: 'asc'
+          }
+        }
+      });
+
+      const now = Date.now();
+
+      const results = predictions.map(p => {
+        const kickOffTime = p.match.kickOff.getTime();
+        const limitTime = kickOffTime - 30 * 60 * 1000;
+        const isClosed = p.match.status !== 'scheduled' || now > limitTime;
+
+        if (targetUserId !== auth.user.id && !isClosed) {
+          return {
+            id: p.id,
+            matchId: p.matchId,
+            match: {
+              homeTeam: p.match.homeTeam,
+              awayTeam: p.match.awayTeam,
+              homeFlag: p.match.homeFlag,
+              awayFlag: p.match.awayFlag,
+              homeTeamLogo: p.match.homeTeamLogo,
+              awayTeamLogo: p.match.awayTeamLogo,
+              kickOff: p.match.kickOff,
+              status: p.match.status,
+              stage: p.match.stage,
+              group: p.match.group,
+              homeScore: null,
+              awayScore: null
+            },
+            homeGuess: null,
+            awayGuess: null,
+            resultPick: null,
+            totalGoalsPick: null,
+            bothTeamsScorePick: null,
+            points: null,
+            isClosed: false
+          };
+        }
+
+        return {
+          id: p.id,
+          matchId: p.matchId,
+          match: p.match,
+          homeGuess: p.homeGuess,
+          awayGuess: p.awayGuess,
+          resultPick: p.resultPick,
+          totalGoalsPick: p.totalGoalsPick,
+          bothTeamsScorePick: p.bothTeamsScorePick,
+          points: p.pointEntry?.points ?? (isClosed ? 0 : null),
+          isClosed: true
+        };
+      });
+
+      return NextResponse.json(results);
+    }
 
     if (matchId && leagueId) {
       // 1. Verificar filiação do usuário logado na liga
