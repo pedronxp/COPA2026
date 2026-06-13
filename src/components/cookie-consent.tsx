@@ -36,56 +36,56 @@ export function CookieConsent() {
 
   return (
     <div
-      className="position-fixed bottom-0 start-50 translate-middle-x w-100 p-3 p-md-4"
+      className="position-fixed bottom-0 end-0 p-3"
       style={{
         zIndex: 9999,
-        maxWidth: '720px',
-        animation: 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        maxWidth: '400px',
+        width: 'calc(100% - 24px)',
+        margin: '12px',
+        animation: 'slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
       }}
     >
       <div
-        className="p-4 rounded-4 border shadow-lg"
+        className="p-3 rounded-3 border shadow-lg"
         style={{
-          background: 'rgba(15, 23, 42, 0.85)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderColor: 'rgba(30, 41, 59, 0.8)',
+          background: 'rgba(15, 23, 42, 0.9)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderColor: 'rgba(30, 41, 59, 0.85)',
           color: '#f8fafc',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
         }}
       >
-        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4">
-          <div className="flex-grow-1">
-            <h5 className="d-flex align-items-center gap-2 mb-2 fw-bold" style={{ color: '#10b981' }}>
-              <i className="bi bi-shield-lock-fill"></i>
-              <span>Privacidade & Uso de Dados</span>
-            </h5>
-            <p className="small mb-0 text-secondary" style={{ color: '#94a3b8', lineHeight: '1.6' }}>
-              Coletamos seu e-mail e senha exclusivamente para fins de autenticação e acesso seguro ao sistema do bolão Copa dos Crias. 
-              Estes dados <strong>não possuem fins lucrativos</strong>, não são vendidos ou compartilhados com terceiros e não temos acesso à sua senha (criptografada). 
-              Usamos cookies essenciais para manter você conectado com segurança. Ao continuar no site, você aceita estas condições.
+        <div className="d-flex flex-column gap-3">
+          <div>
+            <h6 className="d-flex align-items-center gap-2 mb-1 fw-bold text-neon-green" style={{ color: '#10b981', fontSize: '0.95rem' }}>
+              <i className="bi bi-shield-check"></i>
+              <span>Privacidade dos Seus Dados</span>
+            </h6>
+            <p className="small mb-0 text-secondary" style={{ color: '#94a3b8', lineHeight: '1.5', fontSize: '0.825rem' }}>
+              Coletamos seu e-mail e senha apenas para login e acesso seguro ao bolão Copa dos Crias. 
+              Estes dados <strong>não têm fins lucrativos</strong> e não são compartilhados. Suas senhas são criptografadas e seguras. Usamos cookies essenciais para manter você conectado.
             </p>
           </div>
-          <div className="d-flex align-items-center justify-content-end gap-2 flex-shrink-0">
+          <div className="text-end">
             <button
               onClick={handleAccept}
-              className="btn px-4 py-2 fw-bold"
+              className="btn btn-sm w-100 fw-bold py-2"
               style={{
                 backgroundColor: '#10b981',
                 borderColor: '#10b981',
                 color: '#080c14',
-                borderRadius: '8px',
+                borderRadius: '6px',
+                fontSize: '0.85rem',
                 transition: 'all 0.2s ease',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#059669';
                 e.currentTarget.style.borderColor = '#059669';
-                e.currentTarget.style.transform = 'translateY(-1px)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = '#10b981';
                 e.currentTarget.style.borderColor = '#10b981';
-                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
               Entendi e Aceito
@@ -94,14 +94,14 @@ export function CookieConsent() {
         </div>
       </div>
       <style jsx global>{`
-        @keyframes slideUp {
+        @keyframes slideInUp {
           from {
             opacity: 0;
-            transform: translate(-50%, 40px);
+            transform: translateY(20px);
           }
           to {
             opacity: 1;
-            transform: translate(-50%, 0);
+            transform: translateY(0);
           }
         }
       `}</style>
