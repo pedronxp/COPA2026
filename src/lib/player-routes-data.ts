@@ -135,16 +135,18 @@ async function getMembersForLeague(leagueId: string): Promise<PlayerMemberRow[]>
   }));
 
   return rankMembers(
-    members.map((member) => ({
-      id: member.userId,
-      name: member.user.name || 'Usuario',
-      image: member.user.image,
-      points: member.points,
-      pendingPoints: member.pendingPoints,
-      streak: member.user.streak,
-      misses: member.user.misses,
-      role: member.role,
-    })),
+    members
+      .filter((member) => member.user !== null && member.user !== undefined)
+      .map((member) => ({
+        id: member.userId,
+        name: member.user!.name || 'Usuario',
+        image: member.user!.image,
+        points: member.points,
+        pendingPoints: member.pendingPoints,
+        streak: member.user!.streak,
+        misses: member.user!.misses,
+        role: member.role,
+      })),
   );
 }
 

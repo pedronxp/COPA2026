@@ -82,16 +82,18 @@ export default async function AdminLeagueGovernancePage({
         best: user.misses,
         role: 'global',
       }))
-    : league.members.map((member) => ({
-        id: member.userId,
-        name: member.user.name || 'Usuario',
-        email: member.user.email,
-        points: member.points,
-        pendingPoints: member.pendingPoints,
-        streak: member.exactScoreStreak,
-        best: member.bestExactScoreStreak,
-        role: member.role,
-      }));
+    : league.members
+        .filter((member) => member.user !== null && member.user !== undefined)
+        .map((member) => ({
+          id: member.userId,
+          name: member.user!.name || 'Usuario',
+          email: member.user!.email,
+          points: member.points,
+          pendingPoints: member.pendingPoints,
+          streak: member.exactScoreStreak,
+          best: member.bestExactScoreStreak,
+          role: member.role,
+        }));
 
   return (
     <section className="admin-stack">

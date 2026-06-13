@@ -97,7 +97,9 @@ async function getOverviewRows(userId: string) {
 }
 
 function serializeCard(league: LeagueWithMembers, userId: string): LeagueCardData {
-  const ranking = league.members.map(serializeMember);
+  const ranking = league.members
+    .filter((m: any) => m.user !== null && m.user !== undefined)
+    .map(serializeMember);
   const membership = ranking.find((member) => member.id === userId) ?? null;
 
   return {
@@ -250,7 +252,9 @@ export async function getLeagueDetail(identifier: string, userId: string): Promi
 
   if (!league) return null;
 
-  const members = league.members.map(serializeMember);
+  const members = league.members
+    .filter((m: any) => m.user !== null && m.user !== undefined)
+    .map(serializeMember);
   const membership = members.find((member) => member.id === userId) ?? null;
   if (league.visibility !== 'public' && !membership) return null;
 

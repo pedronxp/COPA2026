@@ -84,7 +84,9 @@ function rankMembers<
   let previousPoints: number | null = null;
   let sharedRank = 0;
 
-  return members.map((member, index) => {
+  const validMembers = members.filter((m) => m.user !== null && m.user !== undefined);
+
+  return validMembers.map((member, index) => {
     if (previousPoints !== member.points) {
       sharedRank = index + 1;
       previousPoints = member.points;
@@ -1041,24 +1043,26 @@ export async function listLeagueMembers(reference: string, userId: string) {
       },
     },
   });
+  const validMembers = members.filter((member) => member.user !== null && member.user !== undefined);
+
   const ranked = rankMembers(
-    members.map((member) => ({
+    validMembers.map((member) => ({
       ...member,
-      user: { name: member.user.name, image: member.user.image },
+      user: { name: member.user!.name, image: member.user!.image },
     })),
   );
 
-  return members.map((member, index) => ({
+  return validMembers.map((member, index) => ({
     id: member.userId,
-    name: member.user.name || 'Usuário',
-    email: isAdmin ? member.user.email : undefined,
-    image: member.user.image,
+    name: member.user!.name || 'Usuário',
+    email: isAdmin ? member.user!.email : undefined,
+    image: member.user!.image,
     points: member.points,
     exactScoreStreak: member.exactScoreStreak,
     bestExactScoreStreak: member.bestExactScoreStreak,
     rank: ranked[index].rank,
-    streak: member.user.streak,
-    misses: member.user.misses,
+    streak: member.user!.streak,
+    misses: member.user!.misses,
     role: member.role,
     joinedAt: member.joinedAt,
   }));
