@@ -33,6 +33,7 @@ model User {
   resetRequests          PasswordResetRequest[]
   resetReviews           PasswordResetRequest[]   @relation("PasswordResetReviewer")
   adminAuditLogs         AdminAuditLog[]          @relation("AdminAuditActor")
+  leagueOwnerEditsUsed   League[]                 @relation("LeagueOwnerEditUsedBy")
   createdAt              DateTime                @default(now())
 
   @@index([adminRole])
@@ -180,7 +181,10 @@ model League {
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @default(now()) @updatedAt
   editedByOwner           Boolean                 @default(false)
+  ownerEditUsedAt         DateTime?
+  ownerEditUsedById       String?
   owner                   User                    @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerEditUsedBy         User?                   @relation("LeagueOwnerEditUsedBy", fields: [ownerEditUsedById], references: [id], onDelete: SetNull)
   members                 LeagueMember[]
   predictions             Prediction[]
   joinRequests            LeagueJoinRequest[]
@@ -190,6 +194,7 @@ model League {
 
   @@index([visibility, status, createdAt])
   @@index([ownerId, createdAt])
+  @@index([ownerEditUsedById])
 }
 
 model LeagueMember {

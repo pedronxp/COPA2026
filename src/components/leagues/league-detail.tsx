@@ -143,6 +143,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
   const [isPending, startTransition] = useTransition();
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSuccess, setSettingsSuccess] = useState<boolean>(false);
+  const [showOwnerEditConfirm, setShowOwnerEditConfirm] = useState(false);
   const [formData, setFormData] = useState({
     name: league.name,
     description: league.description || '',
@@ -165,6 +166,8 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
     knockoutPublicationMode: league.knockoutPublicationMode,
     expiresAt: league.expiresAt ? new Date(league.expiresAt).toISOString().split('T')[0] : '',
   });
+  const ownerEditLocked = league.ownerEdit.lockReason === 'used';
+  const competitiveFieldsDisabled = league.ownerEdit.rulesLocked;
 
   const activeTabs = league.userRole === 'owner'
     ? [...tabs, { id: 'settings' as DetailTab, label: 'Configurações', icon: 'gear' }]
@@ -199,13 +202,13 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
 
   async function handleSettingsSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (league.editedByOwner) return;
+    if (ownerEditLocked || !league.ownerEdit.available) return;
+    setShowOwnerEditConfirm(true);
+  }
 
-    const confirmed = window.confirm(
-      'Tem certeza que deseja salvar estas alterações? O bolão só pode ser editado uma única vez por seu criador.'
-    );
-    if (!confirmed) return;
-
+  function submitOwnerEdit() {
+    if (ownerEditLocked || !league.ownerEdit.available) return;
+    setShowOwnerEditConfirm(false);
     setSettingsError(null);
     setSettingsSuccess(false);
 
@@ -412,14 +415,31 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
             </div>
           </div>
 
-          {league.editedByOwner ? (
+          {ownerEditLocked ? (
             <div className="league-edited-blocked">
               <i className="bi bi-lock-fill" aria-hidden="true"></i>
-              <h3>Configuração bloqueada</h3>
-              <p>Este bolão já foi configurado/editado uma vez por você e está permanentemente bloqueado para novas alterações.</p>
+              <h3>Edição do dono bloqueada</h3>
+              <p>{league.ownerEdit.lockMessage || 'A edição única deste bolão já foi usada e novas alterações do dono estão bloqueadas.'}</p>
+              {league.ownerEdit.usedAt && <small>Usada em {formatDate(league.ownerEdit.usedAt, true)}.</small>}
             </div>
           ) : (
             <form onSubmit={handleSettingsSubmit} className="league-settings-form">
+              <div className="league-owner-edit-callout">
+                <i className="bi bi-pencil-square" aria-hidden="true"></i>
+                <div>
+                  <strong>Edição única disponível</strong>
+                  <p>Você pode salvar uma alteração de nome e configurações uma única vez. Depois de confirmar, este botão ficará bloqueado.</p>
+                </div>
+              </div>
+              {competitiveFieldsDisabled && (
+                <div className="league-owner-edit-callout warning">
+                  <i className="bi bi-lock-fill" aria-hidden="true"></i>
+                  <div>
+                    <strong>Regras competitivas travadas</strong>
+                    <p>Já existem palpites neste bolão. A edição única ainda pode ajustar dados gerais, mas pontuação, janelas e publicação ficam somente para consulta.</p>
+                  </div>
+                </div>
+              )}
               {settingsError && (
                 <div className="league-form-feedback error" style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#ef4444', fontSize: '0.82rem' }}>
                   <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" style={{ marginRight: '8px' }}></i>
@@ -515,6 +535,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       id="settings-preset"
                       value={formData.scoringPreset}
                       onChange={e => handlePresetChange(e.target.value)}
+                      disabled={competitiveFieldsDisabled || isPending}
                     >
                       <option value="standard">Padrão Copa dos Crias</option>
                       <option value="casual">Casual (Amigável)</option>
@@ -533,6 +554,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsExact}
                         onChange={e => updateRuleValue('pointsExact', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                     <div className="league-settings-field">
@@ -544,6 +566,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsDiff}
                         onChange={e => updateRuleValue('pointsDiff', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                     <div className="league-settings-field">
@@ -555,6 +578,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsWinnerHome}
                         onChange={e => updateRuleValue('pointsWinnerHome', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                     <div className="league-settings-field">
@@ -566,6 +590,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsWinnerAway}
                         onChange={e => updateRuleValue('pointsWinnerAway', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                     <div className="league-settings-field">
@@ -577,6 +602,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsDraw}
                         onChange={e => updateRuleValue('pointsDraw', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                     <div className="league-settings-field">
@@ -588,6 +614,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsBothScoreYes}
                         onChange={e => updateRuleValue('pointsBothScoreYes', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                     <div className="league-settings-field">
@@ -599,6 +626,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                         max={100}
                         value={formData.pointsBothScoreNo}
                         onChange={e => updateRuleValue('pointsBothScoreNo', Number(e.target.value))}
+                        disabled={competitiveFieldsDisabled || isPending}
                       />
                     </div>
                   </div>
@@ -616,6 +644,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       max={168}
                       value={formData.windowHours}
                       onChange={e => handleInputChange('windowHours', Number(e.target.value))}
+                      disabled={competitiveFieldsDisabled || isPending}
                     />
                   </div>
                   <div className="league-settings-field">
@@ -624,6 +653,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       id="settings-max-edits"
                       value={formData.maxEdits}
                       onChange={e => handleInputChange('maxEdits', Number(e.target.value))}
+                      disabled={competitiveFieldsDisabled || isPending}
                     >
                       <option value={1}>1 edição</option>
                       <option value={3}>3 edições</option>
@@ -640,6 +670,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       max={38}
                       value={formData.scoringStartMatchday}
                       onChange={e => handleInputChange('scoringStartMatchday', Number(e.target.value))}
+                      disabled={competitiveFieldsDisabled || isPending}
                     />
                   </div>
                   <div className="league-settings-field">
@@ -649,6 +680,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       type="date"
                       value={formData.expiresAt}
                       onChange={e => handleInputChange('expiresAt', e.target.value)}
+                      disabled={competitiveFieldsDisabled || isPending}
                     />
                   </div>
                   <div className="league-settings-field">
@@ -657,6 +689,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       id="settings-group-mode"
                       value={formData.groupPublicationMode}
                       onChange={e => handleInputChange('groupPublicationMode', e.target.value)}
+                      disabled={competitiveFieldsDisabled || isPending}
                     >
                       <option value="match">A cada partida</option>
                       <option value="round">Ao fim de cada rodada</option>
@@ -672,6 +705,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       id="settings-knockout-mode"
                       value={formData.knockoutPublicationMode}
                       onChange={e => handleInputChange('knockoutPublicationMode', e.target.value)}
+                      disabled={competitiveFieldsDisabled || isPending}
                     >
                       <option value="match">A cada partida</option>
                       <option value="stage">Ao fim de cada fase</option>
@@ -683,12 +717,57 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
 
               <div className="league-settings-submit-wrap">
                 <button type="submit" className="btn league-primary-button" disabled={isPending}>
-                  {isPending ? 'Salvando...' : 'Confirmar e Salvar Configurações'}
+                  {isPending ? 'Salvando...' : 'Revisar e confirmar edição única'}
                 </button>
               </div>
             </form>
           )}
         </section>
+      )}
+      {showOwnerEditConfirm && (
+        <div className="league-modal-backdrop" role="presentation">
+          <div
+            className="league-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="owner-edit-confirm-title"
+          >
+            <div className="league-confirm-modal-icon">
+              <i className="bi bi-exclamation-diamond" aria-hidden="true"></i>
+            </div>
+            <div>
+              <span className="league-eyebrow">Confirmação obrigatória</span>
+              <h2 id="owner-edit-confirm-title">Usar a edição única do bolão?</h2>
+              <p>
+                Esta ação salva as alterações e consome a única edição disponível para o dono.
+                Depois disso, novas mudanças pelo dono ficarão bloqueadas com cadeado.
+              </p>
+              {competitiveFieldsDisabled && (
+                <p className="league-confirm-modal-note">
+                  As regras competitivas já estão travadas por palpites; somente os dados gerais serão alterados.
+                </p>
+              )}
+            </div>
+            <div className="league-confirm-modal-actions">
+              <button
+                type="button"
+                className="btn league-secondary-button"
+                onClick={() => setShowOwnerEditConfirm(false)}
+                disabled={isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn league-primary-button"
+                onClick={submitOwnerEdit}
+                disabled={isPending}
+              >
+                {isPending ? 'Salvando...' : 'Salvar edição única'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

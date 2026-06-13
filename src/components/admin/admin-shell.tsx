@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface AdminShellUser {
   name: string | null;
@@ -63,15 +63,10 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // Carrega o estado de recolhimento inicial do localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('admin_sidebar_collapsed');
-    if (saved === 'true') {
-      setIsCollapsed(true);
-    }
-  }, []);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('admin_sidebar_collapsed') === 'true';
+  });
 
   const handleToggleCollapse = () => {
     const newVal = !isCollapsed;
@@ -85,7 +80,7 @@ export function AdminShell({
   };
 
   return (
-    <div className={`admin-shell ${isCollapsed ? 'collapsed' : ''}`}>
+    <div className={`admin-shell ${isCollapsed ? 'collapsed' : ''} ${sidebarOpen ? 'menu-open' : ''}`}>
       {/* Header fixo no celular */}
       <header className="admin-mobile-header">
         <button
@@ -105,33 +100,12 @@ export function AdminShell({
           className="admin-sidebar-overlay"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9998,
-          }}
         />
       )}
 
       <aside
         className={`admin-sidebar ${sidebarOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
         aria-label="Navegação administrativa"
-        style={
-          sidebarOpen
-            ? {
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '292px',
-                height: '100vh',
-                zIndex: 9999,
-                background: '#111418',
-              }
-            : undefined
-        }
       >
         {/* Botão de fechar no mobile */}
         <button
@@ -139,7 +113,6 @@ export function AdminShell({
           className="admin-sidebar-close"
           aria-label="Fechar menu"
           onClick={() => setSidebarOpen(false)}
-          style={{ display: sidebarOpen ? 'block' : 'none' }}
         >
           <i className="bi bi-x-lg" aria-hidden="true" />
         </button>
@@ -190,17 +163,7 @@ export function AdminShell({
           </Link>
         </div>
       </aside>
-      <main
-        className="admin-main"
-        style={
-          sidebarOpen
-            ? {
-                position: 'relative',
-                zIndex: 1,
-              }
-            : undefined
-        }
-      >
+      <main className="admin-main">
         {children}
       </main>
     </div>

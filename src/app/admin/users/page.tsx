@@ -141,7 +141,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<'/admin
                   </select>
                   <input name="suspendedDays" type="number" min={1} defaultValue={7} aria-label="Dias suspenso" />
                   <input name="reason" placeholder="Motivo" required minLength={3} />
-                  <button className="admin-icon-button" title="Aplicar" type="submit">
+                  <button className="admin-icon-button" aria-label="Aplicar moderação" title="Aplicar" type="submit">
                     <i className="bi bi-save" aria-hidden="true" />
                   </button>
                 </form>

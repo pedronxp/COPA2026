@@ -162,7 +162,7 @@ export default async function AdminMatchesPage() {
                   <option value="finished">Finalizada</option>
                 </select>
                 <input name="reason" placeholder="Motivo" required minLength={3} />
-                <button className="admin-icon-button" title="Corrigir" type="submit">
+                <button className="admin-icon-button" aria-label="Corrigir partida" title="Corrigir" type="submit">
                   <i className="bi bi-save" aria-hidden="true" />
                 </button>
               </form>

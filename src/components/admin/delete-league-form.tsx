@@ -29,6 +29,7 @@ export function DeleteLeagueForm({ leagueId, leagueName }: DeleteLeagueFormProps
       />
       <button
         className="admin-icon-button danger"
+        aria-label="Excluir bolão"
         type="submit"
         title="Excluir bolão"
       >

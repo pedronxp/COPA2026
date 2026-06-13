@@ -96,7 +96,7 @@ export default async function AdminLeaguesPage({ searchParams }: PageProps<'/adm
                     <option value="archived">Arquivado</option>
                   </select>
                   <input name="reason" placeholder="Motivo opcional" />
-                  <button className="admin-icon-button" type="submit" title="Salvar">
+                  <button className="admin-icon-button" aria-label="Salvar bolão" type="submit" title="Salvar">
                     <i className="bi bi-save" aria-hidden="true" />
                   </button>
                 </form>

@@ -382,6 +382,128 @@ export async function savePrediction(
 /**
  * Atualiza o placar de uma partida e dispara o Score Engine se finalizada.
  */
+async function recomputeGlobalUserPerformance(
+  tx: Prisma.TransactionClient,
+  userId: string,
+) {
+  const rows = await tx.prediction.findMany({
+    where: {
+      leagueId: 'global',
+      userId,
+      processed: true,
+      match: {
+        status: 'finished',
+        homeScore: { not: null },
+        awayScore: { not: null },
+      },
+      pointEntry: { isNot: null },
+    },
+    orderBy: { match: { kickOff: 'asc' } },
+    select: {
+      pointEntry: { select: { points: true } },
+    },
+  });
+
+  let points = 0;
+  let streak = 0;
+  let misses = 0;
+  for (const row of rows) {
+    const value = row.pointEntry?.points ?? 0;
+    points += value;
+    if (value > 0) {
+      streak += 1;
+      misses = 0;
+    } else {
+      streak = 0;
+      misses += 1;
+    }
+  }
+
+  await tx.user.update({
+    where: { id: userId },
+    data: { points, streak, misses },
+  });
+}
+
+async function clearScoringForUnfinishedMatch(matchId: string) {
+  await prisma.$transaction(async (tx) => {
+    const entries = await tx.leaguePointEntry.findMany({
+      where: { matchId },
+      select: {
+        leagueId: true,
+        userId: true,
+        points: true,
+        status: true,
+        cycleKey: true,
+      },
+    });
+
+    if (entries.length === 0) {
+      await tx.prediction.updateMany({
+        where: { matchId, processed: true },
+        data: { processed: false },
+      });
+      return;
+    }
+
+    const memberDeltas = new Map<string, { points: number; pendingPoints: number }>();
+    const globalUserIds = new Set<string>();
+    const affectedCycles = new Map<string, Set<string>>();
+
+    for (const entry of entries) {
+      if (entry.leagueId === 'global') {
+        globalUserIds.add(entry.userId);
+      } else {
+        const key = `${entry.leagueId}:${entry.userId}`;
+        const current = memberDeltas.get(key) ?? { points: 0, pendingPoints: 0 };
+        if (entry.status === 'published') current.points += entry.points;
+        else current.pendingPoints += entry.points;
+        memberDeltas.set(key, current);
+      }
+
+      if (!affectedCycles.has(entry.leagueId)) affectedCycles.set(entry.leagueId, new Set());
+      affectedCycles.get(entry.leagueId)?.add(entry.cycleKey);
+    }
+
+    for (const [leagueId, cycleKeys] of affectedCycles) {
+      const cycles = await tx.leagueRankingCycle.findMany({
+        where: { leagueId, key: { in: [...cycleKeys] } },
+        select: { id: true },
+      });
+      if (cycles.length > 0) {
+        const cycleIds = cycles.map((cycle) => cycle.id);
+        await tx.leagueRankingSnapshot.deleteMany({
+          where: { cycleId: { in: cycleIds } },
+        });
+        await tx.leagueRankingCycle.deleteMany({
+          where: { id: { in: cycleIds } },
+        });
+      }
+    }
+
+    await tx.leaguePointEntry.deleteMany({ where: { matchId } });
+    await tx.prediction.updateMany({
+      where: { matchId, processed: true },
+      data: { processed: false },
+    });
+
+    for (const [key, delta] of memberDeltas) {
+      const [leagueId, userId] = key.split(':');
+      await tx.leagueMember.updateMany({
+        where: { leagueId, userId },
+        data: {
+          points: { decrement: delta.points },
+          pendingPoints: { decrement: delta.pendingPoints },
+        },
+      });
+    }
+
+    for (const userId of globalUserIds) {
+      await recomputeGlobalUserPerformance(tx, userId);
+    }
+  });
+}
+
 export async function updateMatchScore(
   matchId: string,
   homeScore: number,
@@ -389,16 +511,22 @@ export async function updateMatchScore(
   status: 'scheduled' | 'live' | 'finished'
 ): Promise<MatchData> {
   const elapsed = status === 'finished' ? 'finished' : status === 'live' ? 'live' : 'notstarted';
+  const scoreData =
+    status === 'scheduled'
+      ? { homeScore: null, awayScore: null }
+      : { homeScore, awayScore };
 
   const updated = await prisma.match.update({
     where: { id: matchId },
-    data: { homeScore, awayScore, status, elapsed },
+    data: { ...scoreData, status, elapsed },
   });
 
   // Se finalizado, rodar o Score Engine
   if (status === 'finished') {
     const { processLeagueScoringForMatch } = await import('./scoring-service');
     await processLeagueScoringForMatch(matchId);
+  } else {
+    await clearScoringForUnfinishedMatch(matchId);
   }
 
   return {

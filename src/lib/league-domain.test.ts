@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   createLeagueSlug,
+  deriveOwnerEditState,
   deriveRankingCycle,
+  hasCompetitiveLeagueChange,
   validateLeagueConfiguration,
 } from './league-domain';
 
@@ -66,5 +68,79 @@ describe('league domain', () => {
         knockoutMode: 'stage',
       }),
     ).toBe('stage:qf');
+  });
+
+  it('exposes owner edit availability before consumption', () => {
+    expect(
+      deriveOwnerEditState({
+        ownerEditUsedAt: null,
+        ownerEditUsedById: null,
+        rulesLockedAt: null,
+      }),
+    ).toMatchObject({
+      available: true,
+      lockReason: null,
+      usedAt: null,
+      usedById: null,
+    });
+  });
+
+  it('returns polished lock copy after the owner edit is consumed', () => {
+    const usedAt = new Date('2026-06-13T12:00:00Z');
+
+    expect(
+      deriveOwnerEditState({
+        ownerEditUsedAt: usedAt,
+        ownerEditUsedById: 'owner-1',
+        rulesLockedAt: null,
+      }),
+    ).toMatchObject({
+      available: false,
+      lockReason: 'used',
+      lockMessage:
+        'A edição única deste bolão já foi usada. Novas alterações do dono estão bloqueadas.',
+      usedAt,
+      usedById: 'owner-1',
+    });
+  });
+
+  it('detects prediction-lock precedence for competitive changes', () => {
+    const state = deriveOwnerEditState({
+      ownerEditUsedAt: null,
+      ownerEditUsedById: null,
+      rulesLockedAt: new Date('2026-06-13T12:00:00Z'),
+      requestedCompetitiveChange: true,
+    });
+
+    expect(state).toMatchObject({
+      available: false,
+      lockReason: 'rules_locked',
+      lockMessage:
+        'As regras competitivas foram bloqueadas pelo primeiro palpite. A edição única ainda pode ser usada apenas para dados gerais.',
+    });
+  });
+
+  it('detects competitive field changes only when values really change', () => {
+    const current = {
+      name: 'Bolão Original',
+      pointsExact: 5,
+      expiresAt: new Date('2026-08-01T00:00:00Z'),
+    };
+
+    expect(
+      hasCompetitiveLeagueChange(
+        { name: 'Bolão Novo', pointsExact: 5 },
+        current,
+        { ...current, name: 'Bolão Novo' },
+      ),
+    ).toBe(false);
+
+    expect(
+      hasCompetitiveLeagueChange(
+        { pointsExact: 7 },
+        current,
+        { ...current, pointsExact: 7 },
+      ),
+    ).toBe(true);
   });
 });

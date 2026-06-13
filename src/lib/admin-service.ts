@@ -418,7 +418,7 @@ export async function triggerAdminSync(actor: SessionUser) {
     actorId: actor.id,
     action: 'sync.trigger',
     entityType: 'sync',
-    summary: `${actor.email} disparou sincronizacao manual.`,
+    summary: `${actor.email} disparou sincronização manual.`,
     metadata: safeJson(report),
   });
 
@@ -437,7 +437,7 @@ export async function configureAdminSync(input: {
     action: 'sync.schedule_update',
     entityType: 'sync',
     entityId: schedule.id,
-    summary: `${input.actor.email} atualizou o agendamento da sincronizacao.`,
+    summary: `${input.actor.email} atualizou o agendamento da sincronização.`,
     metadata: safeJson({
       enabled: schedule.enabled,
       intervalMinutes: schedule.intervalMinutes,
@@ -457,15 +457,15 @@ export async function correctAdminMatch(input: {
 }) {
   const reason = requireReason(input.reason);
   if (!Number.isInteger(input.homeScore) || !Number.isInteger(input.awayScore)) {
-    throw new Error('Placar deve usar numeros inteiros.');
+    throw new Error('Placar deve usar números inteiros.');
   }
   if (input.homeScore < 0 || input.awayScore < 0 || input.homeScore > 99 || input.awayScore > 99) {
     throw new Error('Placar deve ficar entre 0 e 99.');
   }
-  if (!MATCH_STATUSES.has(input.status)) throw new Error('Status de partida invalido.');
+  if (!MATCH_STATUSES.has(input.status)) throw new Error('Status de partida inválido.');
 
   const before = await prisma.match.findUnique({ where: { id: input.matchId } });
-  if (!before) throw new Error('Partida nao encontrada.');
+  if (!before) throw new Error('Partida não encontrada.');
 
   const updated = await updateMatchScore(
     input.matchId,

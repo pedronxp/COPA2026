@@ -108,6 +108,14 @@ describe('admin pool governance service', () => {
         data: expect.objectContaining({ pointsExact: 7 }),
       }),
     );
+    expect(prisma.league.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({
+          ownerEditUsedAt: expect.anything(),
+          ownerEditUsedById: expect.anything(),
+        }),
+      }),
+    );
     expect(recordAdminAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'league.rules_update',

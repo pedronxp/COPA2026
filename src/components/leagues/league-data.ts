@@ -7,6 +7,7 @@ import type {
   LeagueRankingEntry,
   LeagueRole,
 } from './league-types';
+import { deriveOwnerEditState } from '@/lib/league-domain';
 
 const activeMembership = { status: 'active' };
 
@@ -40,6 +41,27 @@ function serializeMember(member: {
 function rankForUser(ranking: LeagueRankingEntry[], userId: string) {
   const index = ranking.findIndex((member) => member.id === userId);
   return index >= 0 ? index + 1 : null;
+}
+
+function serializeOwnerEdit(league: {
+  ownerEditUsedAt: Date | null;
+  ownerEditUsedById: string | null;
+  rulesLockedAt?: Date | null;
+}) {
+  const state = deriveOwnerEditState({
+    ownerEditUsedAt: league.ownerEditUsedAt,
+    ownerEditUsedById: league.ownerEditUsedById,
+    rulesLockedAt: league.rulesLockedAt ?? null,
+  });
+
+  return {
+    available: state.available,
+    usedAt: state.usedAt?.toISOString() ?? null,
+    usedById: state.usedById,
+    rulesLocked: state.rulesLocked,
+    lockReason: state.lockReason,
+    lockMessage: state.lockMessage,
+  };
 }
 
 type LeagueWithMembers = Awaited<ReturnType<typeof getOverviewRows>>[number];
@@ -107,6 +129,9 @@ function serializeCard(league: LeagueWithMembers, userId: string): LeagueCardDat
     pointsBothScoreNo: league.pointsBothScoreNo,
     lastPublishedAt: league.lastPublishedAt?.toISOString() ?? null,
     editedByOwner: league.editedByOwner,
+    ownerEdit: serializeOwnerEdit(league),
+    ownerEditUsedAt: league.ownerEditUsedAt?.toISOString() ?? null,
+    ownerEditUsedById: league.ownerEditUsedById,
   };
 }
 

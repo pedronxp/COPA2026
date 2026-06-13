@@ -1,7 +1,7 @@
 ## 1. Data and Domain
 
-- [ ] 1.1 Add nullable `League` fields to track owner edit consumption, timestamp, and actor.
-- [ ] 1.2 Generate a Prisma migration for the owner edit tracking fields.
+- [x] 1.1 Add nullable `League` fields to track owner edit consumption, timestamp, and actor.
+- [x] 1.2 Generate a Prisma migration for the owner edit tracking fields.
 - [ ] 1.3 Expose owner edit availability, used timestamp, and lock reason in league detail/projection data.
 - [ ] 1.4 Add domain helpers to determine whether an owner edit can be used, is blocked by prediction locks, or is already consumed.
 

@@ -8,6 +8,8 @@ import {
   LEAGUE_VISIBILITIES,
   LeagueValidationError,
   createLeagueSlug,
+  deriveOwnerEditState,
+  hasCompetitiveLeagueChange,
   isOneOf,
   normalizeInviteCode,
   validateLeagueConfiguration,
@@ -17,23 +19,6 @@ type DbClient = Prisma.TransactionClient;
 
 const ACTIVE_MEMBER = { status: 'active' } as const;
 const ADMIN_ROLES = new Set(['owner', 'subadmin']);
-const COMPETITIVE_FIELDS = new Set([
-  'scoringPreset',
-  'scoringStartMatchday',
-  'groupPublicationMode',
-  'knockoutPublicationMode',
-  'expiresAt',
-  'windowHours',
-  'maxEdits',
-  'pointsExact',
-  'pointsDiff',
-  'pointsWinner',
-  'pointsWinnerHome',
-  'pointsWinnerAway',
-  'pointsDraw',
-  'pointsBothScoreYes',
-  'pointsBothScoreNo',
-]);
 
 export class LeagueServiceError extends Error {
   constructor(
@@ -149,6 +134,27 @@ function scoringProjection(league: {
   };
 }
 
+function ownerEditProjection(league: {
+  ownerEditUsedAt: Date | null;
+  ownerEditUsedById: string | null;
+  rulesLockedAt?: Date | null;
+}) {
+  const state = deriveOwnerEditState({
+    ownerEditUsedAt: league.ownerEditUsedAt,
+    ownerEditUsedById: league.ownerEditUsedById,
+    rulesLockedAt: league.rulesLockedAt ?? null,
+  });
+
+  return {
+    available: state.available,
+    usedAt: state.usedAt,
+    usedById: state.usedById,
+    rulesLocked: state.rulesLocked,
+    lockReason: state.lockReason,
+    lockMessage: state.lockMessage,
+  };
+}
+
 function baseProjection(league: {
   id: string;
   slug: string | null;
@@ -162,6 +168,9 @@ function baseProjection(league: {
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  ownerEditUsedAt: Date | null;
+  ownerEditUsedById: string | null;
+  rulesLockedAt?: Date | null;
   owner: { id: string; name: string | null; image: string | null };
 }) {
   return {
@@ -185,6 +194,9 @@ function baseProjection(league: {
     ownerId: league.owner.id,
     ownerName: league.owner.name || 'Usuário',
     ownerImage: league.owner.image,
+    ownerEdit: ownerEditProjection(league),
+    ownerEditUsedAt: league.ownerEditUsedAt,
+    ownerEditUsedById: league.ownerEditUsedById,
   };
 }
 
@@ -698,13 +710,19 @@ export async function updateLeague(
 ) {
   return serializable(async (tx) => {
     const league = await requireLeague(tx, reference);
-    const actor = await requireAdmin(tx, league.id, userId);
+    await requireOwner(tx, league.id, userId);
 
-    if (league.editedByOwner) {
+    const existingOwnerEditState = deriveOwnerEditState({
+      ownerEditUsedAt: league.ownerEditUsedAt,
+      ownerEditUsedById: league.ownerEditUsedById,
+      rulesLockedAt: league.rulesLockedAt,
+    });
+    if (!existingOwnerEditState.available) {
       serviceError(
-        'Este bolão já foi configurado/editado uma vez pelo seu criador e está bloqueado para novas alterações.',
+        existingOwnerEditState.lockMessage ||
+          'A edição única deste bolão já foi usada.',
         409,
-        'ALREADY_EDITED_BY_OWNER',
+        'OWNER_EDIT_USED',
       );
     }
 
@@ -713,13 +731,6 @@ export async function updateLeague(
 
     if (!isOneOf(requestedStatus, LEAGUE_STATUSES)) {
       serviceError('Status do bolão inválido.', 400, 'VALIDATION_ERROR', 'status');
-    }
-    if (requestedStatus !== league.status && actor.role !== 'owner') {
-      serviceError(
-        'Apenas o dono pode alterar o status do bolão.',
-        403,
-        'OWNER_REQUIRED',
-      );
     }
     if (league.status === 'archived' && requestedStatus !== 'archived') {
       serviceError(
@@ -731,26 +742,26 @@ export async function updateLeague(
 
     const configuration = normalizeUpdate(league, input);
     const normalizedValues = configuration as Record<string, unknown>;
-    const competitiveChange = Object.keys(input).some(
-      (field) => {
-        if (!COMPETITIVE_FIELDS.has(field) || input[field] === undefined) {
-          return false;
-        }
-        const currentValue = league[field as keyof typeof league];
-        const nextValue = normalizedValues[field];
-        if (currentValue instanceof Date && nextValue instanceof Date) {
-          return currentValue.getTime() !== nextValue.getTime();
-        }
-        return currentValue !== nextValue;
-      },
+    const competitiveChange = hasCompetitiveLeagueChange(
+      input,
+      league as Record<string, unknown>,
+      normalizedValues,
     );
     if (competitiveChange) {
       const hasPredictions =
         league.rulesLockedAt !== null ||
         (await tx.prediction.count({ where: { leagueId: league.id }, take: 1 })) > 0;
       if (hasPredictions) {
+        const ownerEditState = deriveOwnerEditState({
+          ownerEditUsedAt: league.ownerEditUsedAt,
+          ownerEditUsedById: league.ownerEditUsedById,
+          rulesLockedAt: league.rulesLockedAt,
+          hasPredictions,
+          requestedCompetitiveChange: true,
+        });
         serviceError(
-          'As regras competitivas foram bloqueadas pelo primeiro palpite.',
+          ownerEditState.lockMessage ||
+            'As regras competitivas foram bloqueadas pelo primeiro palpite.',
           409,
           'RULES_LOCKED',
         );
@@ -769,8 +780,9 @@ export async function updateLeague(
       );
     }
 
-    return tx.league.update({
-      where: { id: league.id },
+    const consumedAt = new Date();
+    const result = await tx.league.updateMany({
+      where: { id: league.id, ownerEditUsedAt: null },
       data: {
         name: configuration.name,
         description: configuration.description,
@@ -795,7 +807,21 @@ export async function updateLeague(
         pointsBothScoreYes: configuration.pointsBothScoreYes,
         pointsBothScoreNo: configuration.pointsBothScoreNo,
         editedByOwner: true,
+        ownerEditUsedAt: consumedAt,
+        ownerEditUsedById: userId,
       },
+    });
+
+    if (result.count !== 1) {
+      serviceError(
+        'A edição única deste bolão já foi usada. Recarregue a página para ver o estado atual.',
+        409,
+        'OWNER_EDIT_USED',
+      );
+    }
+
+    return tx.league.findUniqueOrThrow({
+      where: { id: league.id },
       select: {
         id: true,
         slug: true,
@@ -825,6 +851,8 @@ export async function updateLeague(
         lastPublishedAt: true,
         updatedAt: true,
         editedByOwner: true,
+        ownerEditUsedAt: true,
+        ownerEditUsedById: true,
       },
     });
   });

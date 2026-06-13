@@ -12,6 +12,23 @@ export const GROUP_PUBLICATION_MODES = [
 ] as const;
 export const KNOCKOUT_PUBLICATION_MODES = ['match', 'stage', 'manual'] as const;
 export const LEAGUE_VISUAL_THEMES = ['pulse', 'stadium', 'classic'] as const;
+export const COMPETITIVE_LEAGUE_FIELDS = [
+  'scoringPreset',
+  'scoringStartMatchday',
+  'groupPublicationMode',
+  'knockoutPublicationMode',
+  'expiresAt',
+  'windowHours',
+  'maxEdits',
+  'pointsExact',
+  'pointsDiff',
+  'pointsWinner',
+  'pointsWinnerHome',
+  'pointsWinnerAway',
+  'pointsDraw',
+  'pointsBothScoreYes',
+  'pointsBothScoreNo',
+] as const;
 
 export type LeagueVisibility = (typeof LEAGUE_VISIBILITIES)[number];
 export type LeagueJoinPolicy = (typeof LEAGUE_JOIN_POLICIES)[number];
@@ -20,6 +37,8 @@ export type LeagueRole = (typeof LEAGUE_ROLES)[number];
 export type GroupPublicationMode = (typeof GROUP_PUBLICATION_MODES)[number];
 export type KnockoutPublicationMode = (typeof KNOCKOUT_PUBLICATION_MODES)[number];
 export type LeagueVisualTheme = (typeof LEAGUE_VISUAL_THEMES)[number];
+export type CompetitiveLeagueField = (typeof COMPETITIVE_LEAGUE_FIELDS)[number];
+export type OwnerEditLockReason = 'used' | 'rules_locked';
 
 export interface LeagueScoringRules {
   windowHours: number;
@@ -32,6 +51,84 @@ export interface LeagueScoringRules {
   pointsDraw: number;
   pointsBothScoreYes: number;
   pointsBothScoreNo: number;
+}
+
+export interface OwnerEditState {
+  available: boolean;
+  usedAt: Date | null;
+  usedById: string | null;
+  rulesLocked: boolean;
+  lockReason: OwnerEditLockReason | null;
+  lockMessage: string | null;
+}
+
+const COMPETITIVE_LEAGUE_FIELD_SET = new Set<string>(COMPETITIVE_LEAGUE_FIELDS);
+
+export function isCompetitiveLeagueField(field: string): field is CompetitiveLeagueField {
+  return COMPETITIVE_LEAGUE_FIELD_SET.has(field);
+}
+
+function valuesDiffer(currentValue: unknown, nextValue: unknown) {
+  if (currentValue instanceof Date && nextValue instanceof Date) {
+    return currentValue.getTime() !== nextValue.getTime();
+  }
+  return currentValue !== nextValue;
+}
+
+export function hasCompetitiveLeagueChange(
+  input: Record<string, unknown>,
+  current: Record<string, unknown>,
+  next: Record<string, unknown>,
+) {
+  return Object.keys(input).some((field) => {
+    if (!isCompetitiveLeagueField(field) || input[field] === undefined) {
+      return false;
+    }
+    return valuesDiffer(current[field], next[field]);
+  });
+}
+
+export function deriveOwnerEditState(input: {
+  ownerEditUsedAt: Date | null;
+  ownerEditUsedById: string | null;
+  rulesLockedAt?: Date | null;
+  hasPredictions?: boolean;
+  requestedCompetitiveChange?: boolean;
+}): OwnerEditState {
+  const rulesLocked = Boolean(input.rulesLockedAt || input.hasPredictions);
+
+  if (input.ownerEditUsedAt) {
+    return {
+      available: false,
+      usedAt: input.ownerEditUsedAt,
+      usedById: input.ownerEditUsedById,
+      rulesLocked,
+      lockReason: 'used',
+      lockMessage:
+        'A edição única deste bolão já foi usada. Novas alterações do dono estão bloqueadas.',
+    };
+  }
+
+  if (input.requestedCompetitiveChange && rulesLocked) {
+    return {
+      available: false,
+      usedAt: null,
+      usedById: null,
+      rulesLocked,
+      lockReason: 'rules_locked',
+      lockMessage:
+        'As regras competitivas foram bloqueadas pelo primeiro palpite. A edição única ainda pode ser usada apenas para dados gerais.',
+    };
+  }
+
+  return {
+    available: true,
+    usedAt: null,
+    usedById: null,
+    rulesLocked,
+    lockReason: null,
+    lockMessage: null,
+  };
 }
 
 export const SCORING_PRESETS = {

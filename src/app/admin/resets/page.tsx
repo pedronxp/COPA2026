@@ -89,10 +89,24 @@ export default async function AdminResetsPage({ searchParams }: PageProps<'/admi
                   <input type="hidden" name="requestId" value={request.id} />
                   <input name="reason" placeholder="Motivo da decisão" required minLength={3} />
                   <div className="admin-action-buttons">
-                    <button className="admin-icon-button ok" name="action" value="approve" title="Aprovar" type="submit">
+                    <button
+                      aria-label="Aprovar solicitação de senha"
+                      className="admin-icon-button ok"
+                      name="action"
+                      value="approve"
+                      title="Aprovar"
+                      type="submit"
+                    >
                       <i className="bi bi-check-lg" aria-hidden="true" />
                     </button>
-                    <button className="admin-icon-button danger" name="action" value="reject" title="Rejeitar" type="submit">
+                    <button
+                      aria-label="Rejeitar solicitação de senha"
+                      className="admin-icon-button danger"
+                      name="action"
+                      value="reject"
+                      title="Rejeitar"
+                      type="submit"
+                    >
                       <i className="bi bi-x-lg" aria-hidden="true" />
                     </button>
                   </div>

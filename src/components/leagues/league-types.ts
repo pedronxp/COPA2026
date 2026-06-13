@@ -1,4 +1,14 @@
 export type LeagueRole = 'owner' | 'subadmin' | 'member';
+export type OwnerEditLockReason = 'used' | 'rules_locked';
+
+export interface LeagueOwnerEditData {
+  available: boolean;
+  usedAt: string | null;
+  usedById: string | null;
+  rulesLocked: boolean;
+  lockReason: OwnerEditLockReason | null;
+  lockMessage: string | null;
+}
 
 export interface LeagueRankingEntry {
   id: string;
@@ -41,6 +51,9 @@ export interface LeagueCardData {
   pointsBothScoreNo: number;
   lastPublishedAt: string | null;
   editedByOwner: boolean;
+  ownerEdit: LeagueOwnerEditData;
+  ownerEditUsedAt: string | null;
+  ownerEditUsedById: string | null;
 }
 
 export interface LeagueCycleData {

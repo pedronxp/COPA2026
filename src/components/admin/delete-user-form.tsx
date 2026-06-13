@@ -30,6 +30,7 @@ export function DeleteUserForm({ userId, userName, userEmail }: DeleteUserFormPr
       />
       <button
         className="admin-icon-button danger"
+        aria-label="Excluir usuário"
         type="submit"
         title="Excluir usuario"
       >

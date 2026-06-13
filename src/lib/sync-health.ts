@@ -34,8 +34,8 @@ export function deriveSyncHealth(
     return {
       state: 'syncing',
       tone: 'warning',
-      title: 'Sincronizacao em andamento',
-      detail: 'A API esta sendo consultada e os jogos serao atualizados em seguida.',
+      title: 'Sincronização em andamento',
+      detail: 'A API está sendo consultada e os jogos serão atualizados em seguida.',
     };
   }
 
@@ -43,8 +43,8 @@ export function deriveSyncHealth(
     return {
       state: 'failed',
       tone: 'danger',
-      title: 'Sincronizacao interrompida',
-      detail: 'A ultima execucao iniciou, mas nao foi concluida em ate 15 minutos.',
+      title: 'Sincronização interrompida',
+      detail: 'A última execução iniciou, mas não foi concluída em até 15 minutos.',
     };
   }
 
@@ -52,8 +52,8 @@ export function deriveSyncHealth(
     return {
       state: 'failed',
       tone: 'danger',
-      title: 'Falha na ultima sincronizacao',
-      detail: schedule.lastError || latest?.error || 'A operacao falhou sem detalhe adicional.',
+      title: 'Falha na última sincronização',
+      detail: schedule.lastError || latest?.error || 'A operação falhou sem detalhe adicional.',
     };
   }
 
@@ -61,10 +61,10 @@ export function deriveSyncHealth(
     return {
       state: 'never',
       tone: 'neutral',
-      title: 'Sincronizacao ainda nao executada',
+      title: 'Sincronização ainda não executada',
       detail: schedule.enabled
-        ? 'O agendamento esta ativo e aguarda a primeira execucao.'
-        : 'Ative o agendamento ou execute uma sincronizacao manual.',
+        ? 'O agendamento está ativo e aguarda a primeira execução.'
+        : 'Ative o agendamento ou execute uma sincronização manual.',
     };
   }
 
@@ -73,8 +73,8 @@ export function deriveSyncHealth(
       state: 'degraded',
       tone: 'warning',
       title: latest.source === 'database'
-        ? 'API indisponivel, banco preservado'
-        : 'API indisponivel, backup utilizado',
+        ? 'API indisponível, banco preservado'
+        : 'API indisponível, backup utilizado',
       detail: latest.error || 'Os dados locais mantiveram o sistema operacional.',
     };
   }
@@ -85,8 +85,8 @@ export function deriveSyncHealth(
     return {
       state: 'stale',
       tone: 'warning',
-      title: 'Sincronizacao atrasada',
-      detail: `Nenhuma atualizacao bem-sucedida nos ultimos ${staleAfterMinutes} minutos.`,
+      title: 'Sincronização atrasada',
+      detail: `Nenhuma atualização bem-sucedida nos últimos ${staleAfterMinutes} minutos.`,
     };
   }
 
@@ -94,6 +94,6 @@ export function deriveSyncHealth(
     state: 'healthy',
     tone: 'ok',
     title: 'API sincronizada',
-    detail: 'A fonte principal respondeu e os dados estao dentro do intervalo esperado.',
+    detail: 'A fonte principal respondeu e os dados estão dentro do intervalo esperado.',
   };
 }

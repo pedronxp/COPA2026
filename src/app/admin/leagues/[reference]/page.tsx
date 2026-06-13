@@ -142,6 +142,42 @@ export default async function AdminLeagueGovernancePage({
         title="Regras de pontuação"
         description="Alterações exigem motivo e definem impacto sobre pontuações já processadas."
       >
+        <details className="admin-tutorial">
+          <summary className="admin-button secondary">
+            <i className="bi bi-question-circle" aria-hidden="true" />
+            Tutorial das regras
+          </summary>
+          <div className="admin-tutorial-body">
+            <strong>Como alterar regras com segurança</strong>
+            <ol>
+              <li>Revise o preset para partir de uma regra conhecida.</li>
+              <li>Ajuste início, janela e edições para controlar quando os palpites valem.</li>
+              <li>Defina os pontos de cada mercado para mudar o peso competitivo.</li>
+              <li>Escolha como a pontuação será publicada nas fases de grupos e mata-mata.</li>
+              <li>Use impacto futuro para próximas pontuações ou recalcular para refazer o histórico.</li>
+              <li>Informe o motivo para deixar a alteração registrada na auditoria.</li>
+            </ol>
+          </div>
+        </details>
+
+        <div className="admin-rules-explainer">
+          <article>
+            <span>1</span>
+            <strong>Base da regra</strong>
+            <small>Preset, início, janela e edições definem quando e como o bolão aceita palpites.</small>
+          </article>
+          <article>
+            <span>2</span>
+            <strong>Peso dos mercados</strong>
+            <small>Exato, saldo, vencedor, empate e bônus alteram quantos pontos cada acerto entrega.</small>
+          </article>
+          <article>
+            <span>3</span>
+            <strong>Publicação e impacto</strong>
+            <small>Grupos, mata-mata e impacto dizem quando o placar aparece e se o passado será recalculado.</small>
+          </article>
+        </div>
+
         <form className="admin-action-form admin-rules-form" action={updateLeagueRulesAction}>
           <HiddenContext league={league} />
           <label className="admin-field">
@@ -290,7 +326,12 @@ export default async function AdminLeagueGovernancePage({
                   <HiddenContext league={league} />
                   <input type="hidden" name="targetUserId" value={row.id} />
                   <input name="reason" required minLength={3} placeholder="Motivo" />
-                  <button className="admin-icon-button danger" type="submit" title="Zerar pontos">
+                  <button
+                    className="admin-icon-button danger"
+                    aria-label="Zerar pontos do participante"
+                    type="submit"
+                    title="Zerar pontos"
+                  >
                     <i className="bi bi-eraser" aria-hidden="true" />
                   </button>
                 </form>
@@ -299,7 +340,12 @@ export default async function AdminLeagueGovernancePage({
                     <HiddenContext league={league} />
                     <input type="hidden" name="targetUserId" value={row.id} />
                     <input name="reason" required minLength={3} placeholder="Motivo" />
-                    <button className="admin-icon-button danger" type="submit" title="Remover do bolão">
+                    <button
+                      className="admin-icon-button danger"
+                      aria-label="Remover participante do bolão"
+                      type="submit"
+                      title="Remover do bolão"
+                    >
                       <i className="bi bi-person-dash" aria-hidden="true" />
                     </button>
                   </form>
