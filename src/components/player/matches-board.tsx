@@ -1097,17 +1097,17 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                             })()
                           ) : (
                             item.prediction ? (
-                              <div className="matches-row-prediction-badge w-100">
-                                <div className="prediction-label-group">
+                              <div className="matches-row-prediction-badge w-100 flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2">
+                                <div className="prediction-label-group justify-content-center justify-content-sm-start">
                                   <span className="prediction-glow-dot" />
                                   <span className="prediction-score-text">
                                     Seu palpite: <strong>{item.prediction.homeGuess} x {item.prediction.awayGuess}</strong>
                                   </span>
                                 </div>
-                                <div className="d-flex gap-1.5 flex-shrink-0 align-items-center">
+                                <div className="d-flex gap-1.5 flex-shrink-0 align-items-center w-100 w-sm-auto justify-content-between justify-content-sm-end">
                                   <button
                                     type="button"
-                                    className="btn-view-group"
+                                    className="btn-view-group flex-grow-1 flex-sm-grow-0 justify-content-center"
                                     onClick={() =>
                                       setViewGroupPredictionsModal({
                                         match: item.match,
@@ -1120,7 +1120,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                   </button>
                                   <button
                                     type="button"
-                                    className={isSaved ? 'btn btn-neon-outline btn-sm' : 'btn btn-neon-green btn-sm'}
+                                    className={`${isSaved ? 'btn btn-neon-outline btn-sm' : 'btn btn-neon-green btn-sm'} flex-grow-1 flex-sm-grow-0 justify-content-center`}
                                     onClick={() => savePrediction(item)}
                                     disabled={disabled}
                                   >
@@ -1133,14 +1133,14 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                 </div>
                               </div>
                             ) : (
-                              <div className="d-flex align-items-center justify-content-between w-100 gap-2">
-                                <span className={item.reachedLimit ? 'danger' : 'text-secondary'} style={{ fontSize: '0.85rem' }}>
+                              <div className="d-flex flex-column flex-sm-row align-items-center justify-content-between w-100 gap-2">
+                                <span className={`${item.reachedLimit ? 'danger' : 'text-secondary'} text-center text-sm-start w-100 w-sm-auto`} style={{ fontSize: '0.85rem' }}>
                                   {item.reachedLimit ? 'Limite de alterações atingido' : 'Você ainda não palpitou'}
                                 </span>
-                                <div className="d-flex gap-1.5 align-items-center">
+                                <div className="d-flex gap-1.5 align-items-center w-100 w-sm-auto justify-content-between justify-content-sm-end">
                                   <button
                                     type="button"
-                                    className="btn-view-group"
+                                    className="btn-view-group flex-grow-1 flex-sm-grow-0 justify-content-center"
                                     onClick={() =>
                                       setViewGroupPredictionsModal({
                                         match: item.match,
@@ -1153,7 +1153,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                                   </button>
                                   <button
                                     type="button"
-                                    className="btn btn-neon-green btn-sm"
+                                    className="btn btn-neon-green btn-sm flex-grow-1 flex-sm-grow-0 justify-content-center"
                                     onClick={() => savePrediction(item)}
                                     disabled={disabled}
                                   >

@@ -6493,8 +6493,10 @@ body {
 
 /* Custom prediction preview and details modal styles */
 .matches-row-prediction-badge {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   background: rgba(16, 185, 129, 0.06);
   border: 1px solid rgba(16, 185, 129, 0.15);
@@ -6646,7 +6648,7 @@ body {
     gap: 12px;
   }
   .matches-row-prediction-badge {
-    justify-content: space-between;
+    padding: 10px;
   }
   .matches-row-footer .btn {
     width: 100%;
