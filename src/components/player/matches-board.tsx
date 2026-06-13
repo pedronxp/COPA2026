@@ -255,11 +255,13 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
       return;
     }
 
+    const targetMatchId = viewPredictionModal.match.id;
+
     async function loadMembers() {
       setLoadingMembers(true);
       setMemberLoadError(null);
       try {
-        const res = await fetch(`/api/predictions?leagueId=${activeLeague.id}&matchId=${viewPredictionModal.match.id}`);
+        const res = await fetch(`/api/predictions?leagueId=${activeLeague.id}&matchId=${targetMatchId}`);
         const resData = await res.json();
         if (!res.ok) {
           throw new Error(resData.error || 'Não foi possível carregar os palpites dos outros membros.');
