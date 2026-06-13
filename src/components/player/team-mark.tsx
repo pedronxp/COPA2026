@@ -1,3 +1,5 @@
+'use client';
+
 /* eslint-disable @next/next/no-img-element */
 import { getFlagIsoCode } from '@/lib/emoji-flags';
 import { translateTeamName } from '@/lib/team-translation';
