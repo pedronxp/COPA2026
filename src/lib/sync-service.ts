@@ -10,7 +10,7 @@ function nextRun(intervalMinutes: number) {
 }
 
 function message(error: unknown) {
-  return error instanceof Error ? error.message : 'Erro desconhecido na sincronizacao.';
+  return error instanceof Error ? error.message : 'Erro desconhecido na sincronização.';
 }
 
 export async function getSyncSchedule() {
@@ -31,7 +31,7 @@ export async function updateSyncSchedule(input: {
   intervalMinutes: number;
 }) {
   if (!SYNC_INTERVALS.includes(input.intervalMinutes as (typeof SYNC_INTERVALS)[number])) {
-    throw new Error('Intervalo de sincronizacao invalido.');
+    throw new Error('Intervalo de sincronização inválido.');
   }
 
   return prisma.syncSchedule.upsert({
@@ -147,6 +147,51 @@ export async function runDueScheduledSync() {
 
   if (claimed.count === 0) {
     return { executed: false, nextRunAt: schedule.nextRunAt, reason: 'already_claimed' };
+  }
+
+  const runningSchedule = await prisma.syncSchedule.findUniqueOrThrow({
+    where: { id: schedule.id },
+  });
+  const report = await completeSync(runningSchedule, 'scheduled');
+  return { executed: true, report };
+}
+
+export async function runDemandSyncIfNeeded() {
+  const schedule = await getSyncSchedule();
+  const now = new Date();
+
+  // Cooldown de 5 minutos para sincronização sob demanda
+  const COOLDOWN_MS = 5 * 60 * 1000;
+  const lastAttemptTime = schedule.lastAttemptAt ? new Date(schedule.lastAttemptAt).getTime() : 0;
+
+  if (now.getTime() - lastAttemptTime < COOLDOWN_MS) {
+    return {
+      executed: false,
+      reason: 'cooldown_active',
+      lastAttemptAt: schedule.lastAttemptAt,
+      nextAvailableAt: new Date(lastAttemptTime + COOLDOWN_MS),
+    };
+  }
+
+  // Trava concorrente atômica no banco de dados
+  const claimed = await prisma.syncSchedule.updateMany({
+    where: {
+      id: schedule.id,
+      OR: [
+        { lastAttemptAt: null },
+        { lastAttemptAt: { lte: new Date(now.getTime() - COOLDOWN_MS) } }
+      ]
+    },
+    data: {
+      lastAttemptAt: now,
+      lastStatus: 'running',
+      lastError: null,
+      nextRunAt: schedule.enabled ? new Date(now.getTime() + schedule.intervalMinutes * 60 * 1000) : null,
+    },
+  });
+
+  if (claimed.count === 0) {
+    return { executed: false, reason: 'already_claimed' };
   }
 
   const runningSchedule = await prisma.syncSchedule.findUniqueOrThrow({

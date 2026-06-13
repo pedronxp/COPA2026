@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { SessionUser } from '@/lib/session';
 import type { ActiveLeagueContext } from '@/lib/active-league';
@@ -35,6 +35,24 @@ export function PlayerAppShell({
   const secondaryMobileItems = playerNavigationItems.filter((item) => !item.mobilePrimary);
   const hasActiveSecondaryItem = secondaryMobileItems.some((item) => item.route === activeRoute);
   const canAccessAdmin = isAdminRole(user.adminRole);
+
+  useEffect(() => {
+    // Dispara a sincronização silenciosa em background se necessário
+    const triggerSync = async () => {
+      try {
+        const lastSyncRun = localStorage.getItem('last_sync_trigger');
+        const now = Date.now();
+        // Cooldown de 5 minutos no cliente para evitar chamadas de rede desnecessárias
+        if (!lastSyncRun || now - Number(lastSyncRun) > 5 * 60 * 1000) {
+          localStorage.setItem('last_sync_trigger', String(now));
+          await fetch('/api/sync/trigger', { method: 'POST' }).catch(() => {});
+        }
+      } catch (err) {
+        console.error('Falha ao acionar sync sob demanda:', err);
+      }
+    };
+    triggerSync();
+  }, []);
 
   const handleLogout = async () => {
     try {
