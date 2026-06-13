@@ -73,7 +73,7 @@ describe('/api/predictions', () => {
     });
   });
 
-  it('rejects incomplete market payloads before saving', async () => {
+  it('allows optional market payloads when saving', async () => {
     const { POST } = await import('./route');
 
     const response = await POST(
@@ -81,12 +81,20 @@ describe('/api/predictions', () => {
         matchId: 'match-1',
         homeGuess: 2,
         awayGuess: 1,
-        resultPick: 'home',
       }),
     );
 
-    expect(response.status).toBe(400);
-    expect(saveLeaguePredictionMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(saveLeaguePredictionMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      matchId: 'match-1',
+      homeGuess: 2,
+      awayGuess: 1,
+      resultPick: null,
+      totalGoalsPick: null,
+      bothTeamsScorePick: null,
+      leagueId: 'global',
+    });
   });
 
   it('returns validation errors for unsupported total-goals values', async () => {

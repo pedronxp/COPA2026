@@ -200,10 +200,7 @@ export async function POST(request: Request) {
     if (
       !matchId ||
       homeGuess === undefined ||
-      awayGuess === undefined ||
-      resultPick === undefined ||
-      totalGoalsPick === undefined ||
-      bothTeamsScorePick === undefined
+      awayGuess === undefined
     ) {
       return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
     }
@@ -213,9 +210,9 @@ export async function POST(request: Request) {
       matchId,
       homeGuess,
       awayGuess,
-      resultPick,
-      totalGoalsPick,
-      bothTeamsScorePick,
+      resultPick: resultPick ?? null,
+      totalGoalsPick: totalGoalsPick ?? null,
+      bothTeamsScorePick: bothTeamsScorePick ?? null,
       leagueId,
     });
     return NextResponse.json(prediction);

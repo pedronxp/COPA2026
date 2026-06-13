@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { parsePredictionMarketPicks } from '@/lib/prediction-markets';
+import {
+  isResultPick,
+  isTotalGoalsPick,
+  isBothTeamsScorePick,
+} from '@/lib/prediction-markets';
 
 export async function saveLeaguePrediction(input: {
   userId: string;
@@ -33,18 +37,54 @@ export async function saveLeaguePrediction(input: {
     throw new Error('O placar deve conter números inteiros entre 0 e 99.');
   }
 
-  const marketPicks = parsePredictionMarketPicks({
-    resultPick,
-    totalGoalsPick,
-    bothTeamsScorePick,
-  });
-
   const [league, match] = await Promise.all([
     prisma.league.findUnique({ where: { id: leagueId } }),
     prisma.match.findUnique({ where: { id: matchId } }),
   ]);
   if (!league) throw new Error('Bolão não encontrado.');
   if (!match) throw new Error('Partida não encontrada.');
+
+  // Validação dinâmica com base nas regras de pontuação do bolão
+  const isResultRequired =
+    (league.pointsWinner ?? 0) > 0 ||
+    (league.pointsWinnerHome ?? 0) > 0 ||
+    (league.pointsWinnerAway ?? 0) > 0 ||
+    (league.pointsDraw ?? 0) > 0;
+  const isTotalGoalsRequired = (league.pointsDiff ?? 0) > 0;
+  const isBothTeamsScoreRequired =
+    (league.pointsBothScoreYes ?? 0) > 0 || (league.pointsBothScoreNo ?? 0) > 0;
+
+  let validatedResultPick: string | null = null;
+  let validatedTotalGoalsPick: string | null = null;
+  let validatedBothTeamsScorePick: string | null = null;
+
+  if (isResultRequired) {
+    if (!isResultPick(resultPick)) {
+      throw new Error('Escolha o resultado: casa vence, empate ou fora vence.');
+    }
+    validatedResultPick = resultPick;
+  } else {
+    validatedResultPick = isResultPick(resultPick) ? resultPick : null;
+  }
+
+  if (isTotalGoalsRequired) {
+    if (!isTotalGoalsPick(totalGoalsPick)) {
+      throw new Error('Escolha uma opção válida de total de gols.');
+    }
+    validatedTotalGoalsPick = totalGoalsPick;
+  } else {
+    validatedTotalGoalsPick = isTotalGoalsPick(totalGoalsPick) ? totalGoalsPick : null;
+  }
+
+  if (isBothTeamsScoreRequired) {
+    if (!isBothTeamsScorePick(bothTeamsScorePick)) {
+      throw new Error('Escolha se ambas marcam: sim ou não.');
+    }
+    validatedBothTeamsScorePick = bothTeamsScorePick;
+  } else {
+    validatedBothTeamsScorePick = isBothTeamsScorePick(bothTeamsScorePick) ? bothTeamsScorePick : null;
+  }
+
   if (league.status !== 'active' || league.expiresAt <= new Date()) {
     throw new Error('Este bolão não está aceitando novos palpites.');
   }
@@ -80,9 +120,9 @@ export async function saveLeaguePrediction(input: {
             leagueId,
             homeGuess,
             awayGuess,
-            resultPick: marketPicks.resultPick,
-            totalGoalsPick: marketPicks.totalGoalsPick,
-            bothTeamsScorePick: marketPicks.bothTeamsScorePick,
+            resultPick: validatedResultPick,
+            totalGoalsPick: validatedTotalGoalsPick,
+            bothTeamsScorePick: validatedBothTeamsScorePick,
           },
         });
         await tx.league.updateMany({
@@ -106,9 +146,9 @@ export async function saveLeaguePrediction(input: {
         data: {
           homeGuess,
           awayGuess,
-          resultPick: marketPicks.resultPick,
-          totalGoalsPick: marketPicks.totalGoalsPick,
-          bothTeamsScorePick: marketPicks.bothTeamsScorePick,
+          resultPick: validatedResultPick,
+          totalGoalsPick: validatedTotalGoalsPick,
+          bothTeamsScorePick: validatedBothTeamsScorePick,
           editCount: { increment: 1 },
         },
       });

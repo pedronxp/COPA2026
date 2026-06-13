@@ -607,10 +607,28 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
       setMessage({ type: 'danger', text: 'Preencha os dois placares antes de salvar.' });
       return;
     }
-    if (!picks?.resultPick || !picks.totalGoalsPick || !picks.bothTeamsScorePick) {
+    const isResultRequired =
+      (activeLeague.pointsWinner ?? 0) > 0 ||
+      (activeLeague.pointsWinnerHome ?? 0) > 0 ||
+      (activeLeague.pointsWinnerAway ?? 0) > 0 ||
+      (activeLeague.pointsDraw ?? 0) > 0;
+    const isTotalGoalsRequired = (activeLeague.pointsDiff ?? 0) > 0;
+    const isBothTeamsScoreRequired =
+      (activeLeague.pointsBothScoreYes ?? 0) > 0 || (activeLeague.pointsBothScoreNo ?? 0) > 0;
+
+    if (
+      (isResultRequired && !picks?.resultPick) ||
+      (isTotalGoalsRequired && !picks?.totalGoalsPick) ||
+      (isBothTeamsScoreRequired && !picks?.bothTeamsScorePick)
+    ) {
+      const missing = [];
+      if (isResultRequired && !picks?.resultPick) missing.push('resultado');
+      if (isTotalGoalsRequired && !picks?.totalGoalsPick) missing.push('total de gols');
+      if (isBothTeamsScoreRequired && !picks?.bothTeamsScorePick) missing.push('ambas marcam');
+
       setMessage({
         type: 'danger',
-        text: 'Escolha resultado, total de gols e ambas marcam antes de salvar.',
+        text: `Escolha ${missing.join(', ')} antes de salvar.`,
       });
       return;
     }
@@ -625,9 +643,9 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           matchId: item.match.id,
           homeGuess: Number(guess.home),
           awayGuess: Number(guess.away),
-          resultPick: picks.resultPick,
-          totalGoalsPick: picks.totalGoalsPick,
-          bothTeamsScorePick: picks.bothTeamsScorePick,
+          resultPick: isResultRequired ? picks.resultPick : null,
+          totalGoalsPick: isTotalGoalsRequired ? picks.totalGoalsPick : null,
+          bothTeamsScorePick: isBothTeamsScoreRequired ? picks.bothTeamsScorePick : null,
           leagueId: activeLeague.id,
         }),
       });
@@ -665,7 +683,7 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
           <span className="player-kicker">Palpites</span>
           <h2>Central de partidas</h2>
           <p>
-            Faça seus palpites no {activeLeague.name}. Toque em uma regra para entender como ela pontua antes de salvar.
+            Você está palpitando no bolão: <strong className="text-warning fw-bold">{activeLeague.name}</strong>. Toque em uma regra para entender como ela pontua antes de salvar.
           </p>
           <div className="matches-score-guide" aria-label="Guia rápido de pontuação">
             <span><i className="bi bi-bullseye" aria-hidden="true" /> Placar exato: gols iguais ao jogo</span>
@@ -864,66 +882,84 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                             />
                           </div>
 
-                          <div className="matches-market-selectors">
-                            <label>
-                              <span>Resultado</span>
-                              <select
-                                value={picks.resultPick}
-                                onChange={(event) =>
-                                  setMarketPick(item.match.id, 'resultPick', event.target.value)
-                                }
-                                disabled={!item.canEdit}
-                                aria-label={`Resultado para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
-                              >
-                                <option value="">Escolha</option>
-                                {(['home', 'draw', 'away'] as const).map((value) => (
-                                  <option key={value} value={value}>
-                                    {RESULT_PICK_LABELS[value]}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label>
-                              <span>Total de gols</span>
-                              <select
-                                value={picks.totalGoalsPick}
-                                onChange={(event) =>
-                                  setMarketPick(item.match.id, 'totalGoalsPick', event.target.value)
-                                }
-                                disabled={!item.canEdit}
-                                aria-label={`Total de gols para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
-                              >
-                                <option value="">Escolha</option>
-                                {TOTAL_GOALS_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label} - {option.description}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label>
-                              <span>Ambas marcam</span>
-                              <select
-                                value={picks.bothTeamsScorePick}
-                                onChange={(event) =>
-                                  setMarketPick(
-                                    item.match.id,
-                                    'bothTeamsScorePick',
-                                    event.target.value,
-                                  )
-                                }
-                                disabled={!item.canEdit}
-                                aria-label={`Ambas marcam para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
-                              >
-                                <option value="">Escolha</option>
-                                {(['yes', 'no'] as const).map((value) => (
-                                  <option key={value} value={value}>
-                                    {BOTH_TEAMS_SCORE_LABELS[value]}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
+                          {((activeLeague.pointsWinner ?? 0) > 0 ||
+                            (activeLeague.pointsWinnerHome ?? 0) > 0 ||
+                            (activeLeague.pointsWinnerAway ?? 0) > 0 ||
+                            (activeLeague.pointsDraw ?? 0) > 0 ||
+                            (activeLeague.pointsDiff ?? 0) > 0 ||
+                            (activeLeague.pointsBothScoreYes ?? 0) > 0 ||
+                            (activeLeague.pointsBothScoreNo ?? 0) > 0) && (
+                            <div className="matches-market-selectors">
+                              {((activeLeague.pointsWinner ?? 0) > 0 ||
+                                (activeLeague.pointsWinnerHome ?? 0) > 0 ||
+                                (activeLeague.pointsWinnerAway ?? 0) > 0 ||
+                                (activeLeague.pointsDraw ?? 0) > 0) && (
+                                <label>
+                                  <span>Resultado</span>
+                                  <select
+                                    value={picks.resultPick}
+                                    onChange={(event) =>
+                                      setMarketPick(item.match.id, 'resultPick', event.target.value)
+                                    }
+                                    disabled={!item.canEdit}
+                                    aria-label={`Resultado para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                                  >
+                                    <option value="">Escolha</option>
+                                    {(['home', 'draw', 'away'] as const).map((value) => (
+                                      <option key={value} value={value}>
+                                        {RESULT_PICK_LABELS[value]}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                              {(activeLeague.pointsDiff ?? 0) > 0 && (
+                                <label>
+                                  <span>Total de gols</span>
+                                  <select
+                                    value={picks.totalGoalsPick}
+                                    onChange={(event) =>
+                                      setMarketPick(item.match.id, 'totalGoalsPick', event.target.value)
+                                    }
+                                    disabled={!item.canEdit}
+                                    aria-label={`Total de gols para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                                  >
+                                    <option value="">Escolha</option>
+                                    {TOTAL_GOALS_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label} - {option.description}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                              {((activeLeague.pointsBothScoreYes ?? 0) > 0 ||
+                                (activeLeague.pointsBothScoreNo ?? 0) > 0) && (
+                                <label>
+                                  <span>Ambas marcam</span>
+                                  <select
+                                    value={picks.bothTeamsScorePick}
+                                    onChange={(event) =>
+                                      setMarketPick(
+                                        item.match.id,
+                                        'bothTeamsScorePick',
+                                        event.target.value,
+                                      )
+                                    }
+                                    disabled={!item.canEdit}
+                                    aria-label={`Ambas marcam para ${item.match.homeTeam} contra ${item.match.awayTeam}`}
+                                  >
+                                    <option value="">Escolha</option>
+                                    {(['yes', 'no'] as const).map((value) => (
+                                      <option key={value} value={value}>
+                                        {BOTH_TEAMS_SCORE_LABELS[value]}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -1269,43 +1305,52 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
               </div>
             </div>
 
-            {/* Markets details */}
             <div className="d-flex flex-column gap-2 mb-4">
-              <div className="prediction-detail-market-card">
-                <div className="market-card-left">
-                  <div className="market-card-icon">
-                    <i className="bi bi-flag" aria-hidden="true" />
+              {((activeLeague.pointsWinner ?? 0) > 0 ||
+                (activeLeague.pointsWinnerHome ?? 0) > 0 ||
+                (activeLeague.pointsWinnerAway ?? 0) > 0 ||
+                (activeLeague.pointsDraw ?? 0) > 0) && (
+                <div className="prediction-detail-market-card">
+                  <div className="market-card-left">
+                    <div className="market-card-icon">
+                      <i className="bi bi-flag" aria-hidden="true" />
+                    </div>
+                    <span>Resultado</span>
                   </div>
-                  <span>Resultado</span>
+                  <div className="market-card-value">
+                    {formatResultPick(viewPredictionModal.prediction.resultPick)}
+                  </div>
                 </div>
-                <div className="market-card-value">
-                  {formatResultPick(viewPredictionModal.prediction.resultPick)}
-                </div>
-              </div>
+              )}
 
-              <div className="prediction-detail-market-card">
-                <div className="market-card-left">
-                  <div className="market-card-icon">
-                    <i className="bi bi-arrows-expand" aria-hidden="true" />
+              {(activeLeague.pointsDiff ?? 0) > 0 && (
+                <div className="prediction-detail-market-card">
+                  <div className="market-card-left">
+                    <div className="market-card-icon">
+                      <i className="bi bi-arrows-expand" aria-hidden="true" />
+                    </div>
+                    <span>Total de Gols</span>
                   </div>
-                  <span>Total de Gols</span>
+                  <div className="market-card-value">
+                    {formatTotalGoalsPick(viewPredictionModal.prediction.totalGoalsPick)}
+                  </div>
                 </div>
-                <div className="market-card-value">
-                  {formatTotalGoalsPick(viewPredictionModal.prediction.totalGoalsPick)}
-                </div>
-              </div>
+              )}
 
-              <div className="prediction-detail-market-card">
-                <div className="market-card-left">
-                  <div className="market-card-icon">
-                    <i className="bi bi-check2-circle" aria-hidden="true" />
+              {((activeLeague.pointsBothScoreYes ?? 0) > 0 ||
+                (activeLeague.pointsBothScoreNo ?? 0) > 0) && (
+                <div className="prediction-detail-market-card">
+                  <div className="market-card-left">
+                    <div className="market-card-icon">
+                      <i className="bi bi-check2-circle" aria-hidden="true" />
+                    </div>
+                    <span>Ambas Marcam</span>
                   </div>
-                  <span>Ambas Marcam</span>
+                  <div className="market-card-value">
+                    {formatBothTeamsScorePick(viewPredictionModal.prediction.bothTeamsScorePick)}
+                  </div>
                 </div>
-                <div className="market-card-value">
-                  {formatBothTeamsScorePick(viewPredictionModal.prediction.bothTeamsScorePick)}
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Highlight points or edit count */}
