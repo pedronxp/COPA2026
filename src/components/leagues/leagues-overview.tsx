@@ -38,6 +38,19 @@ function LeagueCard({ league, mine }: { league: LeagueCardData; mine: boolean })
               <i className={`bi bi-${league.visibility === 'public' ? 'globe-americas' : 'lock-fill'}`}></i>
               {league.visibility === 'public' ? 'Público' : 'Privado'}
             </span>
+            {mine && league.status === 'active' && (
+              typeof league.pendingPredictionsCount === 'number' && league.pendingPredictionsCount > 0 ? (
+                <span className="league-predictions-pending">
+                  <i className="bi bi-clock-history" aria-hidden="true"></i>
+                  {league.pendingPredictionsCount} {league.pendingPredictionsCount === 1 ? 'palpite pendente' : 'palpites pendentes'}
+                </span>
+              ) : (
+                <span className="league-predictions-done">
+                  <i className="bi bi-check-circle-fill" aria-hidden="true"></i>
+                  Palpites em dia
+                </span>
+              )
+            )}
           </div>
           <h3>{league.name}</h3>
           <p>{league.description || `Bolão de ${league.ownerName}`}</p>

@@ -298,7 +298,7 @@ export function validateLeagueConfiguration(input: Record<string, unknown>) {
   )
     ? input.knockoutPublicationMode
     : 'match';
-  const expiresAt = input.expiresAt
+  const expiresAt = input.expiresAt && String(input.expiresAt).trim() !== ''
     ? new Date(String(input.expiresAt))
     : new Date('2026-08-01T00:00:00Z');
 
@@ -318,7 +318,7 @@ export function validateLeagueConfiguration(input: Record<string, unknown>) {
     visualTheme,
     scoringPreset,
     status: 'active' as const,
-    maxMembers: boundedInteger(input.maxMembers, 50, 2, 50, 'maxMembers'),
+    maxMembers: boundedInteger(input.maxMembers, 50, 2, 10000, 'maxMembers'),
     scoringStartMatchday: boundedInteger(
       input.scoringStartMatchday,
       1,

@@ -40,9 +40,9 @@ describe('league domain', () => {
     expect(result.pointsBothScoreNo).toBe(1);
   });
 
-  it('rejects member limits above 50', () => {
+  it('rejects member limits above 10000', () => {
     expect(() =>
-      validateLeagueConfiguration({ name: 'Liga Cheia', maxMembers: 51 }),
+      validateLeagueConfiguration({ name: 'Liga Cheia', maxMembers: 10001 }),
     ).toThrow(/maxMembers/);
   });
 

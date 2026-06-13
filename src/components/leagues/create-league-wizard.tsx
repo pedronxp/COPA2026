@@ -88,7 +88,7 @@ export function CreateLeagueWizard() {
 
   const canContinue = useMemo(() => {
     if (step === 0) return data.name.trim().length >= 3 && data.name.trim().length <= 80;
-    if (step === 1) return data.maxMembers >= 2 && data.maxMembers <= 50;
+    if (step === 1) return data.maxMembers >= 2 && data.maxMembers <= 10000;
     return true;
   }, [data.maxMembers, data.name, step]);
 
@@ -248,7 +248,7 @@ export function CreateLeagueWizard() {
             <div className="league-field-grid">
               <label className="league-field">
                 <span>Limite de participantes</span>
-                <input type="number" min={2} max={50} value={data.maxMembers} onChange={(event) => update('maxMembers', Number(event.target.value))} />
+                <input type="number" min={2} max={10000} value={data.maxMembers} onChange={(event) => update('maxMembers', Number(event.target.value))} />
               </label>
               <label className="league-field">
                 <span>Encerramento</span>

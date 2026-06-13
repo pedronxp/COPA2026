@@ -25,6 +25,9 @@ import {
   formatBothTeamsScorePick,
   formatResultPick,
   formatTotalGoalsPick,
+  deriveBothTeamsScorePick,
+  deriveResultPick,
+  deriveTotalGoalsPick,
   type BothTeamsScorePick,
   type ResultPick,
   type TotalGoalsPick,
@@ -266,27 +269,67 @@ function formatMatchday(matchday: string | null | undefined) {
 }
 
 function buildInitialGuesses(data: PlayerRouteData) {
+  const predictionMap = new Map(data.predictions.map((p) => [p.matchId, p]));
   return Object.fromEntries(
-    data.predictions.map((prediction) => [
-      prediction.matchId,
-      {
-        home: String(prediction.homeGuess),
-        away: String(prediction.awayGuess),
-      },
-    ]),
+    data.matches.map((match) => {
+      const pred = predictionMap.get(match.id);
+      if (pred) {
+        return [
+          match.id,
+          {
+            home: String(pred.homeGuess),
+            away: String(pred.awayGuess),
+          },
+        ];
+      }
+      if (match.status === 'finished' && match.homeScore !== null && match.awayScore !== null) {
+        return [
+          match.id,
+          {
+            home: String(match.homeScore),
+            away: String(match.awayScore),
+          },
+        ];
+      }
+      return [match.id, { home: '', away: '' }];
+    })
   ) as Record<string, { home: string; away: string }>;
 }
 
 function buildInitialMarketPicks(data: PlayerRouteData) {
+  const predictionMap = new Map(data.predictions.map((p) => [p.matchId, p]));
   return Object.fromEntries(
-    data.predictions.map((prediction) => [
-      prediction.matchId,
-      {
-        resultPick: prediction.resultPick,
-        totalGoalsPick: prediction.totalGoalsPick,
-        bothTeamsScorePick: prediction.bothTeamsScorePick,
-      },
-    ]),
+    data.matches.map((match) => {
+      const pred = predictionMap.get(match.id);
+      if (pred) {
+        return [
+          match.id,
+          {
+            resultPick: pred.resultPick,
+            totalGoalsPick: pred.totalGoalsPick,
+            bothTeamsScorePick: pred.bothTeamsScorePick,
+          },
+        ];
+      }
+      if (match.status === 'finished' && match.homeScore !== null && match.awayScore !== null) {
+        return [
+          match.id,
+          {
+            resultPick: deriveResultPick(match.homeScore, match.awayScore),
+            totalGoalsPick: deriveTotalGoalsPick(match.homeScore, match.awayScore),
+            bothTeamsScorePick: deriveBothTeamsScorePick(match.homeScore, match.awayScore),
+          },
+        ];
+      }
+      return [
+        match.id,
+        {
+          resultPick: '',
+          totalGoalsPick: '',
+          bothTeamsScorePick: '',
+        },
+      ];
+    })
   ) as Record<
     string,
     {
@@ -434,7 +477,7 @@ function renderRuleIcon(ruleKey: string, className = "football-rule-icon") {
 export function MatchesBoard({ data }: MatchesBoardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [filter, setFilter] = useState<MatchFilterValue>('all');
+  const [filter, setFilter] = useState<MatchFilterValue>('open');
   const [initialNow] = useState(data.generatedAt);
   const [guesses, setGuesses] = useState(buildInitialGuesses(data));
   const [marketPicks, setMarketPicks] = useState(buildInitialMarketPicks(data));
@@ -895,80 +938,158 @@ export function MatchesBoard({ data }: MatchesBoardProps) {
                         <MatchStatsBar item={item} />
 
                         <footer className="matches-row-footer">
-                          {item.prediction ? (
-                            <div className="matches-row-prediction-badge">
-                              <div className="prediction-label-group">
-                                <span className="prediction-glow-dot" />
-                                <span className="prediction-score-text">
-                                  Seu palpite: <strong>{item.prediction.homeGuess} x {item.prediction.awayGuess}</strong>
-                                </span>
-                              </div>
-                              <div className="d-flex gap-1.5 flex-shrink-0">
-                                <button
-                                  type="button"
-                                  className="btn-view-prediction"
-                                  onClick={() =>
-                                    setViewPredictionModal({
-                                      match: item.match,
-                                      prediction: item.prediction!,
-                                      editCount: item.prediction!.editCount,
-                                      maxEdits: activeLeague.maxEdits,
-                                    })
-                                  }
-                                  title="Ver detalhes do palpite"
-                                >
-                                  <i className="bi bi-eye" aria-hidden="true" />
-                                  <span>Visualizar</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-view-group"
-                                  onClick={() =>
-                                    setViewGroupPredictionsModal({
-                                      match: item.match,
-                                    })
-                                  }
-                                  title="Ver palpites do grupo"
-                                >
-                                  <i className="bi bi-people" aria-hidden="true" />
-                                  <span>Grupo</span>
-                                </button>
-                              </div>
-                            </div>
+                          {item.match.status === 'finished' ? (
+                            (() => {
+                              const scoreDetails = item.prediction
+                                ? calculatePredictionScore(
+                                    item.prediction.homeGuess,
+                                    item.prediction.awayGuess,
+                                    item.match.homeScore!,
+                                    item.match.awayScore!,
+                                    activeLeague,
+                                    {
+                                      resultPick: item.prediction.resultPick as any,
+                                      totalGoalsPick: item.prediction.totalGoalsPick as any,
+                                      bothTeamsScorePick: item.prediction.bothTeamsScorePick as any,
+                                    }
+                                  )
+                                : null;
+
+                              return item.prediction ? (
+                                <div className="w-100">
+                                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <div className="d-flex flex-column gap-1 align-items-start">
+                                      <span className="prediction-score-text" style={{ fontSize: '0.85rem' }}>
+                                        Seu palpite: <strong>{item.prediction.homeGuess} x {item.prediction.awayGuess}</strong>
+                                      </span>
+                                      <small className="text-secondary" style={{ fontSize: '0.72rem' }}>
+                                        Resultado oficial: {item.match.homeScore} x {item.match.awayScore}
+                                      </small>
+                                      {scoreDetails && (
+                                        <div className="d-flex align-items-center gap-2 mt-0.5">
+                                          <span className="badge py-1 px-1.5 rounded" style={{
+                                            background: scoreDetails.total > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.15)',
+                                            color: scoreDetails.total > 0 ? '#10b981' : '#94a3b8',
+                                            border: scoreDetails.total > 0 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(100, 116, 139, 0.2)',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700'
+                                          }}>
+                                            +{scoreDetails.total} pts
+                                          </span>
+                                          {renderCompactScoreBadges(scoreDetails)}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="btn-view-group"
+                                      onClick={() =>
+                                        setViewGroupPredictionsModal({
+                                          match: item.match,
+                                        })
+                                      }
+                                      title="Ver palpites do grupo"
+                                    >
+                                      <i className="bi bi-people" aria-hidden="true" />
+                                      <span>Grupo</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-100 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                  <div className="d-flex flex-column align-items-start gap-1">
+                                    <span className="text-warning" style={{ fontSize: '0.8rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <i className="bi bi-exclamation-triangle-fill"></i>
+                                      Você não fez este palpite
+                                    </span>
+                                    <small className="text-secondary" style={{ fontSize: '0.72rem' }}>
+                                      O resultado oficial foi: {item.match.homeScore} x {item.match.awayScore}
+                                    </small>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="btn-view-group"
+                                    onClick={() =>
+                                      setViewGroupPredictionsModal({
+                                        match: item.match,
+                                      })
+                                    }
+                                    title="Ver palpites do grupo"
+                                  >
+                                    <i className="bi bi-people" aria-hidden="true" />
+                                    <span>Grupo</span>
+                                  </button>
+                                </div>
+                              );
+                            })()
                           ) : (
-                            <div className="d-flex align-items-center justify-content-between w-100 gap-2">
-                              <span className={item.reachedLimit ? 'danger' : 'text-secondary'} style={{ fontSize: '0.85rem' }}>
-                                {item.reachedLimit ? 'Limite de alterações atingido' : 'Você ainda não palpitou'}
-                              </span>
-                              <button
-                                type="button"
-                                className="btn-view-group"
-                                onClick={() =>
-                                  setViewGroupPredictionsModal({
-                                    match: item.match,
-                                  })
-                                }
-                                title="Ver palpites do grupo"
-                              >
-                                <i className="bi bi-people" aria-hidden="true" />
-                                <span>Grupo</span>
-                              </button>
-                            </div>
+                            item.prediction ? (
+                              <div className="matches-row-prediction-badge w-100">
+                                <div className="prediction-label-group">
+                                  <span className="prediction-glow-dot" />
+                                  <span className="prediction-score-text">
+                                    Seu palpite: <strong>{item.prediction.homeGuess} x {item.prediction.awayGuess}</strong>
+                                  </span>
+                                </div>
+                                <div className="d-flex gap-1.5 flex-shrink-0 align-items-center">
+                                  <button
+                                    type="button"
+                                    className="btn-view-group"
+                                    onClick={() =>
+                                      setViewGroupPredictionsModal({
+                                        match: item.match,
+                                      })
+                                    }
+                                    title="Ver palpites do grupo"
+                                  >
+                                    <i className="bi bi-people" aria-hidden="true" />
+                                    <span>Grupo</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={isSaved ? 'btn btn-neon-outline btn-sm' : 'btn btn-neon-green btn-sm'}
+                                    onClick={() => savePrediction(item)}
+                                    disabled={disabled}
+                                  >
+                                    {isSaving
+                                      ? 'Salvando...'
+                                      : isSaved
+                                        ? 'Salvo'
+                                        : 'Atualizar'}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="d-flex align-items-center justify-content-between w-100 gap-2">
+                                <span className={item.reachedLimit ? 'danger' : 'text-secondary'} style={{ fontSize: '0.85rem' }}>
+                                  {item.reachedLimit ? 'Limite de alterações atingido' : 'Você ainda não palpitou'}
+                                </span>
+                                <div className="d-flex gap-1.5 align-items-center">
+                                  <button
+                                    type="button"
+                                    className="btn-view-group"
+                                    onClick={() =>
+                                      setViewGroupPredictionsModal({
+                                        match: item.match,
+                                      })
+                                    }
+                                    title="Ver palpites do grupo"
+                                  >
+                                    <i className="bi bi-people" aria-hidden="true" />
+                                    <span>Grupo</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-neon-green btn-sm"
+                                    onClick={() => savePrediction(item)}
+                                    disabled={disabled}
+                                  >
+                                    {isSaving ? 'Salvando...' : 'Salvar'}
+                                  </button>
+                                </div>
+                              </div>
+                            )
                           )}
-                          <button
-                            type="button"
-                            className={isSaved ? 'btn btn-neon-outline' : 'btn btn-neon-green'}
-                            onClick={() => savePrediction(item)}
-                            disabled={disabled}
-                          >
-                            {isSaving
-                              ? 'Salvando...'
-                              : isSaved
-                                ? 'Salvo'
-                                : item.prediction
-                                  ? 'Atualizar'
-                                  : 'Salvar'}
-                          </button>
                         </footer>
                       </div>
                     </article>

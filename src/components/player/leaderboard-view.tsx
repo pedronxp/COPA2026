@@ -66,7 +66,7 @@ function PodiumCard({
       <strong>{member.points} pts</strong>
       
       <div className="leaderboard-podium-meta" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center', marginTop: '2px' }}>
-        {member.streak > 0 && (
+        {member.streak >= 2 && (
           <span className={`leaderboard-streak-badge ${isSuperCombo ? 'super-combo' : ''}`} title={`Sequência de ${member.streak} acertos`}>
             <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
           </span>
@@ -133,6 +133,45 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
         ) : null}
       </section>
 
+      <div 
+        className="p-3 mb-4 rounded border text-start animate__animated animate__fadeIn"
+        style={{
+          background: 'rgba(15, 23, 42, 0.4)',
+          borderColor: isGlobal ? 'rgba(14, 165, 233, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+        }}
+      >
+        <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+          <span className={`badge ${isGlobal ? 'bg-info' : 'bg-success'} text-dark`} style={{ fontSize: '0.75rem', fontWeight: '700' }}>
+            {isGlobal ? '🌐 RANKING GLOBAL' : '🏆 RANKING DO BOLÃO'}
+          </span>
+          <span className="text-white fw-bold" style={{ fontSize: '0.9rem' }}>
+            {isGlobal ? 'Exibindo classificação geral de todos os torcedores' : `Exibindo classificação do bolão "${activeLeague.name}"`}
+          </span>
+        </div>
+        <div className="d-flex flex-wrap gap-x-4 gap-y-2 text-secondary align-items-center" style={{ fontSize: '0.78rem' }}>
+          <div className="d-flex align-items-center gap-1">
+            <i className="bi bi-fire text-danger" style={{ fontSize: '0.9rem' }} />
+            <span><strong>Foguinho (Seq.):</strong> Sequência de acertos seguidos de Placar Exato (mínimo de 2).</span>
+          </div>
+          {!isGlobal && (
+            <div className="d-flex align-items-center gap-1 ms-md-auto">
+              <Link href="/leaderboard?league=global" className="text-info text-decoration-none d-flex align-items-center gap-1 hover-underline">
+                <i className="bi bi-globe" />
+                <span>Ver ranking global da copa</span>
+              </Link>
+            </div>
+          )}
+          {isGlobal && (
+            <div className="d-flex align-items-center gap-1 ms-md-auto">
+              <Link href="/leagues" className="text-success text-decoration-none d-flex align-items-center gap-1 hover-underline">
+                <i className="bi bi-arrow-left" />
+                <span>Voltar para meus bolões</span>
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+
       {data.members.length === 0 ? (
         <section className="player-panel player-empty-state">
           <i className="bi bi-trophy" aria-hidden="true" />
@@ -167,7 +206,6 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                 <span>Jogador</span>
                 <span>Pontos</span>
                 <span>Pend.</span>
-                <span>Seq.</span>
               </div>
               {data.members.map((member) => {
                 const isCurrent = member.id === data.currentMember?.id;
@@ -229,8 +267,25 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                             {member.name}
                             {isCurrent && <span style={{ color: 'var(--neon-green)', fontWeight: 600, fontSize: '0.75rem', marginLeft: '4px' }}>(Você)</span>}
                           </b>
-                          {member.streak > 0 && (
-                            <span className={`leaderboard-streak-inline-mobile ${isSuperCombo ? 'super-combo' : ''}`} title={`Sequência de ${member.streak} acertos`}>
+                          {member.streak >= 2 && (
+                            <span 
+                              className={`leaderboard-streak-badge inline ${isSuperCombo ? 'super-combo animate__animated animate__pulse animate__infinite' : ''}`} 
+                              title={`Sequência de ${member.streak} acertos de placar exato`}
+                              style={{
+                                marginLeft: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                fontSize: '0.72rem',
+                                fontWeight: '700',
+                                background: isSuperCombo ? 'rgba(239, 68, 68, 0.15)' : 'rgba(249, 115, 22, 0.15)',
+                                color: isSuperCombo ? '#ef4444' : '#f97316',
+                                border: isSuperCombo ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(249, 115, 22, 0.3)',
+                                boxShadow: isSuperCombo ? '0 0 8px rgba(239, 68, 68, 0.3)' : 'none'
+                              }}
+                            >
                               <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
                             </span>
                           )}
@@ -252,16 +307,6 @@ export function LeaderboardView({ data }: LeaderboardViewProps) {
                     </div>
 
                     <span>{member.pendingPoints}</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center' }}>
-                      {member.streak > 0 ? (
-                        <span className={`leaderboard-streak-badge ${isSuperCombo ? 'super-combo' : ''}`} title={`Sequência de ${member.streak} acertos`}>
-                          <i className="bi bi-fire" aria-hidden="true" /> {member.streak}
-                        </span>
-                      ) : (
-                        '--'
-                      )}
-                    </span>
                   </div>
                 );
               })}

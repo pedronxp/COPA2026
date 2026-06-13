@@ -137,7 +137,68 @@ function serializeCard(league: LeagueWithMembers, userId: string): LeagueCardDat
 
 export async function getLeaguesOverview(userId: string) {
   const leagues = await getOverviewRows(userId);
-  const cards = leagues.map((league) => serializeCard(league, userId));
+  
+  const nowTime = Date.now();
+  const limitTime = new Date(nowTime + 30 * 60 * 1000); // kickOff - 30min no futuro
+
+  // Buscar todas as partidas que ainda aceitam palpite ou vão aceitar
+  const activeMatches = await prisma.match.findMany({
+    where: {
+      status: 'scheduled',
+      kickOff: {
+        gt: limitTime,
+      },
+    },
+    select: {
+      id: true,
+      kickOff: true,
+    },
+  });
+
+  // Buscar todas as previsões do usuário para estas partidas
+  const userPredictions = await prisma.prediction.findMany({
+    where: {
+      userId,
+      matchId: {
+        in: activeMatches.map((m) => m.id),
+      },
+    },
+    select: {
+      matchId: true,
+      leagueId: true,
+    },
+  });
+
+  const cards = leagues.map((league) => {
+    const card = serializeCard(league, userId);
+    
+    if (card.userRole && league.status === 'active') {
+      let pendingCount = 0;
+      for (const match of activeMatches) {
+        const kickOffTime = new Date(match.kickOff).getTime();
+        const openTime = kickOffTime - league.windowHours * 60 * 60 * 1000;
+        const limitTimeVal = kickOffTime - 30 * 60 * 1000;
+        
+        // Verifica se a janela de palpite está aberta
+        const isWindowOpen = nowTime >= openTime && nowTime <= limitTimeVal;
+        
+        if (isWindowOpen) {
+          // Verifica se o usuário tem palpite para este jogo nesta liga
+          const hasPrediction = userPredictions.some(
+            (p) => p.matchId === match.id && p.leagueId === league.id
+          );
+          if (!hasPrediction) {
+            pendingCount++;
+          }
+        }
+      }
+      card.pendingPredictionsCount = pendingCount;
+    } else {
+      card.pendingPredictionsCount = 0;
+    }
+    
+    return card;
+  });
 
   return {
     mine: cards.filter((league) => league.userRole),

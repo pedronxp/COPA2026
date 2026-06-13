@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { getFlagIsoCode } from '@/lib/emoji-flags';
 import { translateTeamName } from '@/lib/team-translation';
 
 interface TeamMarkProps {
@@ -21,11 +22,27 @@ function initials(name: string) {
 export function TeamMark({ name, logo, flag, align = 'center' }: TeamMarkProps) {
   const translatedName = translateTeamName(name);
 
+  // Determinar qual é o link da bandeira
+  let flagUrl = logo;
+  if (!flagUrl && flag) {
+    const isoCode = getFlagIsoCode(flag) || flag;
+    const isIso = isoCode.length === 2 && /^[a-zA-Z]{2}$/.test(isoCode);
+    if (isIso) {
+      flagUrl = `https://flagcdn.com/w80/${isoCode.toLowerCase()}.png`;
+    }
+  }
+
   return (
     <div className={`player-team-mark align-${align} notranslate`} translate="no">
       <span className="player-team-badge">
-        {logo ? (
-          <img src={logo} alt="" />
+        {flagUrl ? (
+          <img 
+            src={flagUrl} 
+            alt={translatedName} 
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
         ) : flag && flag.length <= 4 ? (
           flag
         ) : (

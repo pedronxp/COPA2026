@@ -45,7 +45,10 @@ export function leagueErrorResponse(error: unknown, fallback: string) {
   }
 
   return NextResponse.json(
-    { error: fallback, code: 'INTERNAL_ERROR' },
+    { 
+      error: error instanceof Error ? error.message : fallback, 
+      code: 'INTERNAL_ERROR' 
+    },
     { status: 500 },
   );
 }

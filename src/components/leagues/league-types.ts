@@ -54,6 +54,7 @@ export interface LeagueCardData {
   ownerEdit: LeagueOwnerEditData;
   ownerEditUsedAt: string | null;
   ownerEditUsedById: string | null;
+  pendingPredictionsCount?: number;
 }
 
 export interface LeagueCycleData {

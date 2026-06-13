@@ -2533,12 +2533,14 @@ body {
 
 .player-team-name {
   min-width: 0;
-  max-width: 150px;
+  max-width: 200px;
   overflow: hidden;
   color: #fff;
   font-weight: 800;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
 }
 
 .player-leader-row {
@@ -3956,7 +3958,7 @@ body {
 .leaderboard-list-head,
 .leaderboard-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 98px 86px 78px;
+  grid-template-columns: 64px minmax(0, 1fr) 98px 86px;
   align-items: center;
   gap: 12px;
 }

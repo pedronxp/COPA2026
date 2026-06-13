@@ -885,7 +885,7 @@ export function LeagueDetail({ league }: { league: LeagueDetailData }) {
                       id="settings-max-members"
                       type="number"
                       min={2}
-                      max={50}
+                      max={10000}
                       value={formData.maxMembers}
                       onChange={e => handleInputChange('maxMembers', Number(e.target.value))}
                     />

@@ -407,7 +407,9 @@
 .league-role-badge,
 .league-lock-label,
 .league-update-label,
-.league-pending-label {
+.league-pending-label,
+.league-predictions-pending,
+.league-predictions-done {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -441,6 +443,20 @@
   color: #aab6c7;
   background: #18212e;
   border: 1px solid #2d394b;
+}
+
+.league-predictions-pending {
+  color: #ff9f43; /* Laranja vibrante premium */
+  background: rgba(255, 159, 67, 0.08);
+  border: 1px solid rgba(255, 159, 67, 0.24);
+  box-shadow: 0 0 8px rgba(255, 159, 67, 0.05);
+}
+
+.league-predictions-done {
+  color: #10b981; /* Verde esmeralda premium */
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.05);
 }
 
 .league-card-stats {
